@@ -51,7 +51,9 @@ export type TournamentMatch = {
   teamAId: string;
   teamBId: string;
   teamAName: string;
+  teamALogoUrl: string | null;
   teamBName: string;
+  teamBLogoUrl: string | null;
   scheduledAt: string | null;
   status: string;
   teamAScore: number | null;
@@ -408,18 +410,23 @@ export async function getTournamentMatchesForTournament(
   );
   const { data: teams, error: teamsError } = await supabase
     .from("teams")
-    .select("id, name")
+    .select("id, name, logo_url")
     .in("id", teamIds);
 
   if (teamsError) {
     throw teamsError;
   }
 
-  const teamNameById = new Map(
-    ((teams ?? []) as Array<{ id: string; name: string }>).map((team) => [
-      team.id,
-      team.name,
-    ])
+  const teamMetaById = new Map(
+    ((teams ?? []) as Array<{ id: string; name: string; logo_url: string | null }>).map(
+      (team) => [
+        team.id,
+        {
+          name: team.name,
+          logoUrl: team.logo_url,
+        },
+      ]
+    )
   );
 
   return typedMatches.map((match) => ({
@@ -427,8 +434,10 @@ export async function getTournamentMatchesForTournament(
     roundLabel: match.round_label,
     teamAId: match.team_a_id,
     teamBId: match.team_b_id,
-    teamAName: teamNameById.get(match.team_a_id) ?? "Team A",
-    teamBName: teamNameById.get(match.team_b_id) ?? "Team B",
+    teamAName: teamMetaById.get(match.team_a_id)?.name ?? "Team A",
+    teamALogoUrl: teamMetaById.get(match.team_a_id)?.logoUrl ?? null,
+    teamBName: teamMetaById.get(match.team_b_id)?.name ?? "Team B",
+    teamBLogoUrl: teamMetaById.get(match.team_b_id)?.logoUrl ?? null,
     scheduledAt: match.scheduled_at,
     status: match.status,
     teamAScore: match.team_a_score,

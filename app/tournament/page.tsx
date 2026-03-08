@@ -55,6 +55,20 @@ function formatRoundLabel(roundLabel: string) {
   return roundLabel;
 }
 
+function formatAlmatyMatchDate(dateInput: string) {
+  return formatAlmatyDateTime(dateInput, {
+    day: "numeric",
+    month: "long",
+  });
+}
+
+function formatAlmatyMatchTime(dateInput: string) {
+  return formatAlmatyDateTime(dateInput, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function CustomMatchCard({
   match,
   topParty,
@@ -426,56 +440,59 @@ export default function TournamentPage() {
     const isUserMatch =
       currentUserTeamId !== null &&
       (currentUserTeamId === match.teamAId || currentUserTeamId === match.teamBId);
+    const formattedSchedule = match.scheduledAt
+      ? `${formatAlmatyMatchDate(match.scheduledAt)} · ${formatAlmatyMatchTime(match.scheduledAt)}`
+      : "Время будет объявлено позже";
+    const matchResult =
+      match.status === "finished" &&
+      match.teamAScore !== null &&
+      match.teamBScore !== null
+        ? `${match.teamAScore} : ${match.teamBScore}`
+        : null;
 
     const content = (
-      <>
-        <div className="text-sm text-zinc-500">
-          {formatRoundLabel(match.roundLabel)} &middot; {match.format}
-        </div>
-        <div className="mt-1 font-medium">
-          {match.teamAName}{" "}
-          {match.status === "finished" &&
-          match.teamAScore !== null &&
-          match.teamBScore !== null
-            ? match.teamAScore > match.teamBScore
-              ? ">"
-              : match.teamAScore < match.teamBScore
-                ? "<"
-                : "="
-            : "vs"}{" "}
-          {match.teamBName}
-        </div>
-        {match.scheduledAt && (
-          <div className="mt-1 text-sm text-zinc-500">
-            Время:{" "}
-            {formatAlmatyDateTime(match.scheduledAt, {
-              year: "numeric",
-              month: "2-digit",
-              day: "2-digit",
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            })}
+      <div className="mb-4 flex w-full flex-col items-start border-2 border-[#061726] bg-[#0B3A4A] p-4 md:flex-row md:items-center md:justify-between">
+        <div className="w-full">
+          <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[#CD9C3E]">
+            {formatRoundLabel(match.roundLabel)} - {match.format}
           </div>
-        )}
-        {match.status === "finished" &&
-          match.teamAScore !== null &&
-          match.teamBScore !== null && (
-            <div className="text-sm text-zinc-500">
-              Счет: {match.teamAScore} - {match.teamBScore}
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <TeamLogo
+                teamName={match.teamAName}
+                logoUrl={match.teamALogoUrl}
+                sizeClassName="aspect-square h-10 w-10"
+                textClassName="text-lg"
+              />
+              <span className="text-lg font-bold text-white">{match.teamAName}</span>
             </div>
+            <div className="text-xl font-black text-[#CD9C3E] md:mx-4">VS</div>
+            <div className="flex items-center gap-3 md:flex-row-reverse">
+              <TeamLogo
+                teamName={match.teamBName}
+                logoUrl={match.teamBLogoUrl}
+                sizeClassName="aspect-square h-10 w-10"
+                textClassName="text-lg"
+              />
+              <span className="text-lg font-bold text-white">{match.teamBName}</span>
+            </div>
+          </div>
+          {matchResult && (
+            <div className="mt-2 text-sm font-bold text-white">Счет: {matchResult}</div>
           )}
-      </>
+        </div>
+        <div className="mt-2 text-sm font-medium text-gray-300 md:mt-0 md:pl-6">
+          {formattedSchedule}
+        </div>
+      </div>
     );
-
-    const sharedClassName = "block border border-zinc-200 bg-zinc-50 px-4 py-3";
 
     if (isUserMatch) {
       return (
         <Link
           key={match.id}
           href={`/matches/${match.id}`}
-          className={`${sharedClassName} cursor-pointer transition-colors hover:bg-zinc-100`}
+          className="block cursor-pointer transition-transform hover:-translate-y-1"
         >
           {content}
         </Link>
@@ -483,7 +500,7 @@ export default function TournamentPage() {
     }
 
     return (
-      <div key={match.id} className={sharedClassName}>
+      <div key={match.id}>
         {content}
       </div>
     );
@@ -653,17 +670,17 @@ export default function TournamentPage() {
             )}
 
             {activeTab === "matches" && (
-              <section className="border border-zinc-300 bg-white p-5 shadow-md">
-                <h2 className="mb-4 text-lg font-semibold text-zinc-500">
-                  Расписание и результаты
+              <section className="w-full border-[3px] border-[#061726] bg-[#061726]/85 p-6 shadow-[6px_6px_0px_0px_#061726] backdrop-blur-md md:p-8">
+                <h2 className="mb-8 text-4xl font-black uppercase text-[#CD9C3E] md:text-5xl">
+                  Расписание группы
                 </h2>
 
                 {matchesErrorMessage ? (
-                  <p className="text-sm text-zinc-600">{matchesErrorMessage}</p>
+                  <p className="text-sm text-gray-300">{matchesErrorMessage}</p>
                 ) : matches.length === 0 ? (
-                  <p className="text-sm text-zinc-600">No matches published yet.</p>
+                  <p className="text-sm text-gray-300">Матчи пока не опубликованы.</p>
                 ) : (
-                  <div className="space-y-2">
+                  <div>
                     {matches.map((match) => renderMatchCard(match))}
                   </div>
                 )}
