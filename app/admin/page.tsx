@@ -8,6 +8,7 @@ import {
   adminRemovePlayerFromTeam,
   createAdminPlayerAction,
   deletePlayer,
+  deleteMultipleMatches,
   deleteMatch,
   deleteTeam,
   generateGroupStageMatches,
@@ -191,6 +192,7 @@ export default function AdminPage() {
   >(null);
   const [isDeletingTeamId, setIsDeletingTeamId] = useState<string | null>(null);
   const [isDeletingMatchId, setIsDeletingMatchId] = useState<string | null>(null);
+  const [selectedMatches, setSelectedMatches] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<AdminTabId>("players");
 
   async function getCurrentAdminAccessToken() {
@@ -344,6 +346,11 @@ export default function AdminPage() {
 
     void loadSelectedTeamMembers(selectedTeamId);
   }, [selectedTeamId]);
+
+  useEffect(() => {
+    const availableMatchIds = new Set(matches.map((match) => match.id));
+    setSelectedMatches((current) => current.filter((matchId) => availableMatchIds.has(matchId)));
+  }, [matches]);
 
   useEffect(() => {
     if (tournaments.length === 0) {
@@ -570,6 +577,54 @@ export default function AdminPage() {
     } finally {
       setIsDeletingMatchId(null);
     }
+  }
+
+  async function handleDeleteSelectedMatches() {
+    if (selectedMatches.length === 0) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      `Are you sure you want to delete these ${selectedMatches.length} matches?`
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setIsDeletingMatchId("__bulk__");
+    setErrorMessage("");
+
+    try {
+      const accessToken = await getCurrentAdminAccessToken();
+      const result = await deleteMultipleMatches(selectedMatches, accessToken);
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      if (editingMatchId && selectedMatches.includes(editingMatchId)) {
+        resetMatchForm();
+      }
+
+      setSelectedMatches([]);
+      await loadAdminData();
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not delete selected matches."
+      );
+    } finally {
+      setIsDeletingMatchId(null);
+    }
+  }
+
+  function toggleSelectedMatch(matchId: string) {
+    setSelectedMatches((current) =>
+      current.includes(matchId)
+        ? current.filter((currentMatchId) => currentMatchId !== matchId)
+        : [...current, matchId]
+    );
   }
 
   async function handleSetActiveTournament(tournamentId: string) {
@@ -2055,12 +2110,46 @@ export default function AdminPage() {
                       </p>
                     ) : (
                       <div className="space-y-3">
+                        <div className="flex flex-col gap-3 rounded border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                          <label className="flex items-center gap-2 text-sm font-medium text-zinc-700">
+                            <input
+                              type="checkbox"
+                              checked={selectedMatches.length > 0 && selectedMatches.length === matches.length}
+                              onChange={(event) =>
+                                setSelectedMatches(
+                                  event.target.checked ? matches.map((match) => match.id) : []
+                                )
+                              }
+                              className="h-4 w-4 rounded border-zinc-300"
+                            />
+                            Select All
+                          </label>
+                          {selectedMatches.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteSelectedMatches()}
+                              disabled={isDeletingMatchId === "__bulk__"}
+                              className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                            >
+                              {isDeletingMatchId === "__bulk__"
+                                ? "Deleting..."
+                                : `Delete Selected (${selectedMatches.length})`}
+                            </button>
+                          )}
+                        </div>
                         {matches.map((match) => (
                           <div
                             key={match.id}
                             className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                           >
-                            <div>
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="checkbox"
+                                checked={selectedMatches.includes(match.id)}
+                                onChange={() => toggleSelectedMatch(match.id)}
+                                className="mt-1 h-4 w-4 rounded border-zinc-300"
+                              />
+                              <div>
                               <div className="font-medium">
                                 {match.teamAName} vs {match.teamBName}
                               </div>
@@ -2085,12 +2174,13 @@ export default function AdminPage() {
                                     Score: {match.teamAScore} - {match.teamBScore}
                                   </div>
                                 )}
+                              </div>
                             </div>
                             <div className="flex flex-col gap-2 sm:flex-row">
                               <button
                                 type="button"
                                 onClick={() => handleEditMatch(match)}
-                                disabled={isDeletingMatchId === match.id}
+                                disabled={isDeletingMatchId === match.id || isDeletingMatchId === "__bulk__"}
                                 className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
                               >
                                 Edit Match
@@ -2098,7 +2188,7 @@ export default function AdminPage() {
                               <button
                                 type="button"
                                 onClick={() => void handleDeleteMatch(match.id)}
-                                disabled={isDeletingMatchId === match.id}
+                                disabled={isDeletingMatchId === match.id || isDeletingMatchId === "__bulk__"}
                                 className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
                               >
                                 {isDeletingMatchId === match.id ? "Deleting..." : "Delete"}

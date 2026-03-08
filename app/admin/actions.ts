@@ -43,6 +43,10 @@ type DeleteMatchResult = {
   error: string | null;
 };
 
+type DeleteMultipleMatchesResult = {
+  error: string | null;
+};
+
 type AdminActionContext = {
   supabaseUrl: string;
   serviceRoleKey: string;
@@ -451,6 +455,73 @@ export async function deleteMatch(
   revalidatePath("/tournament");
   revalidatePath("/matches");
   revalidatePath(`/matches/${normalizedMatchId}`);
+
+  return {
+    error: null,
+  };
+}
+
+export async function deleteMultipleMatches(
+  matchIds: string[],
+  accessToken: string
+): Promise<DeleteMultipleMatchesResult> {
+  const normalizedMatchIds = Array.from(
+    new Set(matchIds.map((matchId) => matchId.trim()).filter(Boolean))
+  );
+
+  if (normalizedMatchIds.length === 0) {
+    return {
+      error: "At least one match is required.",
+    };
+  }
+
+  const authResult = await verifyAdminAction(accessToken);
+
+  if (authResult.error || !authResult.context) {
+    return {
+      error: authResult.error,
+    };
+  }
+
+  const adminClient = createClient<Database>(
+    authResult.context.supabaseUrl,
+    authResult.context.serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+
+  const { error: deleteCheckInsError } = await adminClient
+    .from("match_check_ins")
+    .delete()
+    .in("match_id", normalizedMatchIds);
+
+  if (deleteCheckInsError) {
+    return {
+      error: deleteCheckInsError.message,
+    };
+  }
+
+  const { error: deleteMatchesError } = await adminClient
+    .from("tournament_matches")
+    .delete()
+    .in("id", normalizedMatchIds);
+
+  if (deleteMatchesError) {
+    return {
+      error: deleteMatchesError.message,
+    };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/tournament");
+  revalidatePath("/matches");
+  for (const matchId of normalizedMatchIds) {
+    revalidatePath(`/matches/${matchId}`);
+  }
 
   return {
     error: null,
