@@ -51,17 +51,14 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 flex w-full flex-row items-center justify-between bg-khawater-blue px-8 py-4">
       <div className="mx-auto flex w-full max-w-6xl flex-row items-center justify-between">
         <div className="relative z-10 flex items-center gap-6">
-        <div className="inline-flex items-center justify-center text-sm font-extrabold uppercase tracking-tighter text-white touch-manipulation md:text-base">
+        <Link
+          href="/tournament"
+          className="inline-flex items-center justify-center text-sm font-extrabold uppercase tracking-tighter text-white touch-manipulation md:text-base"
+        >
           Khawater
-        </div>
+        </Link>
 
           <nav className="relative z-10 flex items-center gap-6">
-            <Link
-              href="/tournament"
-              className={navLinkClass("/tournament")}
-            >
-              Турнир
-            </Link>
             <Link
               href="/rules"
               className={navLinkClass("/rules")}
