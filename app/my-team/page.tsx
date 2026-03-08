@@ -135,6 +135,13 @@ export default function MyTeamPage() {
       : hasMinimumPlayers && hasMinimumConfirmedPlayers && !canCaptainEnter
         ? "Captain action required"
         : "Not eligible";
+  const cardClassName =
+    "rounded-none border-[3px] border-[#061726] bg-[#0B3A4A]/90 p-6 text-white shadow-[6px_6px_0px_0px_#061726] backdrop-blur-sm md:p-8";
+  const cardHeadingClassName =
+    "mb-4 text-lg font-black uppercase text-[#CD9C3E] md:text-xl";
+  const bodyTextClassName = "text-sm text-gray-300 md:text-base";
+  const disabledButtonClassName =
+    "mt-4 w-full cursor-not-allowed border-[3px] border-[#061726] bg-gray-600 px-6 py-3 font-extrabold uppercase text-gray-300 opacity-80 shadow-[4px_4px_0px_0px_#061726]";
 
   async function handleEnterTournament() {
     setIsEnteringTournament(true);
@@ -237,28 +244,28 @@ export default function MyTeamPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-zinc-100 px-6 py-10 text-zinc-900">
+      <div className="min-h-screen bg-transparent px-6 py-10 text-zinc-900">
         <div className="mx-auto max-w-6xl text-sm text-zinc-600">
-          Loading team...
+          Загрузка команды...
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-100 text-zinc-900">
+    <div className="min-h-screen bg-transparent text-zinc-900">
       <SiteHeader />
 
       {/* Team strip */}
-      <div className="border-b border-zinc-300 bg-zinc-200 px-6 py-3">
+      <div className="border-b-[3px] border-[#061726] bg-[#061726]/80 p-4 text-white backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-4 text-sm">
-            <span className="font-semibold">Моя команда</span>
-            <span className="rounded border border-zinc-500 bg-zinc-300 px-2 py-0.5 text-xs font-medium">
-              {isCaptain ? "Captain view" : "Режим участника"}
+            <span className="font-black uppercase text-[#CD9C3E]">Моя команда</span>
+            <span className="text-white">
+              {isCaptain ? "Режим капитана" : "Режим участника"}
             </span>
           </div>
-          <div className="text-sm text-zinc-600">Текущий сезон: Season 3</div>
+          <div className="text-sm text-white">Текущий сезон: Season 3</div>
         </div>
       </div>
 
@@ -268,36 +275,40 @@ export default function MyTeamPage() {
         )}
 
         {!teamData ? (
-          <div className="max-w-3xl border border-zinc-300 bg-white p-5">
-            <h1 className="mb-3 text-2xl font-semibold">Моя команда</h1>
-            <p className="mb-5 text-sm text-zinc-600">
-              You are not part of a team yet.
+          <div className={`max-w-3xl ${cardClassName}`}>
+            <h1 className="mb-4 text-lg font-black uppercase text-[#CD9C3E] md:text-xl">
+              Моя команда
+            </h1>
+            <p className={`mb-5 ${bodyTextClassName}`}>
+              Вы пока не состоите ни в одной команде.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/create-team"
-                className="rounded border border-zinc-400 bg-white px-4 py-2 text-sm font-medium"
+                className="w-fit border-[3px] border-[#061726] bg-[#CD9C3E] px-6 py-2 text-sm font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
               >
-                Create Team
+                Создать команду
               </Link>
               <Link
                 href="/join-team"
-                className="rounded border border-zinc-400 bg-white px-4 py-2 text-sm font-medium"
+                className="w-fit border-[3px] border-[#061726] bg-white px-6 py-2 text-sm font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
               >
-                Join Team
+                Вступить в команду
               </Link>
             </div>
           </div>
         ) : (
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <section className="space-y-6">
-            <div className="border border-zinc-300 bg-white p-5">
-              <div className="mb-2 text-sm text-zinc-500">Название команды</div>
-              <h1 className="mb-4 text-2xl font-semibold">{teamData.team.name}</h1>
-              <div className="text-sm text-zinc-600">
+            <div className={cardClassName}>
+              <div className={cardHeadingClassName}>Название команды</div>
+              <h1 className="mb-2 text-3xl font-black text-white md:text-4xl">
+                {teamData.team.name}
+              </h1>
+              <div className={bodyTextClassName}>
                 Капитан:{" "}
-                <span className="font-medium text-zinc-900">
-                  {teamData.captain?.nickname ?? "Captain"}
+                <span className="font-medium text-white">
+                  {teamData.captain?.nickname ?? "Капитан"}
                 </span>
               </div>
 
@@ -307,11 +318,11 @@ export default function MyTeamPage() {
                     <button
                       type="button"
                       disabled
-                      className="rounded border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-500"
+                      className={disabledButtonClassName}
                     >
                       Состав зафиксирован
                     </button>
-                    <p className="text-sm text-zinc-600">
+                    <p className={bodyTextClassName}>
                       Эта команда уже участвует в активном турнире, поэтому
                       участники не могут самостоятельно покинуть её в данный
                       момент.
@@ -322,52 +333,58 @@ export default function MyTeamPage() {
                     type="button"
                     onClick={() => void handleDeleteTeam()}
                     disabled={isMutatingTeam}
-                    className="rounded border border-zinc-400 bg-white px-4 py-2 text-sm font-medium"
+                    className="w-fit border-[3px] border-[#061726] bg-red-600 px-6 py-3 text-sm font-extrabold uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
                   >
-                    {isMutatingTeam ? "Working..." : "Delete Team"}
+                    {isMutatingTeam ? "Обработка..." : "Удалить команду"}
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={() => void handleLeaveTeam()}
                     disabled={isMutatingTeam}
-                    className="rounded border border-zinc-400 bg-white px-4 py-2 text-sm font-medium"
+                    className="w-fit border-[3px] border-[#061726] bg-red-600 px-6 py-3 text-sm font-extrabold uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
                   >
-                    {isMutatingTeam ? "Working..." : "Leave Team"}
+                    {isMutatingTeam ? "Обработка..." : "Покинуть команду"}
                   </button>
                 )}
               </div>
             </div>
 
-            <section className="border border-zinc-300 bg-white p-5">
+            <section className={cardClassName}>
               <div className="mb-4 flex items-center justify-between gap-4">
-                <h2 className="text-lg font-semibold text-zinc-500">
+                <h2 className={cardHeadingClassName}>
                   Участники команды
                 </h2>
-                <div className="text-sm text-zinc-500">
+                <div className={bodyTextClassName}>
                   {confirmedCount} / {TOURNAMENT_ENTRY_PLAYER_TARGET} подтверждено
                   для текущего турнира
                 </div>
               </div>
-              <div className="mb-4 text-sm text-zinc-500">
-                {activeTournament?.name ?? "No active tournament"}
+              <div className={`mb-4 ${bodyTextClassName}`}>
+                {activeTournament?.name ?? "Нет активного турнира"}
               </div>
               <div className="space-y-2">
                 {teamMembers.map((player) => (
                   <div
                     key={player.userId}
-                    className="flex flex-col gap-2 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex items-center justify-between border-b-2 border-[#061726] bg-[#061726]/50 p-3 last:border-b-0 md:p-4"
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium">{player.nickname}</span>
-                      {player.isCaptain && (
-                        <span className="text-sm text-zinc-500">Капитан</span>
-                      )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg font-bold text-white">
+                          {player.nickname}
+                        </span>
+                        {player.isCaptain && (
+                          <span className="border-2 border-[#CD9C3E] px-2 py-1 text-xs font-bold uppercase text-[#CD9C3E]">
+                            Капитан
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm text-gray-400">
+                        Текущий турнир:{" "}
+                        {player.isConfirmed ? "Подтверждено" : "Не подтверждено"}
+                      </span>
                     </div>
-                    <span className="text-sm text-zinc-500">
-                      Текущий турнир:{" "}
-                      {player.isConfirmed ? "Подтверждено" : "Not confirmed"}
-                    </span>
                   </div>
                 ))}
               </div>
@@ -375,41 +392,47 @@ export default function MyTeamPage() {
           </section>
 
           <aside className="space-y-6">
-            <section className="border border-zinc-300 bg-white p-5">
-              <h2 className="mb-4 text-lg font-semibold text-zinc-500">
+            <section className={cardClassName}>
+              <h2 className={cardHeadingClassName}>
                 Статус заявки на турнир
               </h2>
-              <div className="mb-3 text-xl font-semibold">
+              <div className="mb-3 text-2xl font-black uppercase text-[#10B981]">
                 {tournamentEntryStatus === "Entered"
                   ? "Заявлена"
-                  : tournamentEntryStatus}
+                  : tournamentEntryStatus === "No active tournament"
+                    ? "Нет активного турнира"
+                    : tournamentEntryStatus === "Eligible to enter"
+                      ? "Можно подать заявку"
+                      : tournamentEntryStatus === "Captain action required"
+                        ? "Требуется капитан"
+                        : "Не готова"}
               </div>
-              <p className="mb-5 text-sm text-zinc-600">
-                {activeTournament?.name ?? "No active tournament"}
+              <p className={`mb-5 ${bodyTextClassName}`}>
+                {activeTournament?.name ?? "Нет активного турнира"}
               </p>
               {hasEnteredTournament && (
-                <p className="mb-5 text-sm text-zinc-600">
+                <p className={`mb-5 ${bodyTextClassName}`}>
                   Заявка команды зафиксирована. Вступление, выход и другие
                   изменения состава недоступны после подачи заявки.
                 </p>
               )}
-              <div className="mb-5 space-y-2 text-sm text-zinc-700">
+              <div className={`mb-5 space-y-2 ${bodyTextClassName}`}>
                 <div>
                   Участники команды:{" "}
-                  <span className="font-medium text-zinc-900">
+                  <span className="font-medium text-white">
                     {teamMemberCount} / {TOURNAMENT_ENTRY_PLAYER_TARGET}
                   </span>
                 </div>
                 <div>
                   Подтвержденные игроки:{" "}
-                  <span className="font-medium text-zinc-900">
+                  <span className="font-medium text-white">
                     {confirmedCount} / {TOURNAMENT_ENTRY_PLAYER_TARGET}
                   </span>
                 </div>
                 <div>
                   Капитан может подать заявку:{" "}
-                  <span className="font-medium text-zinc-900">
-                    {canCaptainEnter ? "Yes" : "Нет"}
+                  <span className="font-medium text-white">
+                    {canCaptainEnter ? "Да" : "Нет"}
                   </span>
                 </div>
               </div>
@@ -418,7 +441,7 @@ export default function MyTeamPage() {
                 <button
                   type="button"
                   disabled
-                  className="w-full rounded border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-500"
+                  className={disabledButtonClassName}
                 >
                   Заявлена на текущий турнир
                 </button>
@@ -427,19 +450,19 @@ export default function MyTeamPage() {
                   type="button"
                   onClick={() => void handleEnterTournament()}
                   disabled={isEnteringTournament}
-                  className="block w-full rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-center text-sm font-medium"
+                  className="mt-4 block w-full border-[3px] border-[#061726] bg-[#CD9C3E] px-6 py-3 text-center text-sm font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
                 >
                   {isEnteringTournament
-                    ? "Entering..."
-                    : "Enter Current Tournament"}
+                    ? "Подача..."
+                    : "Подать заявку на текущий турнир"}
                 </button>
               ) : (
                 <button
                   type="button"
                   disabled
-                  className="w-full rounded border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-500"
+                  className={disabledButtonClassName}
                 >
-                  Enter Current Tournament
+                  Подать заявку на текущий турнир
                 </button>
               )}
             </section>
