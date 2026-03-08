@@ -73,6 +73,14 @@ const PLAYOFF_FORMAT_OPTIONS = [
   "Double Elimination",
 ] as const;
 
+const ADMIN_TABS = [
+  { id: "players", label: "Players" },
+  { id: "teams", label: "Teams" },
+  { id: "tournaments", label: "Tournaments" },
+] as const;
+
+type AdminTabId = (typeof ADMIN_TABS)[number]["id"];
+
 function getSupabaseLikeErrorMessage(error: unknown, fallbackMessage: string) {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -163,6 +171,7 @@ export default function AdminPage() {
   const [isDeletingPlayerUserId, setIsDeletingPlayerUserId] = useState<
     string | null
   >(null);
+  const [activeTab, setActiveTab] = useState<AdminTabId>("players");
 
   async function getCurrentAdminAccessToken() {
     const supabase = getSupabaseBrowserClient();
@@ -845,716 +854,747 @@ export default function AdminPage() {
             </div>
           </section>
 
-          <section className="border border-zinc-300 bg-white p-5">
-            <h2 className="mb-4 text-lg font-semibold text-zinc-500">
-              Active Tournament Entry
-            </h2>
+          <div className="flex flex-wrap gap-2 border-b border-zinc-200">
+            {ADMIN_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`rounded-t border border-b-0 px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? "border-zinc-300 bg-white text-zinc-900"
+                    : "border-transparent bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-            {!activeTournament ? (
-              <p className="text-sm text-zinc-600">
-                No active tournament selected yet.
-              </p>
-            ) : entrySectionErrorMessage ? (
-              <p className="text-sm text-zinc-600">{entrySectionErrorMessage}</p>
-            ) : entryTeams.length === 0 ? (
-              <p className="text-sm text-zinc-600">
-                No teams available for tournament entry management yet.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {entryTeams.map((team) => {
-                  const canForceConfirmRoster =
-                    !team.hasEntered &&
-                    team.captainName !== "No captain" &&
-                    team.memberCount >= 5 &&
-                    team.confirmedCount < 5 &&
-                    !team.canEnter;
-
-                  return (
-                  <div
-                    key={team.id}
-                    className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div>
-                      <div className="font-medium">{team.name}</div>
-                      <div className="mt-1 text-sm text-zinc-500">
-                        Captain: {team.captainName}
-                      </div>
-                      <div className="text-sm text-zinc-500">
-                        Members: {team.memberCount}
-                      </div>
-                      <div className="text-sm text-zinc-500">
-                        Confirmed players: {team.confirmedCount}
-                      </div>
-                      <div className="text-sm text-zinc-500">
-                        Entry status: {team.hasEntered ? "Entered" : "Not entered"}
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void handleEnterTeamIntoActiveTournament(team.id)
-                        }
-                        disabled={
-                          team.hasEntered ||
-                          !team.canEnter ||
-                          isEnteringTeamId === team.id
-                        }
-                        className={`rounded border px-4 py-2 text-sm font-medium ${
-                          team.hasEntered || !team.canEnter
-                            ? "border-zinc-300 bg-zinc-100 text-zinc-500"
-                            : "border-zinc-400 bg-zinc-100 text-zinc-900"
-                        }`}
-                      >
-                        {team.hasEntered
-                          ? "Already Entered"
-                          : isEnteringTeamId === team.id
-                            ? "Entering..."
-                            : team.canEnter
-                              ? "Enter Team"
-                              : "Not Eligible"}
-                      </button>
-                      {team.hasEntered && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void handleToggleTeamSuspension(team.id, !team.isSuspended)
-                          }
-                          disabled={isSuspendingTeamId === team.id}
-                          className={`rounded border px-4 py-2 text-sm font-medium ${
-                            team.isSuspended
-                              ? "border-green-500 text-green-600"
-                              : "border-red-500 text-red-500"
-                          }`}
-                        >
-                          {isSuspendingTeamId === team.id
-                            ? "Updating..."
-                            : team.isSuspended
-                              ? "Restore Team"
-                              : "Suspend Team"}
-                        </button>
-                      )}
-                      {canForceConfirmRoster && (
-                        <button
-                          type="button"
-                          onClick={() => void handleForceConfirmRoster(team.id)}
-                          disabled={isForceConfirmingTeamId === team.id}
-                          className="rounded border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700"
-                        >
-                          {isForceConfirmingTeamId === team.id
-                            ? "Force Confirming..."
-                            : "Force Confirm Roster"}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          <section className="border border-zinc-300 bg-white p-5">
-            <h2 className="mb-4 text-lg font-semibold text-zinc-500">
-              Active Tournament Matches
-            </h2>
-
-            {!activeTournament ? (
-              <p className="text-sm text-zinc-600">
-                No active tournament selected yet.
-              </p>
-            ) : (
-              <div className="space-y-5">
-                <div className="text-sm text-zinc-600">
-                  Current active tournament:{" "}
-                  <span className="font-medium text-zinc-900">
-                    {activeTournament.name}
-                  </span>
+          {activeTab === "players" && (
+            <div className="space-y-6">
+              <section className="border border-zinc-300 bg-white p-5">
+                <h2 className="mb-4 text-lg font-semibold text-zinc-500">
+                  Create Player
+                </h2>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <input
+                    type="email"
+                    value={newPlayerEmail}
+                    onChange={(event) => setNewPlayerEmail(event.target.value)}
+                    placeholder="Player email"
+                    className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={newPlayerNickname}
+                    onChange={(event) => setNewPlayerNickname(event.target.value)}
+                    placeholder="Nickname"
+                    className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                  />
+                  <input
+                    type="password"
+                    value={newPlayerPassword}
+                    onChange={(event) => setNewPlayerPassword(event.target.value)}
+                    placeholder="Password"
+                    className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                  />
                 </div>
-
-                {enteredTeams.length === 0 ? (
-                  <p className="text-sm text-zinc-600">
-                    Enter teams into the active tournament before creating matches.
-                  </p>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <select
-                      value={matchForm.teamAId}
-                      onChange={(event) =>
-                        setMatchForm((current) => ({
-                          ...current,
-                          teamAId: event.target.value,
-                        }))
-                      }
-                      className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                    >
-                      <option value="">Select Team A</option>
-                      {enteredTeams.map((team) => (
-                        <option key={team.id} value={team.id}>
-                          {team.name}
-                        </option>
-                      ))}
-                    </select>
-
-                    <select
-                      value={matchForm.teamBId}
-                      onChange={(event) =>
-                        setMatchForm((current) => ({
-                          ...current,
-                          teamBId: event.target.value,
-                        }))
-                      }
-                      className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                    >
-                      <option value="">Select Team B</option>
-                      {enteredTeams.map((team) => (
-                        <option key={team.id} value={team.id}>
-                          {team.name}
-                        </option>
-                      ))}
-                    </select>
-
-                    <select
-                      value={matchForm.roundLabel}
-                      onChange={(event) =>
-                        setMatchForm((current) => ({
-                          ...current,
-                          roundLabel: event.target.value,
-                        }))
-                      }
-                      className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                    >
-                      <option value="">Select round</option>
-                      {MATCH_ROUND_OPTIONS.map((roundLabel) => (
-                        <option key={roundLabel} value={roundLabel}>
-                          {roundLabel}
-                        </option>
-                      ))}
-                    </select>
-
-                    <select
-                      value={matchForm.format}
-                      onChange={(event) =>
-                        setMatchForm((current) => ({
-                          ...current,
-                          format: event.target.value,
-                        }))
-                      }
-                      className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                    >
-                      {MATCH_FORMAT_OPTIONS.map((fmt) => (
-                        <option key={fmt} value={fmt}>
-                          {fmt}
-                        </option>
-                      ))}
-                    </select>
-
-                    <input
-                      type="datetime-local"
-                      value={matchForm.scheduledAt}
-                      onChange={(event) =>
-                        setMatchForm((current) => ({
-                          ...current,
-                          scheduledAt: event.target.value,
-                        }))
-                      }
-                      className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                    />
-
-                    {isEditingMatch && (
-                      <select
-                        value={matchForm.status}
-                        onChange={(event) =>
-                          setMatchForm((current) => ({
-                            ...current,
-                            status: event.target.value,
-                          }))
-                        }
-                        className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                      >
-                        <option value="scheduled">scheduled</option>
-                        <option value="finished">finished</option>
-                      </select>
-                    )}
-
-                    {isEditingMatch && (
-                      <input
-                        type="number"
-                        value={matchForm.teamAScore}
-                        onChange={(event) =>
-                          setMatchForm((current) => ({
-                            ...current,
-                            teamAScore: event.target.value,
-                          }))
-                        }
-                        placeholder="Team A score"
-                        className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                      />
-                    )}
-
-                    {isEditingMatch && (
-                      <input
-                        type="number"
-                        value={matchForm.teamBScore}
-                        onChange={(event) =>
-                          setMatchForm((current) => ({
-                            ...current,
-                            teamBScore: event.target.value,
-                          }))
-                        }
-                        placeholder="Team B score"
-                        className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                      />
-                    )}
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
                   <button
                     type="button"
-                    onClick={() => void handleSaveMatch()}
-                    disabled={isSavingMatch || !activeTournament || enteredTeams.length === 0}
+                    onClick={() => void handleCreatePlayer()}
+                    disabled={isCreatingPlayer}
                     className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
                   >
-                    {isSavingMatch
-                      ? "Saving..."
-                      : editingMatchId
-                        ? "Update Match"
-                        : "Create Match"}
+                    {isCreatingPlayer ? "Creating..." : "Create Player"}
                   </button>
-                  {editingMatchId && (
-                    <button
-                      type="button"
-                      onClick={resetMatchForm}
-                      disabled={isSavingMatch}
-                      className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
-                    >
-                      Cancel Edit
-                    </button>
-                  )}
-                </div>
-
-                {matchesSectionErrorMessage ? (
-                  <p className="text-sm text-zinc-600">{matchesSectionErrorMessage}</p>
-                ) : matches.length === 0 ? (
                   <p className="text-sm text-zinc-600">
-                    No matches created for the active tournament yet.
+                    Creates a confirmed auth user and profile so the player is immediately
+                    available in team management.
                   </p>
+                </div>
+              </section>
+
+              <section className="border border-zinc-300 bg-white p-5">
+                <h2 className="mb-4 text-lg font-semibold text-zinc-500">
+                  Manage Players
+                </h2>
+
+                {players.length === 0 ? (
+                  <p className="text-sm text-zinc-600">No registered players found yet.</p>
                 ) : (
                   <div className="space-y-3">
-                    {matches.map((match) => (
+                    {players.map((player) => (
                       <div
-                        key={match.id}
+                        key={player.id}
                         className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div>
-                          <div className="font-medium">
-                            {match.teamAName} vs {match.teamBName}
-                          </div>
-                          <div className="mt-1 text-sm text-zinc-500">
-                            Round: {match.roundLabel}
-                          </div>
-                          <div className="text-sm text-zinc-500">
-                            Format: {match.format}
-                          </div>
-                          <div className="text-sm text-zinc-500">
-                            Status: {match.status}
-                          </div>
-                          {match.scheduledAt && (
-                            <div className="text-sm text-zinc-500">
-                              Scheduled: {new Date(match.scheduledAt).toLocaleString()}
-                            </div>
-                          )}
-                          {match.status === "finished" &&
-                            match.teamAScore !== null &&
-                            match.teamBScore !== null && (
-                              <div className="text-sm text-zinc-500">
-                                Score: {match.teamAScore} - {match.teamBScore}
-                              </div>
-                            )}
+                          <div className="font-medium">{player.nickname}</div>
+                          <div className="mt-1 text-sm text-zinc-500">{player.email}</div>
                         </div>
                         <button
                           type="button"
-                          onClick={() => handleEditMatch(match)}
-                          className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
+                          onClick={() => void handleDeletePlayer(player.id)}
+                          disabled={isDeletingPlayerUserId === player.id}
+                          className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
                         >
-                          Edit Match
+                          {isDeletingPlayerUserId === player.id ? "Deleting..." : "Delete"}
                         </button>
                       </div>
                     ))}
                   </div>
                 )}
-              </div>
-            )}
-          </section>
-
-          <section className="border border-zinc-300 bg-white p-5">
-            <h2 className="mb-4 text-lg font-semibold text-zinc-500">
-              Create Tournament
-            </h2>
-            <div className="flex flex-col gap-3">
-              <input
-                type="text"
-                value={newTournamentName}
-                onChange={(event) => setNewTournamentName(event.target.value)}
-                placeholder="Tournament name"
-                className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-              />
-              <div className="grid gap-3 sm:grid-cols-3">
-                <select
-                  value={newTournamentNumberOfGroups}
-                  onChange={(event) => setNewTournamentNumberOfGroups(event.target.value)}
-                  className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                >
-                  {TOURNAMENT_GROUP_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      Number of Groups: {option}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={newTournamentTeamsEliminatedPerGroup}
-                  onChange={(event) =>
-                    setNewTournamentTeamsEliminatedPerGroup(event.target.value)
-                  }
-                  className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                >
-                  {TEAMS_ELIMINATED_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      Teams Eliminated per Group: {option}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={newTournamentPlayoffFormat}
-                  onChange={(event) => setNewTournamentPlayoffFormat(event.target.value)}
-                  className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                >
-                  {PLAYOFF_FORMAT_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      Playoff Format: {option}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button
-                type="button"
-                onClick={() => void handleCreateTournament()}
-                disabled={isCreatingTournament}
-                className="w-fit rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
-              >
-                {isCreatingTournament ? "Creating..." : "Create Tournament"}
-              </button>
+              </section>
             </div>
-          </section>
+          )}
 
-          <section className="border border-zinc-300 bg-white p-5">
-            <h2 className="mb-4 text-lg font-semibold text-zinc-500">
-              Create Player
-            </h2>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <input
-                type="email"
-                value={newPlayerEmail}
-                onChange={(event) => setNewPlayerEmail(event.target.value)}
-                placeholder="Player email"
-                className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-              />
-              <input
-                type="text"
-                value={newPlayerNickname}
-                onChange={(event) => setNewPlayerNickname(event.target.value)}
-                placeholder="Nickname"
-                className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-              />
-              <input
-                type="password"
-                value={newPlayerPassword}
-                onChange={(event) => setNewPlayerPassword(event.target.value)}
-                placeholder="Password"
-                className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-              />
-            </div>
-            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <button
-                type="button"
-                onClick={() => void handleCreatePlayer()}
-                disabled={isCreatingPlayer}
-                className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
-              >
-                {isCreatingPlayer ? "Creating..." : "Create Player"}
-              </button>
-              <p className="text-sm text-zinc-600">
-                Creates a confirmed auth user and profile so the player is immediately
-                available in team management.
-              </p>
-            </div>
-          </section>
+          {activeTab === "teams" && (
+            <div className="space-y-6">
+              <section className="border border-zinc-300 bg-white p-5">
+                <h2 className="mb-4 text-lg font-semibold text-zinc-500">Teams</h2>
 
-          <section className="border border-zinc-300 bg-white p-5">
-            <h2 className="mb-4 text-lg font-semibold text-zinc-500">
-              Manage Players
-            </h2>
-
-            {players.length === 0 ? (
-              <p className="text-sm text-zinc-600">No registered players found yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {players.map((player) => (
-                  <div
-                    key={player.id}
-                    className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div>
-                      <div className="font-medium">{player.nickname}</div>
-                      <div className="mt-1 text-sm text-zinc-500">{player.email}</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void handleDeletePlayer(player.id)}
-                      disabled={isDeletingPlayerUserId === player.id}
-                      className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
-                    >
-                      {isDeletingPlayerUserId === player.id ? "Deleting..." : "Delete"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="border border-zinc-300 bg-white p-5">
-            <h2 className="mb-4 text-lg font-semibold text-zinc-500">
-              Tournaments
-            </h2>
-
-            {tournaments.length === 0 ? (
-              <p className="text-sm text-zinc-600">No tournaments created yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {tournaments.map((tournament) => (
-                  <div
-                    key={tournament.id}
-                    className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div>
-                      <div className="font-medium">{tournament.name}</div>
-                      <div className="mt-1 text-sm text-zinc-500">
-                        Status: {tournament.is_active ? "Active" : "Inactive"}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void handleSetActiveTournament(tournament.id)}
-                      disabled={
-                        tournament.is_active ||
-                        isSwitchingTournamentId === tournament.id
-                      }
-                      className={`rounded border px-4 py-2 text-sm font-medium ${
-                        tournament.is_active
-                          ? "border-zinc-300 bg-zinc-100 text-zinc-500"
-                          : "border-zinc-400 bg-zinc-100 text-zinc-900"
-                      }`}
-                    >
-                      {tournament.is_active
-                        ? "Active Tournament"
-                        : isSwitchingTournamentId === tournament.id
-                          ? "Updating..."
-                          : "Set Active"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="border border-zinc-300 bg-white p-5">
-            <h2 className="mb-4 text-lg font-semibold text-zinc-500">Teams</h2>
-
-            <div className="mb-5 flex flex-col gap-3 sm:flex-row">
-              <input
-                type="text"
-                value={newTeamName}
-                onChange={(event) => setNewTeamName(event.target.value)}
-                placeholder="Team name"
-                className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => void handleCreateTeam()}
-                disabled={isCreatingTeam}
-                className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
-              >
-                {isCreatingTeam ? "Creating..." : "Create Team"}
-              </button>
-            </div>
-
-            {teams.length === 0 ? (
-              <p className="text-sm text-zinc-600">No teams created yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {teams.map((team) => (
-                  <div
-                    key={team.id}
-                    className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div>
-                      <div className="font-medium">{team.name}</div>
-                      <div className="mt-1 text-sm text-zinc-500">
-                        Captain: {team.captainName}
-                      </div>
-                      <div className="text-sm text-zinc-500">
-                        Members: {team.memberCount}
-                      </div>
-                      {team.isLockedForActiveTournament && (
-                        <div className="text-sm text-zinc-500">
-                          Roster locked after tournament entry
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTeamId(team.id)}
-                      className={`rounded border px-4 py-2 text-sm font-medium ${
-                        selectedTeamId === team.id
-                          ? "border-zinc-300 bg-zinc-100 text-zinc-500"
-                          : "border-zinc-400 bg-zinc-100 text-zinc-900"
-                      }`}
-                    >
-                      {selectedTeamId === team.id ? "Managing" : "Manage Team"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {selectedTeam && (
-            <section className="border border-zinc-300 bg-white p-5">
-              <h2 className="mb-4 text-lg font-semibold text-zinc-500">
-                Manage Team
-              </h2>
-              <div className="mb-5 text-sm text-zinc-700">
-                Selected team:{" "}
-                <span className="font-medium text-zinc-900">
-                  {selectedTeam.name}
-                </span>
-              </div>
-
-              {selectedTeam.isLockedForActiveTournament ? (
-                <div className="mb-5 space-y-4">
-                  <p className="text-sm text-zinc-600">
-                    This team already entered the active tournament, so roster
-                    changes are currently locked.
-                  </p>
-                  <div className="rounded border border-red-200 bg-red-50/40 p-4">
-                    <div className="mb-3 text-sm font-medium text-red-700">
-                      Add Player (Admin Override)
-                    </div>
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                      <input
-                        type="text"
-                        value={adminOverridePlayerIdentifier}
-                        onChange={(event) =>
-                          setAdminOverridePlayerIdentifier(event.target.value)
-                        }
-                        placeholder="Player ID, email, or username"
-                        className="w-full rounded border border-red-200 bg-white px-3 py-2 text-sm outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void handleForceAddMemberToTeam()}
-                        disabled={isForceAddingMember || !adminOverridePlayerIdentifier.trim()}
-                        className="rounded border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
-                      >
-                        {isForceAddingMember ? "Force Adding..." : "Force Add"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
                 <div className="mb-5 flex flex-col gap-3 sm:flex-row">
-                  <select
-                    value={selectedProfileIdToAdd}
-                    onChange={(event) => setSelectedProfileIdToAdd(event.target.value)}
+                  <input
+                    type="text"
+                    value={newTeamName}
+                    onChange={(event) => setNewTeamName(event.target.value)}
+                    placeholder="Team name"
                     className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                  >
-                    <option value="">Select player profile</option>
-                    {availableProfilesToAdd.map((candidate) => (
-                      <option key={candidate.id} value={candidate.id}>
-                        {candidate.nickname}
-                        {candidate.isAdmin ? " (admin)" : ""}
-                      </option>
-                    ))}
-                  </select>
+                  />
                   <button
                     type="button"
-                    onClick={() => void handleAddMemberToTeam()}
-                    disabled={isAddingMember || !selectedProfileIdToAdd}
+                    onClick={() => void handleCreateTeam()}
+                    disabled={isCreatingTeam}
                     className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
                   >
-                    {isAddingMember ? "Adding..." : "Add Member"}
+                    {isCreatingTeam ? "Creating..." : "Create Team"}
                   </button>
                 </div>
-              )}
 
-              <div className="space-y-3">
-                {teamMembersErrorMessage ? (
-                  <p className="text-sm text-zinc-600">
-                    {teamMembersErrorMessage}
-                  </p>
-                ) : selectedTeamMembers.length === 0 ? (
-                  <p className="text-sm text-zinc-600">
-                    No members assigned to this team yet.
-                  </p>
+                {teams.length === 0 ? (
+                  <p className="text-sm text-zinc-600">No teams created yet.</p>
                 ) : (
-                  selectedTeamMembers.map((member) => (
-                    <div
-                      key={member.userId}
-                      className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div>
-                        <div className="font-medium">{member.nickname}</div>
-                        <div className="mt-1 text-sm text-zinc-500">
-                          Role: {member.isCaptain ? "Captain" : "Member"}
+                  <div className="space-y-3">
+                    {teams.map((team) => (
+                      <div
+                        key={team.id}
+                        className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div>
+                          <div className="font-medium">{team.name}</div>
+                          <div className="mt-1 text-sm text-zinc-500">
+                            Captain: {team.captainName}
+                          </div>
+                          <div className="text-sm text-zinc-500">
+                            Members: {team.memberCount}
+                          </div>
+                          {team.isLockedForActiveTournament && (
+                            <div className="text-sm text-zinc-500">
+                              Roster locked after tournament entry
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      <div className="flex flex-col gap-2 sm:flex-row">
                         <button
                           type="button"
-                          onClick={() => void handleSetCaptain(member.userId)}
-                          disabled={
-                            member.isCaptain || isSettingCaptainUserId === member.userId
-                          }
+                          onClick={() => setSelectedTeamId(team.id)}
                           className={`rounded border px-4 py-2 text-sm font-medium ${
-                            member.isCaptain
+                            selectedTeamId === team.id
                               ? "border-zinc-300 bg-zinc-100 text-zinc-500"
                               : "border-zinc-400 bg-zinc-100 text-zinc-900"
                           }`}
                         >
-                          {member.isCaptain
-                            ? "Current Captain"
-                            : isSettingCaptainUserId === member.userId
-                              ? "Updating..."
-                              : "Set Captain"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleRemovePlayerFromTeam(member.userId)}
-                          disabled={isRemovingPlayerUserId === member.userId}
-                          className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
-                        >
-                          {isRemovingPlayerUserId === member.userId
-                            ? "Removing..."
-                            : "Remove"}
+                          {selectedTeamId === team.id ? "Managing" : "Manage Team"}
                         </button>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
-              </div>
-            </section>
+              </section>
+
+              {selectedTeam && (
+                <section className="border border-zinc-300 bg-white p-5">
+                  <h2 className="mb-4 text-lg font-semibold text-zinc-500">
+                    Manage Team
+                  </h2>
+                  <div className="mb-5 text-sm text-zinc-700">
+                    Selected team:{" "}
+                    <span className="font-medium text-zinc-900">
+                      {selectedTeam.name}
+                    </span>
+                  </div>
+
+                  {selectedTeam.isLockedForActiveTournament ? (
+                    <div className="mb-5 space-y-4">
+                      <p className="text-sm text-zinc-600">
+                        This team already entered the active tournament, so roster
+                        changes are currently locked.
+                      </p>
+                      <div className="rounded border border-red-200 bg-red-50/40 p-4">
+                        <div className="mb-3 text-sm font-medium text-red-700">
+                          Add Player (Admin Override)
+                        </div>
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                          <input
+                            type="text"
+                            value={adminOverridePlayerIdentifier}
+                            onChange={(event) =>
+                              setAdminOverridePlayerIdentifier(event.target.value)
+                            }
+                            placeholder="Player ID, email, or username"
+                            className="w-full rounded border border-red-200 bg-white px-3 py-2 text-sm outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void handleForceAddMemberToTeam()}
+                            disabled={isForceAddingMember || !adminOverridePlayerIdentifier.trim()}
+                            className="rounded border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                          >
+                            {isForceAddingMember ? "Force Adding..." : "Force Add"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mb-5 flex flex-col gap-3 sm:flex-row">
+                      <select
+                        value={selectedProfileIdToAdd}
+                        onChange={(event) => setSelectedProfileIdToAdd(event.target.value)}
+                        className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                      >
+                        <option value="">Select player profile</option>
+                        {availableProfilesToAdd.map((candidate) => (
+                          <option key={candidate.id} value={candidate.id}>
+                            {candidate.nickname}
+                            {candidate.isAdmin ? " (admin)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => void handleAddMemberToTeam()}
+                        disabled={isAddingMember || !selectedProfileIdToAdd}
+                        className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
+                      >
+                        {isAddingMember ? "Adding..." : "Add Member"}
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
+                    {teamMembersErrorMessage ? (
+                      <p className="text-sm text-zinc-600">
+                        {teamMembersErrorMessage}
+                      </p>
+                    ) : selectedTeamMembers.length === 0 ? (
+                      <p className="text-sm text-zinc-600">
+                        No members assigned to this team yet.
+                      </p>
+                    ) : (
+                      selectedTeamMembers.map((member) => (
+                        <div
+                          key={member.userId}
+                          className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div>
+                            <div className="font-medium">{member.nickname}</div>
+                            <div className="mt-1 text-sm text-zinc-500">
+                              Role: {member.isCaptain ? "Captain" : "Member"}
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2 sm:flex-row">
+                            <button
+                              type="button"
+                              onClick={() => void handleSetCaptain(member.userId)}
+                              disabled={
+                                member.isCaptain || isSettingCaptainUserId === member.userId
+                              }
+                              className={`rounded border px-4 py-2 text-sm font-medium ${
+                                member.isCaptain
+                                  ? "border-zinc-300 bg-zinc-100 text-zinc-500"
+                                  : "border-zinc-400 bg-zinc-100 text-zinc-900"
+                              }`}
+                            >
+                              {member.isCaptain
+                                ? "Current Captain"
+                                : isSettingCaptainUserId === member.userId
+                                  ? "Updating..."
+                                  : "Set Captain"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleRemovePlayerFromTeam(member.userId)}
+                              disabled={isRemovingPlayerUserId === member.userId}
+                              className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                            >
+                              {isRemovingPlayerUserId === member.userId
+                                ? "Removing..."
+                                : "Remove"}
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </section>
+              )}
+
+              <section className="border border-zinc-300 bg-white p-5">
+                <h2 className="mb-4 text-lg font-semibold text-zinc-500">
+                  Active Tournament Entry
+                </h2>
+
+                {!activeTournament ? (
+                  <p className="text-sm text-zinc-600">
+                    No active tournament selected yet.
+                  </p>
+                ) : entrySectionErrorMessage ? (
+                  <p className="text-sm text-zinc-600">{entrySectionErrorMessage}</p>
+                ) : entryTeams.length === 0 ? (
+                  <p className="text-sm text-zinc-600">
+                    No teams available for tournament entry management yet.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {entryTeams.map((team) => {
+                      const canForceConfirmRoster =
+                        !team.hasEntered &&
+                        team.captainName !== "No captain" &&
+                        team.memberCount >= 5 &&
+                        team.confirmedCount < 5 &&
+                        !team.canEnter;
+
+                      return (
+                        <div
+                          key={team.id}
+                          className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div>
+                            <div className="font-medium">{team.name}</div>
+                            <div className="mt-1 text-sm text-zinc-500">
+                              Captain: {team.captainName}
+                            </div>
+                            <div className="text-sm text-zinc-500">
+                              Members: {team.memberCount}
+                            </div>
+                            <div className="text-sm text-zinc-500">
+                              Confirmed players: {team.confirmedCount}
+                            </div>
+                            <div className="text-sm text-zinc-500">
+                              Entry status: {team.hasEntered ? "Entered" : "Not entered"}
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void handleEnterTeamIntoActiveTournament(team.id)
+                              }
+                              disabled={
+                                team.hasEntered ||
+                                !team.canEnter ||
+                                isEnteringTeamId === team.id
+                              }
+                              className={`rounded border px-4 py-2 text-sm font-medium ${
+                                team.hasEntered || !team.canEnter
+                                  ? "border-zinc-300 bg-zinc-100 text-zinc-500"
+                                  : "border-zinc-400 bg-zinc-100 text-zinc-900"
+                              }`}
+                            >
+                              {team.hasEntered
+                                ? "Already Entered"
+                                : isEnteringTeamId === team.id
+                                  ? "Entering..."
+                                  : team.canEnter
+                                    ? "Enter Team"
+                                    : "Not Eligible"}
+                            </button>
+                            {team.hasEntered && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void handleToggleTeamSuspension(team.id, !team.isSuspended)
+                                }
+                                disabled={isSuspendingTeamId === team.id}
+                                className={`rounded border px-4 py-2 text-sm font-medium ${
+                                  team.isSuspended
+                                    ? "border-green-500 text-green-600"
+                                    : "border-red-500 text-red-500"
+                                }`}
+                              >
+                                {isSuspendingTeamId === team.id
+                                  ? "Updating..."
+                                  : team.isSuspended
+                                    ? "Restore Team"
+                                    : "Suspend Team"}
+                              </button>
+                            )}
+                            {canForceConfirmRoster && (
+                              <button
+                                type="button"
+                                onClick={() => void handleForceConfirmRoster(team.id)}
+                                disabled={isForceConfirmingTeamId === team.id}
+                                className="rounded border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700"
+                              >
+                                {isForceConfirmingTeamId === team.id
+                                  ? "Force Confirming..."
+                                  : "Force Confirm Roster"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+
+          {activeTab === "tournaments" && (
+            <div className="space-y-6">
+              <section className="border border-zinc-300 bg-white p-5">
+                <h2 className="mb-4 text-lg font-semibold text-zinc-500">
+                  Create Tournament
+                </h2>
+                <div className="flex flex-col gap-3">
+                  <input
+                    type="text"
+                    value={newTournamentName}
+                    onChange={(event) => setNewTournamentName(event.target.value)}
+                    placeholder="Tournament name"
+                    className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                  />
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <select
+                      value={newTournamentNumberOfGroups}
+                      onChange={(event) => setNewTournamentNumberOfGroups(event.target.value)}
+                      className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                    >
+                      {TOURNAMENT_GROUP_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          Number of Groups: {option}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={newTournamentTeamsEliminatedPerGroup}
+                      onChange={(event) =>
+                        setNewTournamentTeamsEliminatedPerGroup(event.target.value)
+                      }
+                      className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                    >
+                      {TEAMS_ELIMINATED_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          Teams Eliminated per Group: {option}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={newTournamentPlayoffFormat}
+                      onChange={(event) => setNewTournamentPlayoffFormat(event.target.value)}
+                      className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                    >
+                      {PLAYOFF_FORMAT_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          Playoff Format: {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateTournament()}
+                    disabled={isCreatingTournament}
+                    className="w-fit rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
+                  >
+                    {isCreatingTournament ? "Creating..." : "Create Tournament"}
+                  </button>
+                </div>
+              </section>
+
+              <section className="border border-zinc-300 bg-white p-5">
+                <h2 className="mb-4 text-lg font-semibold text-zinc-500">
+                  Tournaments
+                </h2>
+
+                {tournaments.length === 0 ? (
+                  <p className="text-sm text-zinc-600">No tournaments created yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {tournaments.map((tournament) => (
+                      <div
+                        key={tournament.id}
+                        className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div>
+                          <div className="font-medium">{tournament.name}</div>
+                          <div className="mt-1 text-sm text-zinc-500">
+                            Status: {tournament.is_active ? "Active" : "Inactive"}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleSetActiveTournament(tournament.id)}
+                          disabled={
+                            tournament.is_active ||
+                            isSwitchingTournamentId === tournament.id
+                          }
+                          className={`rounded border px-4 py-2 text-sm font-medium ${
+                            tournament.is_active
+                              ? "border-zinc-300 bg-zinc-100 text-zinc-500"
+                              : "border-zinc-400 bg-zinc-100 text-zinc-900"
+                          }`}
+                        >
+                          {tournament.is_active
+                            ? "Active Tournament"
+                            : isSwitchingTournamentId === tournament.id
+                              ? "Updating..."
+                              : "Set Active"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="border border-zinc-300 bg-white p-5">
+                <h2 className="mb-4 text-lg font-semibold text-zinc-500">
+                  Active Tournament Matches
+                </h2>
+
+                {!activeTournament ? (
+                  <p className="text-sm text-zinc-600">
+                    No active tournament selected yet.
+                  </p>
+                ) : (
+                  <div className="space-y-5">
+                    <div className="text-sm text-zinc-600">
+                      Current active tournament:{" "}
+                      <span className="font-medium text-zinc-900">
+                        {activeTournament.name}
+                      </span>
+                    </div>
+
+                    {enteredTeams.length === 0 ? (
+                      <p className="text-sm text-zinc-600">
+                        Enter teams into the active tournament before creating matches.
+                      </p>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <select
+                          value={matchForm.teamAId}
+                          onChange={(event) =>
+                            setMatchForm((current) => ({
+                              ...current,
+                              teamAId: event.target.value,
+                            }))
+                          }
+                          className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                        >
+                          <option value="">Select Team A</option>
+                          {enteredTeams.map((team) => (
+                            <option key={team.id} value={team.id}>
+                              {team.name}
+                            </option>
+                          ))}
+                        </select>
+
+                        <select
+                          value={matchForm.teamBId}
+                          onChange={(event) =>
+                            setMatchForm((current) => ({
+                              ...current,
+                              teamBId: event.target.value,
+                            }))
+                          }
+                          className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                        >
+                          <option value="">Select Team B</option>
+                          {enteredTeams.map((team) => (
+                            <option key={team.id} value={team.id}>
+                              {team.name}
+                            </option>
+                          ))}
+                        </select>
+
+                        <select
+                          value={matchForm.roundLabel}
+                          onChange={(event) =>
+                            setMatchForm((current) => ({
+                              ...current,
+                              roundLabel: event.target.value,
+                            }))
+                          }
+                          className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                        >
+                          <option value="">Select round</option>
+                          {MATCH_ROUND_OPTIONS.map((roundLabel) => (
+                            <option key={roundLabel} value={roundLabel}>
+                              {roundLabel}
+                            </option>
+                          ))}
+                        </select>
+
+                        <select
+                          value={matchForm.format}
+                          onChange={(event) =>
+                            setMatchForm((current) => ({
+                              ...current,
+                              format: event.target.value,
+                            }))
+                          }
+                          className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                        >
+                          {MATCH_FORMAT_OPTIONS.map((fmt) => (
+                            <option key={fmt} value={fmt}>
+                              {fmt}
+                            </option>
+                          ))}
+                        </select>
+
+                        <input
+                          type="datetime-local"
+                          value={matchForm.scheduledAt}
+                          onChange={(event) =>
+                            setMatchForm((current) => ({
+                              ...current,
+                              scheduledAt: event.target.value,
+                            }))
+                          }
+                          className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                        />
+
+                        {isEditingMatch && (
+                          <select
+                            value={matchForm.status}
+                            onChange={(event) =>
+                              setMatchForm((current) => ({
+                                ...current,
+                                status: event.target.value,
+                              }))
+                            }
+                            className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                          >
+                            <option value="scheduled">scheduled</option>
+                            <option value="finished">finished</option>
+                          </select>
+                        )}
+
+                        {isEditingMatch && (
+                          <input
+                            type="number"
+                            value={matchForm.teamAScore}
+                            onChange={(event) =>
+                              setMatchForm((current) => ({
+                                ...current,
+                                teamAScore: event.target.value,
+                              }))
+                            }
+                            placeholder="Team A score"
+                            className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                          />
+                        )}
+
+                        {isEditingMatch && (
+                          <input
+                            type="number"
+                            value={matchForm.teamBScore}
+                            onChange={(event) =>
+                              setMatchForm((current) => ({
+                                ...current,
+                                teamBScore: event.target.value,
+                              }))
+                            }
+                            placeholder="Team B score"
+                            className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={() => void handleSaveMatch()}
+                        disabled={
+                          isSavingMatch || !activeTournament || enteredTeams.length === 0
+                        }
+                        className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
+                      >
+                        {isSavingMatch
+                          ? "Saving..."
+                          : editingMatchId
+                            ? "Update Match"
+                            : "Create Match"}
+                      </button>
+                      {editingMatchId && (
+                        <button
+                          type="button"
+                          onClick={resetMatchForm}
+                          disabled={isSavingMatch}
+                          className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
+                        >
+                          Cancel Edit
+                        </button>
+                      )}
+                    </div>
+
+                    {matchesSectionErrorMessage ? (
+                      <p className="text-sm text-zinc-600">{matchesSectionErrorMessage}</p>
+                    ) : matches.length === 0 ? (
+                      <p className="text-sm text-zinc-600">
+                        No matches created for the active tournament yet.
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {matches.map((match) => (
+                          <div
+                            key={match.id}
+                            className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <div>
+                              <div className="font-medium">
+                                {match.teamAName} vs {match.teamBName}
+                              </div>
+                              <div className="mt-1 text-sm text-zinc-500">
+                                Round: {match.roundLabel}
+                              </div>
+                              <div className="text-sm text-zinc-500">
+                                Format: {match.format}
+                              </div>
+                              <div className="text-sm text-zinc-500">
+                                Status: {match.status}
+                              </div>
+                              {match.scheduledAt && (
+                                <div className="text-sm text-zinc-500">
+                                  Scheduled: {new Date(match.scheduledAt).toLocaleString()}
+                                </div>
+                              )}
+                              {match.status === "finished" &&
+                                match.teamAScore !== null &&
+                                match.teamBScore !== null && (
+                                  <div className="text-sm text-zinc-500">
+                                    Score: {match.teamAScore} - {match.teamBScore}
+                                  </div>
+                                )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleEditMatch(match)}
+                              className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
+                            >
+                              Edit Match
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+            </div>
           )}
         </div>
         )}
