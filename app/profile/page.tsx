@@ -64,6 +64,17 @@ export default function ProfilePage() {
   const [deviceMessage, setDeviceMessage] = useState("");
   const isCaptain = teamData?.membership.is_captain ?? false;
   const isLastMember = (teamData?.members.length ?? 0) === 1;
+  const cardClassName =
+    "mb-6 flex flex-col gap-4 border-[3px] border-[#061726] bg-[#0B3A4A] p-6 shadow-[6px_6px_0px_0px_#061726]";
+  const cardHeadingClassName =
+    "mb-2 text-xl font-black uppercase tracking-wide text-[#CD9C3E]";
+  const bodyTextClassName = "text-base font-medium text-white md:text-lg";
+  const mutedStatusButtonClassName =
+    "w-fit cursor-not-allowed border-[3px] border-[#061726] bg-gray-700 px-6 py-2 text-center text-sm font-bold uppercase text-gray-300";
+  const primaryActionButtonClassName =
+    "w-fit border-[3px] border-[#061726] bg-white px-6 py-2 text-sm font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]";
+  const destructiveActionButtonClassName =
+    "w-fit border-[3px] border-[#061726] bg-red-600 px-6 py-2 text-white font-extrabold uppercase shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]";
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -123,7 +134,7 @@ export default function ProfilePage() {
         }
       } catch (error) {
         setErrorMessage(
-          error instanceof Error ? error.message : "Could not load profile."
+          error instanceof Error ? error.message : "Не удалось загрузить профиль."
         );
       } finally {
         setIsLoading(false);
@@ -203,7 +214,7 @@ export default function ProfilePage() {
       }
 
       if (!activeTournament) {
-        throw new Error("No active tournament found.");
+        throw new Error("Активный турнир не найден.");
       }
 
       if (!teamData) {
@@ -218,7 +229,7 @@ export default function ProfilePage() {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Could not confirm participation."
+            : "Не удалось подтвердить участие."
       );
     } finally {
       setIsConfirmingParticipation(false);
@@ -319,7 +330,7 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen bg-zinc-100 px-6 py-10 text-zinc-900">
         <div className="mx-auto max-w-5xl text-sm text-zinc-600">
-          Loading profile...
+          Загрузка профиля...
         </div>
       </div>
     );
@@ -330,7 +341,9 @@ export default function ProfilePage() {
       <SiteHeader />
 
       <main className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="mb-6 text-3xl font-semibold">Профиль</h1>
+        <h1 className="mb-8 text-4xl font-black uppercase text-[#CD9C3E] md:text-5xl">
+          Профиль
+        </h1>
 
         {errorMessage && (
           <p className="mb-6 text-sm leading-7 text-red-600">{errorMessage}</p>
@@ -338,9 +351,9 @@ export default function ProfilePage() {
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <section className="space-y-6">
-            <div className="border border-zinc-300 bg-white p-5 shadow-md">
-              <div className="mb-3 text-2xl font-semibold">
-                {profile?.nickname ?? "Player"}
+            <div className={cardClassName}>
+              <div className="mb-2 text-2xl font-bold text-white">
+                {profile?.nickname ?? "Игрок"}
               </div>
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <button
@@ -349,7 +362,11 @@ export default function ProfilePage() {
                   disabled={
                     isRegisteringDevice || !hasLoadedDeviceBinding || isDeviceBound
                   }
-                  className="rounded border border-zinc-400 bg-white px-4 py-2 text-sm font-medium disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                  className={
+                    isRegisteringDevice || !hasLoadedDeviceBinding || isDeviceBound
+                      ? mutedStatusButtonClassName
+                      : primaryActionButtonClassName
+                  }
                 >
                   {isDeviceBound
                     ? "Аккаунт уже привязан к устройству"
@@ -360,7 +377,7 @@ export default function ProfilePage() {
                         : "Проверяю привязку..."}
                 </button>
                 {deviceMessage && (
-                  <p className="text-sm text-zinc-600">{deviceMessage}</p>
+                  <p className="text-sm text-white/80">{deviceMessage}</p>
                 )}
               </div>
               <button
@@ -373,15 +390,15 @@ export default function ProfilePage() {
               </button>
             </div>
 
-            <div className="border border-zinc-300 bg-white p-5 shadow-md">
-              <h2 className="mb-4 text-lg font-semibold text-zinc-500">
+            <div className={cardClassName}>
+              <h2 className={cardHeadingClassName}>
                 Статус команды
               </h2>
-              <div className="space-y-3 text-sm text-zinc-700">
-                <div>
+              <div className="space-y-3">
+                <div className={bodyTextClassName}>
                   Команда:{" "}
-                  <span className="font-medium text-zinc-900">
-                    {teamData ? teamData.team.name : "No team yet"}
+                  <span className="font-medium text-white">
+                    {teamData ? teamData.team.name : "Команды пока нет"}
                   </span>
                 </div>
               </div>
@@ -393,53 +410,53 @@ export default function ProfilePage() {
                       type="button"
                       onClick={() => void handleDeleteTeam()}
                       disabled={isMutatingTeam}
-                      className="rounded border border-zinc-400 bg-white px-4 py-2 text-sm font-medium"
+                      className={destructiveActionButtonClassName}
                     >
-                      {isMutatingTeam ? "Working..." : "Delete Team"}
+                      {isMutatingTeam ? "Обработка..." : "Удалить команду"}
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={() => void handleLeaveTeam()}
                       disabled={isMutatingTeam}
-                      className="rounded border border-zinc-400 bg-white px-4 py-2 text-sm font-medium"
+                      className={destructiveActionButtonClassName}
                     >
-                      {isMutatingTeam ? "Working..." : "Покинуть команду"}
+                      {isMutatingTeam ? "Обработка..." : "Покинуть команду"}
                     </button>
                   )}
                 </div>
               )}
             </div>
 
-            <div className="border border-zinc-300 bg-white p-5 shadow-md">
-              <h2 className="mb-4 text-lg font-semibold text-zinc-500">
+            <div className={cardClassName}>
+              <h2 className={cardHeadingClassName}>
                 Участие в текущем турнире
               </h2>
-              <div className="space-y-3 text-sm text-zinc-700">
-                <div>
+              <div className="space-y-3">
+                <div className={bodyTextClassName}>
                   Команда:{" "}
-                  <span className="font-medium text-zinc-900">
-                    {teamData ? teamData.team.name : "No team yet"}
+                  <span className="font-medium text-white">
+                    {teamData ? teamData.team.name : "Команды пока нет"}
                   </span>
                 </div>
-                <div>
+                <div className={bodyTextClassName}>
                   Турнир:{" "}
-                  <span className="font-medium text-zinc-900">
-                    {activeTournament?.name ?? "No active tournament"}
+                  <span className="font-medium text-white">
+                    {activeTournament?.name ?? "Нет активного турнира"}
                   </span>
                 </div>
-                <div>
+                <div className={bodyTextClassName}>
                   Статус участия:{" "}
-                  <span className="font-medium text-zinc-900">
-                    {isParticipationConfirmed ? "Подтверждено" : "Not confirmed"}
+                  <span className="font-medium text-white">
+                    {isParticipationConfirmed ? "Подтверждено" : "Не подтверждено"}
                   </span>
                 </div>
               </div>
 
               {!teamData && (
-                <p className="mt-5 text-sm text-zinc-600">
-                  Join or create a team before confirming tournament
-                  participation.
+                <p className="mt-5 text-sm text-white/80">
+                  Создайте команду или вступите в существующую, прежде чем
+                  подтверждать участие в турнире.
                 </p>
               )}
 
@@ -447,13 +464,17 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => void handleConfirmParticipation()}
                 disabled={!activeTournament || !teamData || isConfirmingParticipation}
-                className="mt-5 rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
+                className={
+                  !activeTournament || !teamData || isConfirmingParticipation || isParticipationConfirmed
+                    ? mutedStatusButtonClassName
+                    : primaryActionButtonClassName
+                }
               >
                 {isParticipationConfirmed
                   ? "Участие подтверждено"
                   : isConfirmingParticipation
-                    ? "Confirming..."
-                    : "Confirm Participation"}
+                    ? "Подтверждение..."
+                    : "Подтвердить участие"}
               </button>
             </div>
           </section>
@@ -462,23 +483,26 @@ export default function ProfilePage() {
             {teamData ? (
               <a
                 href="/my-team"
-                className="block rounded border border-zinc-300 bg-white px-5 py-4 text-sm font-medium shadow-md"
+                className={cardClassName}
               >
-                Моя команда
+                <div className={cardHeadingClassName}>Моя команда</div>
+                <div className={bodyTextClassName}>Перейти к управлению составом</div>
               </a>
             ) : (
               <>
                 <a
                   href="/create-team"
-                  className="block rounded border border-zinc-300 bg-white px-5 py-4 text-sm font-medium shadow-md"
+                  className={cardClassName}
                 >
-                  Create Team
+                  <div className={cardHeadingClassName}>Создать команду</div>
+                  <div className={bodyTextClassName}>Откройте свою команду для турниров</div>
                 </a>
                 <a
                   href="/join-team"
-                  className="block rounded border border-zinc-300 bg-white px-5 py-4 text-sm font-medium shadow-md"
+                  className={cardClassName}
                 >
-                  Join Team
+                  <div className={cardHeadingClassName}>Вступить в команду</div>
+                  <div className={bodyTextClassName}>Присоединитесь к уже созданному составу</div>
                 </a>
               </>
             )}
