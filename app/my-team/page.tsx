@@ -256,19 +256,6 @@ export default function MyTeamPage() {
     <div className="min-h-screen bg-transparent text-zinc-900">
       <SiteHeader />
 
-      {/* Team strip */}
-      <div className="border-b-[3px] border-[#061726] bg-[#061726]/80 p-4 text-white backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-4 text-sm">
-            <span className="font-black uppercase text-[#CD9C3E]">Моя команда</span>
-            <span className="text-white">
-              {isCaptain ? "Режим капитана" : "Режим участника"}
-            </span>
-          </div>
-          <div className="text-sm text-white">Текущий сезон: Season 3</div>
-        </div>
-      </div>
-
       <main className="mx-auto max-w-6xl px-6 py-8">
         {errorMessage && (
           <p className="mb-6 text-sm leading-7 text-red-600">{errorMessage}</p>
