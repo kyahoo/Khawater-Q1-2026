@@ -582,47 +582,35 @@ export default function TournamentPage() {
           </section>
         ) : (
           <div className="space-y-6">
-            <section className="relative mb-8 overflow-hidden border-[3px] border-arcade-black bg-[#CD9C3E] p-8 shadow-[8px_8px_0px_0px_#09090B] clip-chamfer">
-              <div className="mb-4 inline-block bg-[#09090B] px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#FFFFFF] clip-slant">
+            <section className="mb-8 border-[4px] border-[#09090B] bg-[#0B3A4A] p-8 shadow-[6px_6px_0px_0px_#09090B]">
+              <div className="mb-4 inline-block bg-[#09090B] px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#CD9C3E]">
                 Активный турнир
               </div>
-              <h1 className="text-4xl font-extrabold uppercase tracking-tight text-arcade-black md:text-5xl">
+              <h1 className="text-4xl font-extrabold uppercase tracking-tight text-[#CD9C3E] md:text-5xl">
                 {activeTournament.name}
               </h1>
-              <div
-                className="pointer-events-none absolute -right-10 -bottom-10 h-64 w-64 rotate-12 bg-arcade-black/5"
-                aria-hidden="true"
-              />
             </section>
 
-            <nav className="mb-8 flex flex-wrap gap-3 border-b-[4px] border-[#0B3A4A] pb-2">
+            <nav className="mb-8 flex flex-wrap gap-3">
               {TOURNAMENT_TABS.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`cursor-pointer select-none border-[3px] px-6 py-3 text-sm uppercase tracking-wider transition-colors -skew-x-[12deg] md:text-base ${
+                  className={`cursor-pointer select-none border-[4px] px-6 py-3 text-sm uppercase tracking-wider shadow-[6px_6px_0px_0px_#0B3A4A] transition-colors md:text-base ${
                     activeTab === tab.id
-                      ? "translate-y-[2px] border-[#0B3A4A] bg-[#CD9C3E] text-[#09090B]"
-                      : "border-[#0B3A4A] bg-[#0B3A4A] text-white hover:bg-[#0f4f66]"
+                      ? "border-[#0B3A4A] bg-[#CD9C3E] font-extrabold text-[#09090B]"
+                      : "border-[#0B3A4A] bg-[#0B3A4A] font-bold text-white hover:bg-[#0f4f66]"
                   }`}
                 >
-                  <span
-                    className={`block skew-x-[-12deg] ${
-                      activeTab === tab.id
-                        ? "font-extrabold text-[#09090B]"
-                        : "font-bold text-white"
-                    }`}
-                  >
-                    {tab.label}
-                  </span>
+                  {tab.label}
                 </button>
               ))}
             </nav>
 
             {activeTab === "teams" && (
               <section className="border border-zinc-300 bg-white p-5 shadow-md">
-                <h2 className="mb-6 flex items-center gap-3 text-2xl font-extrabold uppercase tracking-tight text-[#09090B] before:h-8 before:w-4 before:bg-[#CD9C3E] before:content-[''] before:clip-slant">
+                <h2 className="mb-6 flex items-center gap-3 text-2xl font-extrabold uppercase tracking-tight text-[#09090B] before:h-8 before:w-4 before:bg-[#CD9C3E] before:content-['']">
                   Заявленные команды
                 </h2>
 
@@ -635,9 +623,9 @@ export default function TournamentPage() {
                     {enteredTeams.map((team) => (
                       <div
                         key={team.id}
-                        className="group relative flex flex-col overflow-hidden border-[3px] border-arcade-black bg-white shadow-md transition-all clip-chamfer hover:-translate-y-1 hover:shadow-lg"
+                        className="group relative flex flex-col overflow-hidden border-[4px] border-[#0B3A4A] bg-white shadow-[6px_6px_0px_0px_#0B3A4A] transition-all hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#0B3A4A]"
                       >
-                        <div className="border-b-[3px] border-[#09090B] bg-khawater-blue p-4 text-xl font-extrabold uppercase tracking-widest text-[#FFFFFF] transition-colors">
+                        <div className="border-b-[4px] border-[#0B3A4A] bg-khawater-blue p-4 text-xl font-extrabold uppercase tracking-widest text-[#FFFFFF]">
                           {team.name}{" "}
                           {team.isSuspended ? (
                             <span className="font-bold text-red-500">(Suspended)</span>
