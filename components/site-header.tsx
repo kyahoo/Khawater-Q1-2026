@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export function SiteHeader() {
+  const pathname = usePathname();
   const router = useRouter();
   const [hasSession, setHasSession] = useState<boolean | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -46,10 +47,22 @@ export function SiteHeader() {
     }
   }
 
+  function isActivePath(href: string) {
+    return pathname === href || pathname.startsWith(`${href}/`);
+  }
+
+  function navLinkClass(href: string) {
+    return `inline-flex items-center justify-center text-sm uppercase tracking-wide transition-colors touch-manipulation md:text-base ${
+      isActivePath(href)
+        ? "font-bold text-[#CD9C3E]"
+        : "font-bold text-white hover:text-gray-300"
+    }`;
+  }
+
   return (
-    <header className="sticky top-0 z-50 flex w-full items-center justify-between bg-khawater-blue px-8 py-4">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
-        <div className="relative z-10 flex items-center gap-12">
+    <header className="sticky top-0 z-50 flex w-full flex-row items-center justify-between bg-khawater-blue px-8 py-4">
+      <div className="mx-auto flex w-full max-w-6xl flex-row items-center justify-between">
+        <div className="relative z-10 flex items-center gap-6">
         <Link
           href="/tournament"
           className="inline-flex items-center justify-center text-2xl font-extrabold uppercase tracking-tighter text-white touch-manipulation md:text-3xl"
@@ -57,16 +70,16 @@ export function SiteHeader() {
           Khawater
         </Link>
 
-          <nav className="relative z-10 flex items-center gap-8">
+          <nav className="relative z-10 flex items-center gap-6">
             <Link
               href="/tournament"
-              className="inline-flex items-center justify-center text-sm font-bold uppercase tracking-wide text-white transition-colors touch-manipulation hover:text-[#CD9C3E] md:text-base"
+              className={navLinkClass("/tournament")}
             >
               Турнир
             </Link>
             <Link
               href="/rules"
-              className="inline-flex items-center justify-center text-sm font-bold uppercase tracking-wide text-white transition-colors touch-manipulation hover:text-[#CD9C3E] md:text-base"
+              className={navLinkClass("/rules")}
             >
               Правила
             </Link>
@@ -80,13 +93,13 @@ export function SiteHeader() {
             <div className="flex items-center gap-6">
               <Link
                 href="/matches"
-                className="inline-flex w-fit shrink-0 items-center justify-center text-sm font-bold uppercase tracking-wide text-[#CD9C3E] transition-colors touch-manipulation hover:text-[#e0b154] md:text-base"
+                className={navLinkClass("/matches")}
               >
                 Мои матчи
               </Link>
               <Link
                 href="/profile"
-                className="inline-flex w-fit items-center justify-center text-sm font-bold uppercase tracking-wide text-[#FFFFFF] transition-colors touch-manipulation hover:text-[#CD9C3E]"
+                className={navLinkClass("/profile")}
               >
                 Профиль
               </Link>
