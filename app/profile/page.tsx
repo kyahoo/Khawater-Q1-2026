@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { browserSupportsWebAuthn, startRegistration } from "@simplewebauthn/browser";
@@ -341,7 +342,7 @@ export default function ProfilePage() {
       <SiteHeader />
 
       <main className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="mb-8 text-4xl font-black uppercase text-[#CD9C3E] md:text-5xl">
+        <h1 className="mb-8 inline-block border-[3px] border-[#061726] bg-[#061726]/90 px-6 py-3 text-4xl font-black uppercase text-[#CD9C3E] shadow-[6px_6px_0px_0px_#061726] md:text-5xl">
           Профиль
         </h1>
 
@@ -404,7 +405,13 @@ export default function ProfilePage() {
               </div>
 
               {teamData && (
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                <div className="mt-4 flex flex-col gap-4 sm:flex-row">
+                  <Link
+                    href="/my-team"
+                    className="block w-fit border-[3px] border-[#061726] bg-[#CD9C3E] px-6 py-2 text-center font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+                  >
+                    Перейти к управлению составом
+                  </Link>
                   {isCaptain && isLastMember ? (
                     <button
                       type="button"
@@ -479,16 +486,8 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          <aside className="space-y-4">
-            {teamData ? (
-              <a
-                href="/my-team"
-                className={cardClassName}
-              >
-                <div className={cardHeadingClassName}>Моя команда</div>
-                <div className={bodyTextClassName}>Перейти к управлению составом</div>
-              </a>
-            ) : (
+          {!teamData && (
+            <aside className="space-y-4">
               <>
                 <a
                   href="/create-team"
@@ -505,8 +504,8 @@ export default function ProfilePage() {
                   <div className={bodyTextClassName}>Присоединитесь к уже созданному составу</div>
                 </a>
               </>
-            )}
-          </aside>
+            </aside>
+          )}
         </div>
       </main>
     </div>
