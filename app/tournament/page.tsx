@@ -458,8 +458,8 @@ export default function TournamentPage() {
           <div className="mb-2 text-sm font-bold uppercase tracking-wider text-[#CD9C3E] md:text-base">
             {formatRoundLabel(match.roundLabel)} - {match.format}
           </div>
-          <div className="relative flex flex-col gap-3 md:flex-row md:items-center">
-            <div className="flex items-center justify-start gap-3 md:w-1/2">
+          <div className="relative flex w-full flex-col gap-3 md:flex md:w-full md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-1 items-center justify-start gap-4">
               <TeamLogo
                 teamName={match.teamAName}
                 logoUrl={match.teamALogoUrl}
@@ -470,7 +470,7 @@ export default function TournamentPage() {
                 {match.teamAName}
               </span>
             </div>
-            <div className="text-3xl font-black text-[#CD9C3E] md:absolute md:left-1/2 md:-translate-x-1/2 md:text-4xl">
+            <div className="text-3xl font-black text-[#CD9C3E] md:absolute md:left-1/2 md:-translate-x-1/2 md:text-center md:text-4xl">
               {match.teamAScore !== null && match.teamBScore !== null
                 ? match.teamAScore > match.teamBScore
                   ? ">"
@@ -479,7 +479,7 @@ export default function TournamentPage() {
                     : "VS"
                 : "VS"}
             </div>
-            <div className="flex items-center justify-start gap-3 md:ml-auto md:w-1/2 md:justify-end md:flex-row-reverse">
+            <div className="flex flex-1 items-center justify-end gap-4 text-right md:flex-row-reverse">
               <TeamLogo
                 teamName={match.teamBName}
                 logoUrl={match.teamBLogoUrl}
