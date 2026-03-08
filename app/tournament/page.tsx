@@ -471,7 +471,13 @@ export default function TournamentPage() {
               </span>
             </div>
             <div className="text-3xl font-black text-[#CD9C3E] md:absolute md:left-1/2 md:-translate-x-1/2 md:text-4xl">
-              VS
+              {match.teamAScore !== null && match.teamBScore !== null
+                ? match.teamAScore > match.teamBScore
+                  ? ">"
+                  : match.teamBScore > match.teamAScore
+                    ? "<"
+                    : "VS"
+                : "VS"}
             </div>
             <div className="flex items-center justify-start gap-3 md:ml-auto md:w-1/2 md:justify-end md:flex-row-reverse">
               <TeamLogo
