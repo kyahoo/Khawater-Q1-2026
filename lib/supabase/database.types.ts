@@ -82,6 +82,7 @@ export type Database = {
         Row: {
           id: string;
           name: string;
+          banner_url: string | null;
           is_active: boolean;
           number_of_groups: number;
           teams_eliminated_per_group: number;
@@ -91,6 +92,7 @@ export type Database = {
         Insert: {
           id?: string;
           name: string;
+          banner_url?: string | null;
           is_active?: boolean;
           number_of_groups?: number;
           teams_eliminated_per_group?: number;
@@ -100,6 +102,7 @@ export type Database = {
         Update: {
           id?: string;
           name?: string;
+          banner_url?: string | null;
           is_active?: boolean;
           number_of_groups?: number;
           teams_eliminated_per_group?: number;

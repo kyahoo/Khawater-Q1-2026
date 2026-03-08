@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -614,13 +615,31 @@ export default function TournamentPage() {
           </section>
         ) : (
           <div className="space-y-6">
-            <section className="mb-8 border-[4px] border-[#09090B] bg-[#0B3A4A] p-8 shadow-[6px_6px_0px_0px_#09090B]">
-              <div className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[#CD9C3E]">
-                Активный турнир
+            <section
+              className={`relative mb-8 overflow-hidden border-[3px] border-[#061726] p-8 shadow-[6px_6px_0px_0px_#061726] ${
+                activeTournament.banner_url ? "" : "bg-[#0B3A4A]"
+              }`}
+            >
+              {activeTournament.banner_url && (
+                <>
+                  <Image
+                    src={activeTournament.banner_url}
+                    alt={`Баннер турнира ${activeTournament.name}`}
+                    fill
+                    className="z-0 object-cover"
+                    sizes="(max-width: 768px) 100vw, 1200px"
+                  />
+                  <div className="absolute inset-0 z-0 bg-[#061726]/60" />
+                </>
+              )}
+              <div className="relative z-10">
+                <div className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[#CD9C3E]">
+                  Активный турнир
+                </div>
+                <h1 className="text-4xl font-extrabold uppercase tracking-tight text-[#CD9C3E] md:text-5xl">
+                  {activeTournament.name}
+                </h1>
               </div>
-              <h1 className="text-4xl font-extrabold uppercase tracking-tight text-[#CD9C3E] md:text-5xl">
-                {activeTournament.name}
-              </h1>
             </section>
 
             <nav className="mb-8 flex flex-wrap gap-3">

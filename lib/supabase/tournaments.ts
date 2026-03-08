@@ -14,6 +14,7 @@ type TournamentMatchUpdate =
 export type Tournament = {
   id: string;
   name: string;
+  banner_url: string | null;
   is_active: boolean;
   number_of_groups: number;
   teams_eliminated_per_group: number;
@@ -80,7 +81,7 @@ export async function getActiveTournament() {
   const { data, error } = await supabase
     .from("tournaments")
     .select(
-      "id, name, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, created_at"
+      "id, name, banner_url, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, created_at"
     )
     .eq("is_active", true);
 
@@ -104,7 +105,7 @@ export async function listTournaments() {
   const { data, error } = await supabase
     .from("tournaments")
     .select(
-      "id, name, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, created_at"
+      "id, name, banner_url, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, created_at"
     )
     .order("is_active", { ascending: false })
     .order("created_at", { ascending: false });
@@ -134,7 +135,7 @@ export async function createTournament(params: {
     .from("tournaments")
     .insert(payload)
     .select(
-      "id, name, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, created_at"
+      "id, name, banner_url, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, created_at"
     )
     .single();
 
@@ -162,7 +163,7 @@ export async function setActiveTournament(tournamentId: string) {
     .update({ is_active: true })
     .eq("id", tournamentId)
     .select(
-      "id, name, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, created_at"
+      "id, name, banner_url, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, created_at"
     )
     .single();
 
