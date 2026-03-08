@@ -28,6 +28,7 @@ export type MatchRoomData = {
   teamB: MatchRoomTeam;
   checkedInUserIds: string[];
   biometricVerifiedUserIds: string[];
+  screenshotUploadedUserIds: string[];
 };
 
 export type MatchRoomFetchResult = {
@@ -102,18 +103,27 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
 
   const { data: checkIns, error: checkInsError } = await supabase
     .from("match_check_ins")
-    .select("player_id, biometric_verified")
+    .select("player_id, biometric_verified, is_checked_in, lobby_screenshot_url")
     .eq("match_id", matchId);
 
   if (checkInsError) {
     console.error("Match check-ins fetch failed:", checkInsError);
   }
 
-  const typedCheckIns =
-    (checkIns ?? []) as Array<{ player_id: string; biometric_verified: boolean }>;
-  const checkedInUserIds = typedCheckIns.map((row) => row.player_id);
+  const typedCheckIns = (checkIns ?? []) as Array<{
+    player_id: string;
+    biometric_verified: boolean;
+    is_checked_in: boolean;
+    lobby_screenshot_url: string | null;
+  }>;
+  const checkedInUserIds = typedCheckIns
+    .filter((row) => row.is_checked_in)
+    .map((row) => row.player_id);
   const biometricVerifiedUserIds = typedCheckIns
     .filter((row) => row.biometric_verified)
+    .map((row) => row.player_id);
+  const screenshotUploadedUserIds = typedCheckIns
+    .filter((row) => Boolean(row.lobby_screenshot_url))
     .map((row) => row.player_id);
 
   const teamAId = typedMatch.team_a_id;
@@ -147,6 +157,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
       teamB,
       checkedInUserIds,
       biometricVerifiedUserIds,
+      screenshotUploadedUserIds,
     },
     error: null,
   };

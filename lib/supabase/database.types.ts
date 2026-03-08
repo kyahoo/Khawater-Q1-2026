@@ -213,18 +213,24 @@ export type Database = {
           player_id: string;
           created_at: string;
           biometric_verified: boolean;
+          is_checked_in: boolean;
+          lobby_screenshot_url: string | null;
         };
         Insert: {
           match_id: string;
           player_id: string;
           created_at?: string;
           biometric_verified?: boolean;
+          is_checked_in?: boolean;
+          lobby_screenshot_url?: string | null;
         };
         Update: {
           match_id?: string;
           player_id?: string;
           created_at?: string;
           biometric_verified?: boolean;
+          is_checked_in?: boolean;
+          lobby_screenshot_url?: string | null;
         };
         Relationships: [];
       };

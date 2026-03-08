@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -106,54 +107,73 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-100 text-zinc-900">
+    <div className="relative flex h-screen w-full items-center justify-center overflow-hidden text-white">
+      <Image
+        src="/esports-bg.png"
+        alt="Фон авторизации"
+        fill
+        priority
+        className="object-cover object-center"
+        sizes="100vw"
+      />
+      <div className="absolute inset-0 z-0 bg-[#061726]/80 backdrop-blur-sm" />
       <SiteHeader />
 
-      <main className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="mb-4 text-3xl font-semibold">Авторизация</h1>
-        <p className="mb-6 max-w-2xl text-sm leading-7 text-zinc-700">
-          Войдите в свой аккаунт или зарегистрируйтесь как игрок, чтобы начать
-          использовать Khawater.
-        </p>
-
+      <main className="relative z-10 w-full max-w-md px-6">
         <form
-          className="mb-6 space-y-4"
+          className="flex w-full max-w-md flex-col gap-6 border-[4px] border-[#061726] bg-[#0B3A4A] p-8 shadow-[12px_12px_0px_0px_#061726]"
           onSubmit={(event) => {
             event.preventDefault();
             void handleLogin(getCredentialsFromForm(event.currentTarget));
           }}
         >
           <div>
-            <label className="mb-2 block text-sm font-medium">Email</label>
+            <h1 className="text-[#CD9C3E] text-4xl font-black uppercase tracking-wide">
+              Вход
+            </h1>
+            <p className="mt-3 text-sm leading-7 text-gray-300">
+              Войдите в свой аккаунт или зарегистрируйтесь как игрок, чтобы
+              начать использовать Khawater.
+            </p>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-bold uppercase tracking-wide text-[#CD9C3E]">
+              Email
+            </label>
             <input
               type="email"
               name="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="Введите email"
-              className="w-full rounded border border-zinc-300 bg-white px-4 py-3 text-sm outline-none"
+              className="w-full rounded-none border-2 border-[#061726] bg-[#061726]/80 p-3 text-white placeholder:text-gray-400 focus:border-[#CD9C3E] focus:outline-none focus:ring-1 focus:ring-[#CD9C3E]"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">Пароль</label>
+            <label className="mb-2 block text-sm font-bold uppercase tracking-wide text-[#CD9C3E]">
+              Пароль
+            </label>
             <input
               type="password"
               name="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Введите пароль"
-              className="w-full rounded border border-zinc-300 bg-white px-4 py-3 text-sm outline-none"
+              className="w-full rounded-none border-2 border-[#061726] bg-[#061726]/80 p-3 text-white placeholder:text-gray-400 focus:border-[#CD9C3E] focus:outline-none focus:ring-1 focus:ring-[#CD9C3E]"
             />
           </div>
-          <div className="mb-8 flex flex-col gap-4 sm:flex-row">
+          <div className="flex flex-col gap-4">
             <button
               type="submit"
               disabled={isLoading}
-              className="rounded border border-zinc-400 bg-white px-5 py-2.5 text-sm font-medium"
+              className="border-[2px] border-[#061726] bg-[#CD9C3E] p-3 font-bold uppercase text-[#061726] transition-transform hover:-translate-y-1 hover:shadow-[4px_4px_0px_0px_#061726]"
             >
               {isLoading ? "Обработка..." : "Войти"}
             </button>
+            <div className="mt-4 text-center text-sm text-gray-300">
+              Нет аккаунта?
+            </div>
             <button
               type="button"
               onClick={(event) => {
@@ -166,24 +186,22 @@ export default function AuthPage() {
                 void handleRegister(getCredentialsFromForm(form));
               }}
               disabled={isLoading}
-              className="rounded border border-zinc-400 px-5 py-2.5 text-sm font-medium"
+              className="mt-4 text-center text-sm text-[#CD9C3E] hover:underline"
             >
-              {isLoading ? "Обработка..." : "Регистрация игрока"}
+              {isLoading ? "Обработка..." : "Создать аккаунт"}
             </button>
           </div>
-        </form>
 
-        {errorMessage && (
-          <p className="mb-6 max-w-2xl text-sm leading-7 text-red-600">
-            {errorMessage}
+          {errorMessage && (
+            <p className="text-sm leading-7 text-red-300">{errorMessage}</p>
+          )}
+
+          <p className="text-sm leading-7 text-gray-300">
+            Регистрация — это только первый шаг. После создания аккаунта вам
+            будет предложено настроить профиль, чтобы присоединиться к команде
+            и участвовать в турнирах.
           </p>
-        )}
-
-        <p className="max-w-2xl text-sm leading-7 text-zinc-600">
-          Регистрация — это только первый шаг. После создания аккаунта вам будет
-          предложено настроить профиль, чтобы присоединиться к команде и
-          участвовать в турнирах.
-        </p>
+        </form>
       </main>
     </div>
   );
