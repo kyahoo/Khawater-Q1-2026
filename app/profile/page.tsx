@@ -49,6 +49,8 @@ function getWebAuthnErrorMessage(error: unknown) {
 export default function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [deviceOwnerId, setDeviceOwnerId] = useState<string | null>(null);
   const [teamData, setTeamData] = useState<Awaited<
     ReturnType<typeof getCurrentTeamDetails>
   > | null>(null);
@@ -76,6 +78,20 @@ export default function ProfilePage() {
     "w-fit border-[3px] border-[#061726] bg-white px-6 py-2 text-sm font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]";
   const destructiveActionButtonClassName =
     "w-fit border-[3px] border-[#061726] bg-red-600 px-6 py-2 text-white font-extrabold uppercase shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]";
+  const occupiedDeviceButtonClassName =
+    "bg-red-900/50 text-red-200 font-bold uppercase px-6 py-2 border-[3px] border-[#061726] cursor-not-allowed w-fit text-sm text-center";
+  const isDeviceClaimedByCurrentUser =
+    Boolean(deviceOwnerId) && Boolean(currentUserId) && deviceOwnerId === currentUserId;
+  const isDeviceClaimedByAnotherUser =
+    Boolean(deviceOwnerId) && Boolean(currentUserId) && deviceOwnerId !== currentUserId;
+
+  useEffect(() => {
+    const owner = localStorage.getItem("khawater_device_owner");
+
+    if (owner) {
+      setDeviceOwnerId(owner);
+    }
+  }, []);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -92,6 +108,8 @@ export default function ProfilePage() {
           router.replace("/auth");
           return;
         }
+
+        setCurrentUserId(user.id);
 
         if (!session?.access_token) {
           router.replace("/auth");
@@ -238,7 +256,12 @@ export default function ProfilePage() {
   }
 
   async function handleRegisterDevice() {
-    if (!hasLoadedDeviceBinding || isDeviceBound) {
+    if (isDeviceClaimedByAnotherUser) {
+      setDeviceMessage("Это устройство уже занято другим игроком.");
+      return;
+    }
+
+    if (!hasLoadedDeviceBinding || isDeviceBound || isDeviceClaimedByCurrentUser) {
       setDeviceMessage(isDeviceBound ? "" : "Не удалось проверить привязку устройства.");
       return;
     }
@@ -301,6 +324,10 @@ export default function ProfilePage() {
       setIsDeviceBound(true);
       setHasLoadedDeviceBinding(true);
       setDeviceMessage("");
+      if (currentUserId) {
+        localStorage.setItem("khawater_device_owner", currentUserId);
+        setDeviceOwnerId(currentUserId);
+      }
       router.refresh();
     } catch (error) {
       setDeviceMessage(getWebAuthnErrorMessage(error));
@@ -361,16 +388,27 @@ export default function ProfilePage() {
                   type="button"
                   onClick={() => void handleRegisterDevice()}
                   disabled={
-                    isRegisteringDevice || !hasLoadedDeviceBinding || isDeviceBound
+                    isRegisteringDevice ||
+                    !hasLoadedDeviceBinding ||
+                    isDeviceBound ||
+                    isDeviceClaimedByCurrentUser ||
+                    isDeviceClaimedByAnotherUser
                   }
                   className={
-                    isRegisteringDevice || !hasLoadedDeviceBinding || isDeviceBound
-                      ? mutedStatusButtonClassName
+                    isDeviceClaimedByAnotherUser
+                      ? occupiedDeviceButtonClassName
+                      : isRegisteringDevice ||
+                          !hasLoadedDeviceBinding ||
+                          isDeviceBound ||
+                          isDeviceClaimedByCurrentUser
+                        ? mutedStatusButtonClassName
                       : primaryActionButtonClassName
                   }
                 >
-                  {isDeviceBound
-                    ? "Аккаунт уже привязан к устройству"
+                  {isDeviceClaimedByAnotherUser
+                    ? "Устройство занято другим игроком"
+                    : isDeviceBound || isDeviceClaimedByCurrentUser
+                      ? "Аккаунт уже привязан к устройству"
                     : isRegisteringDevice
                       ? "Привязка..."
                       : hasLoadedDeviceBinding
