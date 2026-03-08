@@ -58,7 +58,10 @@ const EMPTY_MATCH_FORM = {
 const EMPTY_GROUP_STAGE_FORM = {
   tournamentId: "",
   teamIds: [] as string[],
-  startDateTime: "",
+  startDate: "",
+  endDate: "",
+  dailyStartTime: "18:00",
+  dailyEndTime: "23:30",
   matchIntervalMinutes: "90",
 };
 
@@ -939,8 +942,26 @@ export default function AdminPage() {
       return;
     }
 
-    if (!groupStageForm.startDateTime.trim()) {
-      setGroupStageErrorMessage("Enter a start date and time.");
+    if (!groupStageForm.startDate.trim()) {
+      setGroupStageErrorMessage("Enter a start date.");
+      setGroupStageSuccessMessage("");
+      return;
+    }
+
+    if (!groupStageForm.endDate.trim()) {
+      setGroupStageErrorMessage("Enter an end date.");
+      setGroupStageSuccessMessage("");
+      return;
+    }
+
+    if (!groupStageForm.dailyStartTime.trim()) {
+      setGroupStageErrorMessage("Enter a daily start time.");
+      setGroupStageSuccessMessage("");
+      return;
+    }
+
+    if (!groupStageForm.dailyEndTime.trim()) {
+      setGroupStageErrorMessage("Enter a daily end time.");
       setGroupStageSuccessMessage("");
       return;
     }
@@ -951,12 +972,24 @@ export default function AdminPage() {
       return;
     }
 
+    if (groupStageForm.startDate > groupStageForm.endDate) {
+      setGroupStageErrorMessage("Start date must be on or before the end date.");
+      setGroupStageSuccessMessage("");
+      return;
+    }
+
+    if (groupStageForm.dailyStartTime >= groupStageForm.dailyEndTime) {
+      setGroupStageErrorMessage(
+        "Daily start time must be earlier than the daily end time."
+      );
+      setGroupStageSuccessMessage("");
+      return;
+    }
+
     const intervalMinutes = Number(groupStageForm.matchIntervalMinutes);
 
-    if (!Number.isInteger(intervalMinutes) || intervalMinutes < 0) {
-      setGroupStageErrorMessage(
-        "Enter a non-negative whole number for the match interval."
-      );
+    if (!Number.isInteger(intervalMinutes) || intervalMinutes <= 0) {
+      setGroupStageErrorMessage("Enter a positive whole number for the match interval.");
       setGroupStageSuccessMessage("");
       return;
     }
@@ -966,11 +999,13 @@ export default function AdminPage() {
     setGroupStageSuccessMessage("");
 
     try {
-      const startDateTimeIso = toUtcIsoString(groupStageForm.startDateTime);
       const result = await generateGroupStageMatches(
         groupStageForm.tournamentId,
         groupStageForm.teamIds,
-        startDateTimeIso,
+        groupStageForm.startDate,
+        groupStageForm.endDate,
+        groupStageForm.dailyStartTime,
+        groupStageForm.dailyEndTime,
         intervalMinutes
       );
 
@@ -1577,7 +1612,7 @@ export default function AdminPage() {
                   </p>
                 ) : (
                   <div className="space-y-4">
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                       <select
                         aria-label="Group stage tournament"
                         value={groupStageForm.tournamentId}
@@ -1602,13 +1637,58 @@ export default function AdminPage() {
                       </select>
 
                       <input
-                        aria-label="Group stage start date and time"
-                        type="datetime-local"
-                        value={groupStageForm.startDateTime}
+                        aria-label="Group stage start date"
+                        type="date"
+                        value={groupStageForm.startDate}
                         onChange={(event) => {
                           setGroupStageForm((current) => ({
                             ...current,
-                            startDateTime: event.target.value,
+                            startDate: event.target.value,
+                          }));
+                          setGroupStageErrorMessage("");
+                          setGroupStageSuccessMessage("");
+                        }}
+                        className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                      />
+
+                      <input
+                        aria-label="Group stage end date"
+                        type="date"
+                        value={groupStageForm.endDate}
+                        onChange={(event) => {
+                          setGroupStageForm((current) => ({
+                            ...current,
+                            endDate: event.target.value,
+                          }));
+                          setGroupStageErrorMessage("");
+                          setGroupStageSuccessMessage("");
+                        }}
+                        className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                      />
+
+                      <input
+                        aria-label="Group stage daily start time"
+                        type="time"
+                        value={groupStageForm.dailyStartTime}
+                        onChange={(event) => {
+                          setGroupStageForm((current) => ({
+                            ...current,
+                            dailyStartTime: event.target.value,
+                          }));
+                          setGroupStageErrorMessage("");
+                          setGroupStageSuccessMessage("");
+                        }}
+                        className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                      />
+
+                      <input
+                        aria-label="Group stage daily end time"
+                        type="time"
+                        value={groupStageForm.dailyEndTime}
+                        onChange={(event) => {
+                          setGroupStageForm((current) => ({
+                            ...current,
+                            dailyEndTime: event.target.value,
                           }));
                           setGroupStageErrorMessage("");
                           setGroupStageSuccessMessage("");
@@ -1619,7 +1699,7 @@ export default function AdminPage() {
                       <input
                         aria-label="Group stage match interval in minutes"
                         type="number"
-                        min="0"
+                        min="1"
                         step="1"
                         value={groupStageForm.matchIntervalMinutes}
                         onChange={(event) => {
@@ -1673,7 +1753,9 @@ export default function AdminPage() {
                         </select>
                         <p className="text-sm text-zinc-600">
                           Generated matches use the existing schema defaults:
-                          Group Stage, BO3, scheduled.
+                          Group Stage, BO3, scheduled. Scheduling uses the
+                          daily Almaty-time window and rolls to the next day
+                          when a slot would exceed it.
                         </p>
                       </div>
                     )}
@@ -1697,8 +1779,15 @@ export default function AdminPage() {
                       disabled={
                         isGeneratingGroupStage ||
                         !groupStageForm.tournamentId ||
-                        !groupStageForm.startDateTime.trim() ||
+                        !groupStageForm.startDate.trim() ||
+                        !groupStageForm.endDate.trim() ||
+                        !groupStageForm.dailyStartTime.trim() ||
+                        !groupStageForm.dailyEndTime.trim() ||
+                        groupStageForm.startDate > groupStageForm.endDate ||
+                        groupStageForm.dailyStartTime >= groupStageForm.dailyEndTime ||
                         !groupStageForm.matchIntervalMinutes.trim() ||
+                        !Number.isInteger(Number(groupStageForm.matchIntervalMinutes)) ||
+                        Number(groupStageForm.matchIntervalMinutes) <= 0 ||
                         groupStageForm.teamIds.length < 2
                       }
                       className="w-fit rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"

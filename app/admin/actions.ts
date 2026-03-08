@@ -520,6 +520,205 @@ function generateRoundRobinPairings(teamIds: string[]): Array<[string, string]> 
   return pairings;
 }
 
+type ScheduleDateParts = {
+  year: number;
+  monthIndex: number;
+  day: number;
+};
+
+const SCHEDULE_TIME_ZONE = "Asia/Almaty";
+
+function parseScheduleDate(value: string): ScheduleDateParts | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const candidate = new Date(Date.UTC(year, month - 1, day));
+
+  if (
+    candidate.getUTCFullYear() !== year ||
+    candidate.getUTCMonth() !== month - 1 ||
+    candidate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return {
+    year,
+    monthIndex: month - 1,
+    day,
+  };
+}
+
+function parseScheduleTime(value: string): number | null {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value.trim());
+
+  if (!match) {
+    return null;
+  }
+
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function compareScheduleDates(left: ScheduleDateParts, right: ScheduleDateParts) {
+  return (
+    Date.UTC(left.year, left.monthIndex, left.day) -
+    Date.UTC(right.year, right.monthIndex, right.day)
+  );
+}
+
+function addDaysToScheduleDate(date: ScheduleDateParts, days: number): ScheduleDateParts {
+  const nextDate = new Date(Date.UTC(date.year, date.monthIndex, date.day + days));
+
+  return {
+    year: nextDate.getUTCFullYear(),
+    monthIndex: nextDate.getUTCMonth(),
+    day: nextDate.getUTCDate(),
+  };
+}
+
+function parseTimeZoneOffsetMinutes(offsetLabel: string) {
+  if (offsetLabel === "GMT" || offsetLabel === "UTC") {
+    return 0;
+  }
+
+  const match = /^(?:GMT|UTC)([+-])(\d{1,2})(?::?(\d{2}))?$/.exec(offsetLabel);
+
+  if (!match) {
+    throw new Error(`Unsupported time zone offset: ${offsetLabel}`);
+  }
+
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2]);
+  const minutes = Number(match[3] ?? "0");
+
+  return sign * (hours * 60 + minutes);
+}
+
+function getTimeZoneOffsetMinutes(utcTimestampMs: number, timeZone: string) {
+  const formattedParts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "shortOffset",
+  }).formatToParts(new Date(utcTimestampMs));
+  const offsetLabel =
+    formattedParts.find((part) => part.type === "timeZoneName")?.value ?? "UTC";
+
+  return parseTimeZoneOffsetMinutes(offsetLabel);
+}
+
+function createScheduledAtIso(date: ScheduleDateParts, minutesFromMidnight: number) {
+  const hours = Math.floor(minutesFromMidnight / 60);
+  const minutes = minutesFromMidnight % 60;
+  const wallClockUtcMs = Date.UTC(date.year, date.monthIndex, date.day, hours, minutes);
+  const initialOffsetMinutes = getTimeZoneOffsetMinutes(wallClockUtcMs, SCHEDULE_TIME_ZONE);
+  let scheduledAtMs = wallClockUtcMs - initialOffsetMinutes * 60 * 1000;
+  const adjustedOffsetMinutes = getTimeZoneOffsetMinutes(
+    scheduledAtMs,
+    SCHEDULE_TIME_ZONE
+  );
+
+  if (adjustedOffsetMinutes !== initialOffsetMinutes) {
+    scheduledAtMs = wallClockUtcMs - adjustedOffsetMinutes * 60 * 1000;
+  }
+
+  return new Date(scheduledAtMs).toISOString();
+}
+
+function scheduleRoundRobinMatches(params: {
+  pairings: Array<[string, string]>;
+  startDate: string;
+  endDate: string;
+  dailyStartTime: string;
+  dailyEndTime: string;
+  matchIntervalMinutes: number;
+}) {
+  const startDate = parseScheduleDate(params.startDate);
+  const endDate = parseScheduleDate(params.endDate);
+
+  if (!startDate) {
+    throw new Error("Start date must be a valid date.");
+  }
+
+  if (!endDate) {
+    throw new Error("End date must be a valid date.");
+  }
+
+  if (compareScheduleDates(startDate, endDate) > 0) {
+    throw new Error("Start date must be on or before the end date.");
+  }
+
+  const dailyStartMinutes = parseScheduleTime(params.dailyStartTime);
+  const dailyEndMinutes = parseScheduleTime(params.dailyEndTime);
+
+  if (dailyStartMinutes === null) {
+    throw new Error("Daily start time must be a valid time.");
+  }
+
+  if (dailyEndMinutes === null) {
+    throw new Error("Daily end time must be a valid time.");
+  }
+
+  if (dailyStartMinutes >= dailyEndMinutes) {
+    throw new Error("Daily start time must be earlier than the daily end time.");
+  }
+
+  const matchIntervalMinutes = Number(params.matchIntervalMinutes);
+
+  if (!Number.isInteger(matchIntervalMinutes) || matchIntervalMinutes <= 0) {
+    throw new Error("Match interval must be a positive whole number of minutes.");
+  }
+
+  const scheduledMatches: Array<{
+    teamAId: string;
+    teamBId: string;
+    scheduledAt: string;
+  }> = [];
+  let currentDate = startDate;
+  let currentStartMinutes = dailyStartMinutes;
+
+  for (const [teamAId, teamBId] of params.pairings) {
+    let scheduledCurrentMatch = false;
+
+    while (compareScheduleDates(currentDate, endDate) <= 0) {
+      if (currentStartMinutes + matchIntervalMinutes <= dailyEndMinutes) {
+        scheduledMatches.push({
+          teamAId,
+          teamBId,
+          scheduledAt: createScheduledAtIso(currentDate, currentStartMinutes),
+        });
+        scheduledCurrentMatch = true;
+
+        const nextStartMinutes = currentStartMinutes + matchIntervalMinutes;
+
+        if (nextStartMinutes + matchIntervalMinutes <= dailyEndMinutes) {
+          currentStartMinutes = nextStartMinutes;
+        } else {
+          currentDate = addDaysToScheduleDate(currentDate, 1);
+          currentStartMinutes = dailyStartMinutes;
+        }
+
+        break;
+      }
+
+      currentDate = addDaysToScheduleDate(currentDate, 1);
+      currentStartMinutes = dailyStartMinutes;
+    }
+
+    if (!scheduledCurrentMatch) {
+      throw new Error(
+        "Not enough time slots to schedule all matches. Please extend the dates or adjust the times."
+      );
+    }
+  }
+
+  return scheduledMatches;
+}
+
 export async function adminForceConfirmTeam(
   teamId: string,
   tournamentId: string,
@@ -696,11 +895,17 @@ export async function updateTournamentMatchAction(
 export async function generateGroupStageMatches(
   tournamentId: string,
   teamIds: string[],
-  startDateTime: string,
+  startDate: string,
+  endDate: string,
+  dailyStartTime: string,
+  dailyEndTime: string,
   matchIntervalMinutes: number
 ): Promise<GenerateGroupStageMatchesResult> {
   const normalizedTournamentId = tournamentId.trim();
-  const normalizedStartDateTime = startDateTime.trim();
+  const normalizedStartDate = startDate.trim();
+  const normalizedEndDate = endDate.trim();
+  const normalizedDailyStartTime = dailyStartTime.trim();
+  const normalizedDailyEndTime = dailyEndTime.trim();
   const trimmedTeamIds = teamIds.map((teamId) => teamId.trim()).filter(Boolean);
   const normalizedTeamIds = Array.from(new Set(trimmedTeamIds));
 
@@ -725,27 +930,25 @@ export async function generateGroupStageMatches(
     };
   }
 
-  if (!normalizedStartDateTime) {
+  if (!normalizedStartDate || !normalizedEndDate) {
     return {
-      error: "Start date and time are required.",
+      error: "Start and end dates are required.",
       matchCount: 0,
     };
   }
 
-  const parsedStartDateTime = new Date(normalizedStartDateTime);
-
-  if (Number.isNaN(parsedStartDateTime.getTime())) {
+  if (!normalizedDailyStartTime || !normalizedDailyEndTime) {
     return {
-      error: "Start date must be a valid ISO datetime.",
+      error: "Daily start and end times are required.",
       matchCount: 0,
     };
   }
 
   const normalizedInterval = Number(matchIntervalMinutes);
 
-  if (!Number.isInteger(normalizedInterval) || normalizedInterval < 0) {
+  if (!Number.isInteger(normalizedInterval) || normalizedInterval <= 0) {
     return {
-      error: "Match interval must be a non-negative whole number of minutes.",
+      error: "Match interval must be a positive whole number of minutes.",
       matchCount: 0,
     };
   }
@@ -817,18 +1020,22 @@ export async function generateGroupStageMatches(
     }
 
     const pairings = generateRoundRobinPairings(normalizedTeamIds);
-    const matchIntervalInMs = normalizedInterval * 60 * 1000;
-    const firstMatchTimeMs = parsedStartDateTime.getTime();
-    const matchRows: TournamentMatchInsert[] = pairings.map(
-      ([teamAId, teamBId], matchIndex) => ({
+    const scheduledMatches = scheduleRoundRobinMatches({
+      pairings,
+      startDate: normalizedStartDate,
+      endDate: normalizedEndDate,
+      dailyStartTime: normalizedDailyStartTime,
+      dailyEndTime: normalizedDailyEndTime,
+      matchIntervalMinutes: normalizedInterval,
+    });
+    const matchRows: TournamentMatchInsert[] = scheduledMatches.map(
+      ({ teamAId, teamBId, scheduledAt }, matchIndex) => ({
         ...normalizeAdminMatchPayload({
           tournamentId: normalizedTournamentId,
           teamAId,
           teamBId,
           roundLabel: "Group Stage",
-          scheduledAt: new Date(
-            firstMatchTimeMs + matchIndex * matchIntervalInMs
-          ).toISOString(),
+          scheduledAt,
           status: "scheduled",
           teamAScore: "",
           teamBScore: "",
