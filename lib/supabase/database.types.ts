@@ -224,6 +224,7 @@ export type Database = {
       };
       user_passkeys: {
         Row: {
+          id: string;
           credential_id: string;
           user_id: string;
           public_key: string;
@@ -235,6 +236,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          id?: string;
           credential_id: string;
           user_id: string;
           public_key: string;
@@ -246,6 +248,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          id?: string;
           credential_id?: string;
           user_id?: string;
           public_key?: string;

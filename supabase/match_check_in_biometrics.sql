@@ -12,8 +12,9 @@ alter table public.match_check_ins
 alter column biometric_verified set not null;
 
 create table if not exists public.user_passkeys (
-  credential_id text primary key,
-  user_id uuid not null references public.profiles (id) on delete cascade,
+  id uuid primary key default gen_random_uuid(),
+  credential_id text not null unique,
+  user_id uuid not null references auth.users (id) on delete cascade,
   public_key text not null,
   counter integer not null default 0,
   device_type text not null,
@@ -27,3 +28,41 @@ create table if not exists public.user_passkeys (
 
 create index if not exists user_passkeys_user_id_idx
   on public.user_passkeys (user_id);
+
+alter table public.user_passkeys enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'user_passkeys'
+      and policyname = 'Users can read their own passkeys'
+  ) then
+    create policy "Users can read their own passkeys"
+    on public.user_passkeys
+    for select
+    to authenticated
+    using (auth.uid() = user_id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'user_passkeys'
+      and policyname = 'Users can insert their own passkeys'
+  ) then
+    create policy "Users can insert their own passkeys"
+    on public.user_passkeys
+    for insert
+    to authenticated
+    with check (auth.uid() = user_id);
+  end if;
+end
+$$;

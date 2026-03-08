@@ -20,6 +20,7 @@ import type { Database } from "@/lib/supabase/database.types";
 const CEREMONY_TIMEOUT_MS = 5 * 60 * 1000;
 const REGISTRATION_COOKIE_NAME = "khawater_webauthn_registration";
 const AUTHENTICATION_COOKIE_NAME = "khawater_webauthn_authentication";
+const PROFILE_REGISTRATION_SCOPE = "__profile_registration__";
 const SUPPORTED_TRANSPORTS = new Set<AuthenticatorTransportFuture>([
   "ble",
   "cable",
@@ -60,6 +61,15 @@ export type BeginMatchBiometricVerificationResult =
     };
 
 export type CompleteMatchBiometricVerificationResult = {
+  error: string | null;
+};
+
+export type BeginProfilePasskeyRegistrationResult = {
+  error: string | null;
+  options?: PublicKeyCredentialCreationOptionsJSON;
+};
+
+export type CompleteProfilePasskeyRegistrationResult = {
   error: string | null;
 };
 
@@ -347,6 +357,123 @@ async function getPasskeyProfileName(adminClient: AdminClient, userId: string) {
   return data?.nickname?.trim() || null;
 }
 
+async function buildRegistrationOptionsForUser(params: {
+  adminClient: AdminClient;
+  user: User;
+}) {
+  const webAuthnConfig = await getWebAuthnRequestConfig();
+  const passkeys = await getUserPasskeys(params.adminClient, params.user.id);
+  const profileName = await getPasskeyProfileName(params.adminClient, params.user.id);
+  const userName = params.user.email?.trim() || params.user.id;
+  const userDisplayName = profileName ?? params.user.email?.trim() ?? params.user.id;
+  const options = await generateRegistrationOptions({
+    rpName: webAuthnConfig.rpName,
+    rpID: webAuthnConfig.rpID,
+    userID: new TextEncoder().encode(params.user.id),
+    userName,
+    userDisplayName,
+    timeout: CEREMONY_TIMEOUT_MS,
+    attestationType: "none",
+    excludeCredentials: passkeys.map((passkey) => ({
+      id: passkey.credential_id,
+      transports: filterAuthenticatorTransports(passkey.transports),
+    })),
+    authenticatorSelection: {
+      residentKey: "required",
+      userVerification: "required",
+    },
+    preferredAuthenticatorType: "localDevice",
+  });
+
+  return {
+    webAuthnConfig,
+    options,
+  };
+}
+
+export async function beginProfilePasskeyRegistration(params: {
+  adminClient: AdminClient;
+  user: User;
+}): Promise<BeginProfilePasskeyRegistrationResult> {
+  const { adminClient, user } = params;
+
+  try {
+    const { webAuthnConfig, options } = await buildRegistrationOptionsForUser({
+      adminClient,
+      user,
+    });
+
+    await storeChallengeCookie(
+      "registration",
+      {
+        challenge: options.challenge,
+        userId: user.id,
+        matchId: PROFILE_REGISTRATION_SCOPE,
+        createdAt: Date.now(),
+      },
+      webAuthnConfig.secureCookie
+    );
+
+    return {
+      error: null,
+      options,
+    };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Не удалось начать регистрацию устройства.",
+    };
+  }
+}
+
+export async function completeProfilePasskeyRegistration(params: {
+  adminClient: AdminClient;
+  userId: string;
+  response: RegistrationResponseJSON;
+}): Promise<CompleteProfilePasskeyRegistrationResult> {
+  const challengePayload = await consumeChallengeCookie("registration");
+
+  if (
+    !challengePayload ||
+    challengePayload.matchId !== PROFILE_REGISTRATION_SCOPE ||
+    challengePayload.userId !== params.userId
+  ) {
+    return {
+      error: "Сессия регистрации устройства истекла. Попробуйте еще раз.",
+    };
+  }
+
+  const webAuthnConfig = await getWebAuthnRequestConfig();
+  const verification = await verifyRegistrationResponse({
+    response: params.response,
+    expectedChallenge: challengePayload.challenge,
+    expectedOrigin: webAuthnConfig.expectedOrigin,
+    expectedRPID: webAuthnConfig.rpID,
+    requireUserVerification: true,
+  });
+
+  if (!verification.verified) {
+    return {
+      error: "Не удалось подтвердить устройство.",
+    };
+  }
+
+  await createOrUpdatePasskey({
+    adminClient: params.adminClient,
+    userId: params.userId,
+    response: params.response,
+    passkey: verification.registrationInfo.credential,
+    deviceType: verification.registrationInfo.credentialDeviceType,
+    backedUp: verification.registrationInfo.credentialBackedUp,
+  });
+
+  return {
+    error: null,
+  };
+}
+
 export async function beginMatchBiometricVerification(params: {
   adminClient: AdminClient;
   matchId: string;
@@ -371,26 +498,9 @@ export async function beginMatchBiometricVerification(params: {
   const passkeys = await getUserPasskeys(adminClient, user.id);
 
   if (passkeys.length === 0) {
-    const profileName = await getPasskeyProfileName(adminClient, user.id);
-    const userName = user.email?.trim() || user.id;
-    const userDisplayName = profileName ?? user.email?.trim() ?? user.id;
-    const options = await generateRegistrationOptions({
-      rpName: webAuthnConfig.rpName,
-      rpID: webAuthnConfig.rpID,
-      userID: new TextEncoder().encode(user.id),
-      userName,
-      userDisplayName,
-      timeout: CEREMONY_TIMEOUT_MS,
-      attestationType: "none",
-      excludeCredentials: passkeys.map((passkey) => ({
-        id: passkey.credential_id,
-        transports: filterAuthenticatorTransports(passkey.transports),
-      })),
-      authenticatorSelection: {
-        residentKey: "required",
-        userVerification: "required",
-      },
-      preferredAuthenticatorType: "localDevice",
+    const { options } = await buildRegistrationOptionsForUser({
+      adminClient,
+      user,
     });
 
     await storeChallengeCookie(

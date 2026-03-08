@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { browserSupportsWebAuthn, startRegistration } from "@simplewebauthn/browser";
 import { getProfileByUserId, type Profile } from "@/lib/supabase/profiles";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
@@ -16,6 +17,32 @@ import {
   type Tournament,
 } from "@/lib/supabase/tournaments";
 import { SiteHeader } from "@/components/site-header";
+import {
+  getProfilePasskeyRegistrationOptions,
+  verifyProfilePasskeyRegistration,
+} from "./actions";
+
+function getWebAuthnErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    if (error.name === "AbortError" || error.name === "NotAllowedError") {
+      return "Регистрация устройства была отменена или время ожидания истекло.";
+    }
+
+    if (error.name === "InvalidStateError") {
+      return "Это устройство уже привязано к вашему аккаунту.";
+    }
+
+    if (error.name === "SecurityError") {
+      return "Passkeys недоступны для текущего адреса сайта.";
+    }
+
+    if (error.message) {
+      return error.message;
+    }
+  }
+
+  return "Не удалось привязать устройство.";
+}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -29,6 +56,8 @@ export default function ProfilePage() {
   const [isMutatingTeam, setIsMutatingTeam] = useState(false);
   const [isConfirmingParticipation, setIsConfirmingParticipation] = useState(false);
   const [isParticipationConfirmed, setIsParticipationConfirmed] = useState(false);
+  const [isRegisteringDevice, setIsRegisteringDevice] = useState(false);
+  const [deviceMessage, setDeviceMessage] = useState("");
   const isCaptain = teamData?.membership.is_captain ?? false;
   const isLastMember = (teamData?.members.length ?? 0) === 1;
 
@@ -174,6 +203,57 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleRegisterDevice() {
+    setIsRegisteringDevice(true);
+    setDeviceMessage("");
+    setErrorMessage("");
+
+    try {
+      if (!browserSupportsWebAuthn()) {
+        setDeviceMessage("Ваше устройство или браузер не поддерживает Passkeys.");
+        return;
+      }
+
+      const supabase = getSupabaseBrowserClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        router.replace("/auth");
+        return;
+      }
+
+      const beginResult = await getProfilePasskeyRegistrationOptions(session.access_token);
+
+      if (beginResult.error || !beginResult.options) {
+        setDeviceMessage(beginResult.error ?? "Не удалось начать регистрацию устройства.");
+        return;
+      }
+
+      const response = await startRegistration({
+        optionsJSON: beginResult.options,
+      });
+
+      const finishResult = await verifyProfilePasskeyRegistration(
+        session.access_token,
+        response
+      );
+
+      if (finishResult.error) {
+        setDeviceMessage(finishResult.error);
+        return;
+      }
+
+      setDeviceMessage("Устройство успешно привязано.");
+      router.refresh();
+    } catch (error) {
+      setDeviceMessage(getWebAuthnErrorMessage(error));
+    } finally {
+      setIsRegisteringDevice(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-zinc-100 px-6 py-10 text-zinc-900">
@@ -200,6 +280,19 @@ export default function ProfilePage() {
             <div className="border border-zinc-300 bg-white p-5">
               <div className="mb-3 text-2xl font-semibold">
                 {profile?.nickname ?? "Player"}
+              </div>
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <button
+                  type="button"
+                  onClick={() => void handleRegisterDevice()}
+                  disabled={isRegisteringDevice}
+                  className="rounded border border-zinc-400 bg-white px-4 py-2 text-sm font-medium"
+                >
+                  {isRegisteringDevice ? "Привязка..." : "Привязать устройство"}
+                </button>
+                {deviceMessage && (
+                  <p className="text-sm text-zinc-600">{deviceMessage}</p>
+                )}
               </div>
             </div>
 
