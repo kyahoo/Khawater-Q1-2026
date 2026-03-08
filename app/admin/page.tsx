@@ -129,6 +129,15 @@ function getSupabaseLikeErrorMessage(error: unknown, fallbackMessage: string) {
   return fallbackMessage;
 }
 
+function getLocalDateStamp() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -208,6 +217,14 @@ export default function AdminPage() {
   const [isUploadingBannerTournamentId, setIsUploadingBannerTournamentId] = useState<
     string | null
   >(null);
+  const [selectedStandingsBackgroundFile, setSelectedStandingsBackgroundFile] =
+    useState<File | null>(null);
+  const [standingsBackgroundInputKey, setStandingsBackgroundInputKey] = useState(0);
+  const [socialErrorMessage, setSocialErrorMessage] = useState("");
+  const [socialSuccessMessage, setSocialSuccessMessage] = useState("");
+  const [isUploadingStandingsBackground, setIsUploadingStandingsBackground] =
+    useState(false);
+  const [isGeneratingStandingsImage, setIsGeneratingStandingsImage] = useState(false);
   const [selectedMatches, setSelectedMatches] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<AdminTabId>("players");
 
@@ -881,6 +898,98 @@ export default function AdminPage() {
       window.alert("Ошибка: не удалось загрузить баннер");
     } finally {
       setIsUploadingBannerTournamentId(null);
+    }
+  }
+
+  async function handleUploadStandingsBackground() {
+    if (!selectedStandingsBackgroundFile) {
+      setSocialErrorMessage("Выберите PNG-файл шаблона.");
+      setSocialSuccessMessage("");
+      return;
+    }
+
+    if (selectedStandingsBackgroundFile.type !== "image/png") {
+      setSocialErrorMessage("Для фона таблицы поддерживается только PNG.");
+      setSocialSuccessMessage("");
+      return;
+    }
+
+    setIsUploadingStandingsBackground(true);
+    setSocialErrorMessage("");
+    setSocialSuccessMessage("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: uploadError } = await supabase.storage
+        .from("social-templates")
+        .upload("standings-bg.png", selectedStandingsBackgroundFile, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: "image/png",
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      setSelectedStandingsBackgroundFile(null);
+      setStandingsBackgroundInputKey((current) => current + 1);
+      setSocialSuccessMessage("Фон таблицы успешно загружен.");
+    } catch (error) {
+      setSocialErrorMessage(
+        getSupabaseLikeErrorMessage(error, "Не удалось загрузить фон таблицы.")
+      );
+    } finally {
+      setIsUploadingStandingsBackground(false);
+    }
+  }
+
+  async function handleDownloadStandingsImage() {
+    if (!activeTournament) {
+      setSocialErrorMessage("Сначала выберите активный турнир.");
+      setSocialSuccessMessage("");
+      return;
+    }
+
+    setIsGeneratingStandingsImage(true);
+    setSocialErrorMessage("");
+    setSocialSuccessMessage("");
+
+    try {
+      const response = await fetch("/api/og/standings", {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        const contentType = response.headers.get("content-type") ?? "";
+
+        if (contentType.includes("application/json")) {
+          const payload = (await response.json()) as { error?: string };
+          throw new Error(payload.error ?? "Не удалось сгенерировать таблицу.");
+        }
+
+        const message = await response.text();
+        throw new Error(message || "Не удалось сгенерировать таблицу.");
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `khawater-standings-${getLocalDateStamp()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+
+      setSocialSuccessMessage("Таблица успешно скачана.");
+    } catch (error) {
+      setSocialErrorMessage(
+        error instanceof Error ? error.message : "Не удалось скачать таблицу."
+      );
+    } finally {
+      setIsGeneratingStandingsImage(false);
     }
   }
 
@@ -2025,6 +2134,90 @@ export default function AdminPage() {
                     ))}
                   </div>
                 )}
+              </section>
+
+              <section className="border border-zinc-300 bg-white p-5 shadow-md">
+                <h2 className="mb-4 text-lg font-semibold text-zinc-500">
+                  Социальные сети
+                </h2>
+
+                <div className="space-y-4">
+                  <div className="text-sm text-zinc-600">
+                    Активный турнир:{" "}
+                    <span className="font-medium text-zinc-900">
+                      {activeTournament?.name ?? "Не выбран"}
+                    </span>
+                  </div>
+
+                  <div className="border-[3px] border-[#061726] bg-white px-4 py-4 shadow-[4px_4px_0px_0px_#061726]">
+                    <div className="text-sm font-bold uppercase tracking-wide text-[#061726]">
+                      Фон таблицы
+                    </div>
+                    <p className="mt-2 text-sm text-zinc-600">
+                      Загрузите blank PNG-шаблон в bucket `social-templates` как
+                      `standings-bg.png`.
+                    </p>
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+                      <label className="flex-1 text-sm font-medium text-zinc-700">
+                        PNG-файл
+                        <input
+                          key={standingsBackgroundInputKey}
+                          type="file"
+                          accept="image/png"
+                          onChange={(event) =>
+                            setSelectedStandingsBackgroundFile(
+                              event.target.files?.[0] ?? null
+                            )
+                          }
+                          className="mt-2 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => void handleUploadStandingsBackground()}
+                        disabled={
+                          !selectedStandingsBackgroundFile || isUploadingStandingsBackground
+                        }
+                        className="inline-flex items-center justify-center gap-2 rounded border-[3px] border-[#061726] bg-[#CD9C3E] px-4 py-2 text-sm font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500 disabled:shadow-none"
+                      >
+                        {isUploadingStandingsBackground && (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#061726] border-t-transparent" />
+                        )}
+                        {isUploadingStandingsBackground ? "Загрузка..." : "Загрузить фон"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="border-[3px] border-[#061726] bg-white px-4 py-4 shadow-[4px_4px_0px_0px_#061726]">
+                    <div className="text-sm font-bold uppercase tracking-wide text-[#061726]">
+                      Экспорт таблицы
+                    </div>
+                    <p className="mt-2 text-sm text-zinc-600">
+                      Сгенерировать PNG-баннер `1080x1440` через `next/og`.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void handleDownloadStandingsImage()}
+                      disabled={!activeTournament || isGeneratingStandingsImage}
+                      className="mt-4 inline-flex items-center justify-center gap-2 rounded border-[3px] border-[#061726] bg-[#061726] px-4 py-2 text-sm font-extrabold uppercase text-white shadow-[4px_4px_0px_0px_#CD9C3E] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#CD9C3E] disabled:translate-y-0 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500 disabled:shadow-none"
+                    >
+                      {isGeneratingStandingsImage && (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      )}
+                      {isGeneratingStandingsImage
+                        ? "Генерация..."
+                        : "Скачать таблицу (3:4)"}
+                    </button>
+                  </div>
+
+                  {socialErrorMessage && (
+                    <p className="text-sm text-zinc-600">{socialErrorMessage}</p>
+                  )}
+
+                  {socialSuccessMessage && (
+                    <p className="text-sm text-zinc-600">{socialSuccessMessage}</p>
+                  )}
+                </div>
               </section>
 
               <section className="border border-zinc-300 bg-white p-5 shadow-md">
