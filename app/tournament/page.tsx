@@ -611,7 +611,7 @@ export default function TournamentPage() {
 
             {activeTab === "teams" && (
               <section className="border-[4px] border-[#061726] bg-[#061726]/85 p-5 shadow-[6px_6px_0px_0px_#061726] backdrop-blur-md">
-                <h2 className="mb-6 flex items-center gap-3 text-2xl font-extrabold uppercase tracking-tight text-[#CD9C3E] before:h-8 before:w-4 before:bg-[#CD9C3E] before:content-['']">
+                <h2 className="mb-6 text-2xl font-extrabold uppercase tracking-tight text-[#CD9C3E]">
                   Заявленные команды
                 </h2>
 
