@@ -355,7 +355,7 @@ export default function ProfilePage() {
     try {
       const supabase = getSupabaseBrowserClient();
       await supabase.auth.signOut();
-      router.replace("/auth");
+      router.replace("/");
       router.refresh();
     } catch (error) {
       setErrorMessage(
