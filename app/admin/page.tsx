@@ -9,6 +9,7 @@ import {
   createAdminPlayerAction,
   deletePlayer,
   deleteTeam,
+  generateGroupStageMatches,
   listAdminPlayers,
   toggleTeamSuspension,
   updateTournamentMatchAction,
@@ -52,6 +53,13 @@ const EMPTY_MATCH_FORM = {
   teamAScore: "",
   teamBScore: "",
   format: "BO3",
+};
+
+const EMPTY_GROUP_STAGE_FORM = {
+  tournamentId: "",
+  teamIds: [] as string[],
+  startDateTime: "",
+  matchIntervalMinutes: "90",
 };
 
 const MATCH_FORMAT_OPTIONS = ["BO1", "BO2", "BO3"] as const;
@@ -148,12 +156,17 @@ export default function AdminPage() {
   const [selectedProfileIdToAdd, setSelectedProfileIdToAdd] = useState("");
   const [adminOverridePlayerIdentifier, setAdminOverridePlayerIdentifier] = useState("");
   const [matchForm, setMatchForm] = useState(EMPTY_MATCH_FORM);
+  const [groupStageForm, setGroupStageForm] = useState(EMPTY_GROUP_STAGE_FORM);
+  const [groupStageTeams, setGroupStageTeams] = useState<AdminTournamentEntryTeam[]>([]);
+  const [groupStageErrorMessage, setGroupStageErrorMessage] = useState("");
+  const [groupStageSuccessMessage, setGroupStageSuccessMessage] = useState("");
   const [isCreatingPlayer, setIsCreatingPlayer] = useState(false);
   const [isCreatingTournament, setIsCreatingTournament] = useState(false);
   const [isCreatingTeam, setIsCreatingTeam] = useState(false);
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [isForceAddingMember, setIsForceAddingMember] = useState(false);
   const [isSavingMatch, setIsSavingMatch] = useState(false);
+  const [isGeneratingGroupStage, setIsGeneratingGroupStage] = useState(false);
   const [isSwitchingTournamentId, setIsSwitchingTournamentId] = useState<
     string | null
   >(null);
@@ -255,6 +268,19 @@ export default function AdminPage() {
     }
   }
 
+  async function loadGroupStageTeams(tournamentId: string) {
+    try {
+      const nextTeams = await listAdminTournamentEntryTeams(tournamentId);
+      setGroupStageTeams(nextTeams);
+      setGroupStageErrorMessage("");
+    } catch {
+      setGroupStageTeams([]);
+      setGroupStageErrorMessage(
+        "Tournament teams are unavailable right now for group stage generation."
+      );
+    }
+  }
+
   useEffect(() => {
     const loadAdminPage = async () => {
       try {
@@ -296,6 +322,11 @@ export default function AdminPage() {
   const isEditingMatch = editingMatchId !== null;
   const selectedTeam = teams.find((team) => team.id === selectedTeamId) ?? null;
   const enteredTeams = entryTeams.filter((team) => team.hasEntered);
+  const enteredGroupStageTeams = groupStageTeams.filter((team) => team.hasEntered);
+  const groupStageMatchCount =
+    groupStageForm.teamIds.length >= 2
+      ? (groupStageForm.teamIds.length * (groupStageForm.teamIds.length - 1)) / 2
+      : 0;
   const availableProfilesToAdd = profiles.filter(
     (candidate) => !candidate.currentTeamId
   );
@@ -308,6 +339,57 @@ export default function AdminPage() {
 
     void loadSelectedTeamMembers(selectedTeamId);
   }, [selectedTeamId]);
+
+  useEffect(() => {
+    if (tournaments.length === 0) {
+      setGroupStageForm(EMPTY_GROUP_STAGE_FORM);
+      setGroupStageTeams([]);
+      return;
+    }
+
+    const fallbackTournamentId = activeTournament?.id ?? tournaments[0]?.id ?? "";
+
+    setGroupStageForm((current) => {
+      if (
+        current.tournamentId &&
+        tournaments.some((tournament) => tournament.id === current.tournamentId)
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        tournamentId: fallbackTournamentId,
+        teamIds: [],
+      };
+    });
+  }, [activeTournament?.id, tournaments]);
+
+  useEffect(() => {
+    if (!groupStageForm.tournamentId) {
+      setGroupStageTeams([]);
+      return;
+    }
+
+    void loadGroupStageTeams(groupStageForm.tournamentId);
+  }, [groupStageForm.tournamentId]);
+
+  useEffect(() => {
+    const validTeamIds = new Set(enteredGroupStageTeams.map((team) => team.id));
+
+    setGroupStageForm((current) => {
+      const nextTeamIds = current.teamIds.filter((teamId) => validTeamIds.has(teamId));
+
+      if (nextTeamIds.length === current.teamIds.length) {
+        return current;
+      }
+
+      return {
+        ...current,
+        teamIds: nextTeamIds,
+      };
+    });
+  }, [enteredGroupStageTeams]);
 
   async function handleCreateTournament() {
     const trimmedName = newTournamentName.trim();
@@ -837,6 +919,68 @@ export default function AdminPage() {
       setErrorMessage(getSupabaseLikeErrorMessage(error, "Could not save match."));
     } finally {
       setIsSavingMatch(false);
+    }
+  }
+
+  async function handleGenerateGroupStage() {
+    if (!groupStageForm.tournamentId) {
+      setGroupStageErrorMessage("Select a tournament.");
+      setGroupStageSuccessMessage("");
+      return;
+    }
+
+    if (groupStageForm.teamIds.length < 2) {
+      setGroupStageErrorMessage("Select at least two teams.");
+      setGroupStageSuccessMessage("");
+      return;
+    }
+
+    const intervalMinutes = Number(groupStageForm.matchIntervalMinutes);
+
+    if (!Number.isInteger(intervalMinutes) || intervalMinutes < 0) {
+      setGroupStageErrorMessage(
+        "Enter a non-negative whole number for the match interval."
+      );
+      setGroupStageSuccessMessage("");
+      return;
+    }
+
+    setIsGeneratingGroupStage(true);
+    setGroupStageErrorMessage("");
+    setGroupStageSuccessMessage("");
+
+    try {
+      const startDateTimeIso = toUtcIsoString(groupStageForm.startDateTime);
+      const result = await generateGroupStageMatches(
+        groupStageForm.tournamentId,
+        groupStageForm.teamIds,
+        startDateTimeIso,
+        intervalMinutes
+      );
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      await loadAdminData();
+      setGroupStageSuccessMessage(
+        `Created ${result.matchCount} group stage matches in BO3 format.`
+      );
+      setGroupStageForm((current) => ({
+        ...current,
+        teamIds: [],
+      }));
+      router.refresh();
+    } catch (error) {
+      console.error("Generate Group Stage Error:", error);
+      setGroupStageErrorMessage(
+        getSupabaseLikeErrorMessage(
+          error,
+          "Could not generate group stage matches."
+        )
+      );
+    } finally {
+      setIsGeneratingGroupStage(false);
     }
   }
 
@@ -1402,6 +1546,146 @@ export default function AdminPage() {
                         </button>
                       </div>
                     ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="border border-zinc-300 bg-white p-5">
+                <h2 className="mb-4 text-lg font-semibold text-zinc-500">
+                  Generate Group Stage
+                </h2>
+
+                {tournaments.length === 0 ? (
+                  <p className="text-sm text-zinc-600">
+                    Create a tournament before generating group stage matches.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <select
+                        value={groupStageForm.tournamentId}
+                        onChange={(event) => {
+                          setGroupStageForm((current) => ({
+                            ...current,
+                            tournamentId: event.target.value,
+                            teamIds: [],
+                          }));
+                          setGroupStageErrorMessage("");
+                          setGroupStageSuccessMessage("");
+                        }}
+                        className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                      >
+                        <option value="">Select tournament</option>
+                        {tournaments.map((tournament) => (
+                          <option key={tournament.id} value={tournament.id}>
+                            {tournament.name}
+                            {tournament.is_active ? " (Active)" : ""}
+                          </option>
+                        ))}
+                      </select>
+
+                      <input
+                        type="datetime-local"
+                        value={groupStageForm.startDateTime}
+                        onChange={(event) => {
+                          setGroupStageForm((current) => ({
+                            ...current,
+                            startDateTime: event.target.value,
+                          }));
+                          setGroupStageErrorMessage("");
+                          setGroupStageSuccessMessage("");
+                        }}
+                        className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                      />
+
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={groupStageForm.matchIntervalMinutes}
+                        onChange={(event) => {
+                          setGroupStageForm((current) => ({
+                            ...current,
+                            matchIntervalMinutes: event.target.value,
+                          }));
+                          setGroupStageErrorMessage("");
+                          setGroupStageSuccessMessage("");
+                        }}
+                        placeholder="Match interval in minutes"
+                        className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                      />
+                    </div>
+
+                    {!groupStageForm.tournamentId ? (
+                      <p className="text-sm text-zinc-600">
+                        Select a tournament to load available teams.
+                      </p>
+                    ) : enteredGroupStageTeams.length === 0 ? (
+                      <p className="text-sm text-zinc-600">
+                        No entered teams are available for this tournament yet.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-zinc-700">
+                          Teams
+                        </label>
+                        <select
+                          multiple
+                          value={groupStageForm.teamIds}
+                          onChange={(event) => {
+                            setGroupStageForm((current) => ({
+                              ...current,
+                              teamIds: Array.from(
+                                event.target.selectedOptions,
+                                (option) => option.value
+                              ),
+                            }));
+                            setGroupStageErrorMessage("");
+                            setGroupStageSuccessMessage("");
+                          }}
+                          className="min-h-56 w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                        >
+                          {enteredGroupStageTeams.map((team) => (
+                            <option key={team.id} value={team.id}>
+                              {team.name}
+                              {team.isSuspended ? " (Suspended)" : ""}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-sm text-zinc-600">
+                          Generated matches use the existing schema defaults:
+                          Group Stage, BO3, scheduled.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="text-sm text-zinc-600">
+                      Selected teams: {groupStageForm.teamIds.length}. Matches to
+                      create: {groupStageMatchCount}.
+                    </div>
+
+                    {groupStageErrorMessage && (
+                      <p className="text-sm text-zinc-600">{groupStageErrorMessage}</p>
+                    )}
+
+                    {groupStageSuccessMessage && (
+                      <p className="text-sm text-zinc-600">{groupStageSuccessMessage}</p>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => void handleGenerateGroupStage()}
+                      disabled={
+                        isGeneratingGroupStage ||
+                        !groupStageForm.tournamentId ||
+                        enteredGroupStageTeams.length < 2
+                      }
+                      className="w-fit rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
+                    >
+                      {isGeneratingGroupStage
+                        ? "Generating..."
+                        : "Generate Group Stage"}
+                    </button>
                   </div>
                 )}
               </section>

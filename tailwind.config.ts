@@ -15,6 +15,7 @@ export default {
         "arcade-accent-hover": "#E6BB00",
         "arcade-surface": "#FFFFFF",
         "arcade-muted": "#A1A1AA",
+        "khawater-blue": "#0B3A4A",
       },
     },
   },

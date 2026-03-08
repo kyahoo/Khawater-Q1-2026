@@ -426,6 +426,13 @@ type UpdateTournamentMatchActionResult = {
 
 type TournamentConfirmationInsert =
   Database["public"]["Tables"]["tournament_confirmations"]["Insert"];
+type TournamentMatchInsert =
+  Database["public"]["Tables"]["tournament_matches"]["Insert"];
+
+type GenerateGroupStageMatchesResult = {
+  error: string | null;
+  matchCount: number;
+};
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -441,7 +448,7 @@ function normalizeAdminMatchPayload(params: {
   teamAScore: string;
   teamBScore: string;
   format: string;
-}): Database["public"]["Tables"]["tournament_matches"]["Update"] {
+}): TournamentMatchInsert {
   const roundLabel = params.roundLabel.trim();
 
   if (!roundLabel) {
@@ -495,6 +502,22 @@ function normalizeAdminMatchPayload(params: {
     display_order: 0,
     format: normalizedFormat,
   };
+}
+
+function generateRoundRobinPairings(teamIds: string[]): Array<[string, string]> {
+  const pairings: Array<[string, string]> = [];
+
+  for (let teamAIndex = 0; teamAIndex < teamIds.length - 1; teamAIndex += 1) {
+    for (
+      let teamBIndex = teamAIndex + 1;
+      teamBIndex < teamIds.length;
+      teamBIndex += 1
+    ) {
+      pairings.push([teamIds[teamAIndex], teamIds[teamBIndex]]);
+    }
+  }
+
+  return pairings;
 }
 
 export async function adminForceConfirmTeam(
@@ -666,6 +689,183 @@ export async function updateTournamentMatchAction(
     console.error("Match Update Failed:", error);
     return {
       error: error instanceof Error ? error.message : "Could not update match.",
+    };
+  }
+}
+
+export async function generateGroupStageMatches(
+  tournamentId: string,
+  teamIds: string[],
+  startDateTime: string,
+  matchIntervalMinutes: number
+): Promise<GenerateGroupStageMatchesResult> {
+  const normalizedTournamentId = tournamentId.trim();
+  const normalizedStartDateTime = startDateTime.trim();
+  const trimmedTeamIds = teamIds.map((teamId) => teamId.trim()).filter(Boolean);
+  const normalizedTeamIds = Array.from(new Set(trimmedTeamIds));
+
+  if (!normalizedTournamentId) {
+    return {
+      error: "Tournament is required.",
+      matchCount: 0,
+    };
+  }
+
+  if (trimmedTeamIds.length !== normalizedTeamIds.length) {
+    return {
+      error: "Selected teams must be unique.",
+      matchCount: 0,
+    };
+  }
+
+  if (normalizedTeamIds.length < 2) {
+    return {
+      error: "Select at least two teams to generate group stage matches.",
+      matchCount: 0,
+    };
+  }
+
+  if (!normalizedStartDateTime) {
+    return {
+      error: "Start date and time are required.",
+      matchCount: 0,
+    };
+  }
+
+  const parsedStartDateTime = new Date(normalizedStartDateTime);
+
+  if (Number.isNaN(parsedStartDateTime.getTime())) {
+    return {
+      error: "Start date must be a valid ISO datetime.",
+      matchCount: 0,
+    };
+  }
+
+  const normalizedInterval = Number(matchIntervalMinutes);
+
+  if (!Number.isInteger(normalizedInterval) || normalizedInterval < 0) {
+    return {
+      error: "Match interval must be a non-negative whole number of minutes.",
+      matchCount: 0,
+    };
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return {
+      error: "Missing Supabase server environment configuration.",
+      matchCount: 0,
+    };
+  }
+
+  try {
+    const adminClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    const { data: tournament, error: tournamentError } = await adminClient
+      .from("tournaments")
+      .select("id")
+      .eq("id", normalizedTournamentId)
+      .maybeSingle();
+
+    if (tournamentError) {
+      return {
+        error: tournamentError.message,
+        matchCount: 0,
+      };
+    }
+
+    if (!tournament) {
+      return {
+        error: "Tournament not found.",
+        matchCount: 0,
+      };
+    }
+
+    const { data: tournamentEntries, error: tournamentEntriesError } = await adminClient
+      .from("tournament_team_entries")
+      .select("team_id")
+      .eq("tournament_id", normalizedTournamentId)
+      .in("team_id", normalizedTeamIds);
+
+    if (tournamentEntriesError) {
+      return {
+        error: tournamentEntriesError.message,
+        matchCount: 0,
+      };
+    }
+
+    const enteredTeamIds = new Set(
+      ((tournamentEntries ?? []) as Array<{ team_id: string }>).map(
+        (entry) => entry.team_id
+      )
+    );
+
+    const invalidTeamIds = normalizedTeamIds.filter((teamId) => !enteredTeamIds.has(teamId));
+
+    if (invalidTeamIds.length > 0) {
+      return {
+        error: "All selected teams must already be entered into the tournament.",
+        matchCount: 0,
+      };
+    }
+
+    const pairings = generateRoundRobinPairings(normalizedTeamIds);
+    const matchIntervalInMs = normalizedInterval * 60 * 1000;
+    const firstMatchTimeMs = parsedStartDateTime.getTime();
+    const matchRows: TournamentMatchInsert[] = pairings.map(
+      ([teamAId, teamBId], matchIndex) => ({
+        ...normalizeAdminMatchPayload({
+          tournamentId: normalizedTournamentId,
+          teamAId,
+          teamBId,
+          roundLabel: "Group Stage",
+          scheduledAt: new Date(
+            firstMatchTimeMs + matchIndex * matchIntervalInMs
+          ).toISOString(),
+          status: "scheduled",
+          teamAScore: "",
+          teamBScore: "",
+          format: "BO3",
+        }),
+        display_order: matchIndex,
+      })
+    );
+
+    const { error: insertError } = await adminClient
+      .from("tournament_matches")
+      .insert(matchRows);
+
+    if (insertError) {
+      return {
+        error: insertError.message,
+        matchCount: 0,
+      };
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/tournament");
+    revalidatePath("/matches");
+    revalidatePath("/", "layout");
+
+    return {
+      error: null,
+      matchCount: matchRows.length,
+    };
+  } catch (error) {
+    console.error("Generate Group Stage Matches Failed:", error);
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not generate group stage matches.",
+      matchCount: 0,
     };
   }
 }

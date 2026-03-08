@@ -47,7 +47,7 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-50 flex w-full items-center justify-between bg-[#09090B] px-8 py-4">
+    <header className="sticky top-0 z-50 flex w-full items-center justify-between bg-khawater-blue px-8 py-4">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between">
         <div className="relative z-10 flex items-center gap-12">
         <Link

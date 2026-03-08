@@ -629,7 +629,7 @@ export default function TournamentPage() {
                         key={team.id}
                         className="group relative flex flex-col overflow-hidden border-[3px] border-arcade-black bg-arcade-surface shadow-[4px_4px_0px_0px_#09090B] transition-all clip-chamfer hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#09090B]"
                       >
-                        <div className="border-b-[3px] border-[#09090B] bg-[#09090B] p-4 text-xl font-extrabold uppercase tracking-widest text-[#FFFFFF] transition-colors">
+                        <div className="border-b-[3px] border-[#09090B] bg-khawater-blue p-4 text-xl font-extrabold uppercase tracking-widest text-[#FFFFFF] transition-colors">
                           {team.name}{" "}
                           {team.isSuspended ? (
                             <span className="font-bold text-red-500">(Suspended)</span>
