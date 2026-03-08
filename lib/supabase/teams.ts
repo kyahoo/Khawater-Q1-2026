@@ -3,6 +3,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 export type Team = {
   id: string;
   name: string;
+  logo_url: string | null;
   tagline: string | null;
   created_by: string;
   created_at: string;
@@ -24,6 +25,7 @@ export type TeamMember = {
 export type TeamListItem = {
   id: string;
   name: string;
+  logoUrl: string | null;
   captainName: string;
   memberCount: number;
   isLockedForActiveTournament: boolean;
@@ -64,7 +66,7 @@ export async function getTeamById(teamId: string) {
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("teams")
-    .select("id, name, tagline, created_by, created_at")
+    .select("id, name, logo_url, tagline, created_by, created_at")
     .eq("id", teamId)
     .single();
 
@@ -139,7 +141,7 @@ export async function listTeamsWithMeta() {
   const supabase = getSupabaseBrowserClient();
   const { data: teams, error: teamsError } = await supabase
     .from("teams")
-    .select("id, name, tagline, created_by, created_at")
+    .select("id, name, logo_url, tagline, created_by, created_at")
     .order("created_at", { ascending: true });
 
   if (teamsError) {
@@ -188,6 +190,7 @@ export async function listTeamsWithMeta() {
     return teamRows.map((team) => ({
       id: team.id,
       name: team.name,
+      logoUrl: team.logo_url,
       captainName: "No captain",
       memberCount: 0,
       isLockedForActiveTournament: lockedTeamIds.has(team.id),
@@ -221,6 +224,7 @@ export async function listTeamsWithMeta() {
     return {
       id: team.id,
       name: team.name,
+      logoUrl: team.logo_url,
       captainName: captainMembership
         ? nicknameById.get(captainMembership.user_id) ?? "Captain"
         : "No captain",
@@ -243,7 +247,7 @@ export async function createTeamWithCaptain(params: {
       tagline: params.tagline || null,
       created_by: params.userId,
     })
-    .select("id, name, tagline, created_by, created_at")
+    .select("id, name, logo_url, tagline, created_by, created_at")
     .single();
 
   if (teamError) {
@@ -274,7 +278,7 @@ export async function createTeamForAdmin(params: {
       name: params.name,
       created_by: params.userId,
     })
-    .select("id, name, tagline, created_by, created_at")
+    .select("id, name, logo_url, tagline, created_by, created_at")
     .single();
 
   if (error) {

@@ -8,6 +8,7 @@ import {
   type MatchType,
 } from "@g-loot/react-tournament-brackets";
 import { SiteHeader } from "@/components/site-header";
+import { TeamLogo } from "@/components/team-logo";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   getActiveTournament,
@@ -615,7 +616,7 @@ export default function TournamentPage() {
                 </h2>
 
                 {enteredTeams.length === 0 ? (
-                  <p className="text-sm text-zinc-600">
+                  <p className="text-sm text-white/75">
                     Пока ни одна команда не заявилась на этот турнир.
                   </p>
                 ) : (
@@ -625,11 +626,14 @@ export default function TournamentPage() {
                         key={team.id}
                         className="group relative flex flex-col overflow-hidden border-[4px] border-[#061726] bg-white shadow-[6px_6px_0px_0px_#CD9C3E] transition-all hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#CD9C3E]"
                       >
-                        <div className="border-b-[4px] border-[#061726] bg-khawater-blue p-4 text-xl font-extrabold uppercase tracking-widest text-[#FFFFFF]">
-                          {team.name}{" "}
-                          {team.isSuspended ? (
-                            <span className="font-bold text-red-500">(Suspended)</span>
-                          ) : null}
+                        <div className="flex items-center gap-3 border-b-[4px] border-[#061726] bg-khawater-blue p-4 text-xl font-extrabold uppercase tracking-widest text-[#FFFFFF]">
+                          <TeamLogo teamName={team.name} logoUrl={team.logoUrl} />
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>{team.name}</span>
+                            {team.isSuspended ? (
+                              <span className="font-bold text-red-500">(Suspended)</span>
+                            ) : null}
+                          </div>
                         </div>
                         <div className="flex-1 p-4">
                           <div className="text-sm leading-relaxed font-medium text-arcade-black">

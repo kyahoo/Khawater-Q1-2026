@@ -22,12 +22,6 @@ export default function Home() {
       <main className="px-6 py-12 sm:py-20">
         <section className="mx-auto flex min-h-[70vh] max-w-6xl items-center">
           <div className="w-fit max-w-3xl border-[4px] border-[#061726] bg-[#061726]/85 p-8 shadow-[6px_6px_0px_0px_#061726] backdrop-blur-md md:p-10">
-            <div className="mb-8 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center border border-zinc-600 bg-zinc-900 text-sm font-semibold">
-                K
-              </div>
-              <div className="text-xl font-semibold tracking-wide">Khawater</div>
-            </div>
             <h1 className="text-5xl font-black leading-tight text-[#CD9C3E] md:text-6xl">
               Khawater World 🌍
             </h1>

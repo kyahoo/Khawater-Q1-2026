@@ -39,6 +39,7 @@ export type TournamentTeamEntry = {
 export type EnteredTeam = {
   id: string;
   name: string;
+  logoUrl: string | null;
   captainName: string;
   roster: string[];
   isSuspended: boolean;
@@ -308,7 +309,7 @@ export async function getEnteredTeamsForTournament(
   const { data: teams, error: teamsError } = await supabase
     .from("teams")
     .select(
-      "id, name, team_members(user_id, is_captain, created_at, profiles(id, nickname))"
+      "id, name, logo_url, team_members(user_id, is_captain, created_at, profiles(id, nickname))"
     )
     .in("id", teamIds);
 
@@ -321,6 +322,7 @@ export async function getEnteredTeamsForTournament(
       const team = ((teams ?? []) as unknown as Array<{
         id: string;
         name: string;
+        logo_url: string | null;
         team_members: Array<{
           user_id: string;
           is_captain: boolean;
@@ -366,6 +368,7 @@ export async function getEnteredTeamsForTournament(
       return {
         id: team.id,
         name: team.name,
+        logoUrl: team.logo_url,
         captainName: captainProfile?.nickname ?? "No captain",
         roster,
         isSuspended: suspensionByTeamId.get(team.id) ?? false,

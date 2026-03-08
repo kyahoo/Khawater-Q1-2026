@@ -194,6 +194,9 @@ export default function AdminPage() {
   >(null);
   const [isDeletingTeamId, setIsDeletingTeamId] = useState<string | null>(null);
   const [isDeletingMatchId, setIsDeletingMatchId] = useState<string | null>(null);
+  const [editingLogoTeamId, setEditingLogoTeamId] = useState<string | null>(null);
+  const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
+  const [isUploadingLogoTeamId, setIsUploadingLogoTeamId] = useState<string | null>(null);
   const [selectedMatches, setSelectedMatches] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<AdminTabId>("players");
 
@@ -537,6 +540,11 @@ export default function AdminPage() {
         setSelectedTeamMembers([]);
       }
 
+      if (editingLogoTeamId === teamId) {
+        setEditingLogoTeamId(null);
+        setSelectedLogoFile(null);
+      }
+
       await loadAdminData();
       router.refresh();
     } catch (error) {
@@ -678,6 +686,78 @@ export default function AdminPage() {
       );
     } finally {
       setIsCreatingTeam(false);
+    }
+  }
+
+  function handleToggleTeamLogoEditor(teamId: string) {
+    setSelectedTeamId(teamId);
+    setSelectedLogoFile(null);
+    setEditingLogoTeamId((current) => (current === teamId ? null : teamId));
+    setErrorMessage("");
+  }
+
+  async function handleSaveTeamLogo(teamId: string) {
+    if (!selectedLogoFile) {
+      setErrorMessage("Выберите файл логотипа.");
+      return;
+    }
+
+    if (!["image/png", "image/jpeg", "image/webp"].includes(selectedLogoFile.type)) {
+      setErrorMessage("Поддерживаются только PNG, JPEG и WEBP.");
+      return;
+    }
+
+    setIsUploadingLogoTeamId(teamId);
+    setErrorMessage("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const extensionByType: Record<string, string> = {
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/webp": "webp",
+      };
+      const fileExtension =
+        extensionByType[selectedLogoFile.type] ??
+        selectedLogoFile.name.split(".").pop()?.toLowerCase() ??
+        "png";
+      const filePath = `${teamId}/${Date.now()}-${crypto.randomUUID()}.${fileExtension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("team-logos")
+        .upload(filePath, selectedLogoFile, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: selectedLogoFile.type,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("team-logos").getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from("teams")
+        .update({ logo_url: publicUrl })
+        .eq("id", teamId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      await loadAdminData();
+      setEditingLogoTeamId(null);
+      setSelectedLogoFile(null);
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        getSupabaseLikeErrorMessage(error, "Не удалось загрузить логотип команды.")
+      );
+    } finally {
+      setIsUploadingLogoTeamId(null);
     }
   }
 
@@ -1304,44 +1384,112 @@ export default function AdminPage() {
                 ) : (
                   <div className="space-y-3">
                     {teams.map((team) => (
-                      <div
-                        key={team.id}
-                        className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div>
-                          <div className="font-medium">{team.name}</div>
-                          <div className="mt-1 text-sm text-zinc-500">
-                            Captain: {team.captainName}
-                          </div>
-                          <div className="text-sm text-zinc-500">
-                            Members: {team.memberCount}
-                          </div>
-                          {team.isLockedForActiveTournament && (
-                            <div className="text-sm text-zinc-500">
-                              Roster locked after tournament entry
+                      <div key={team.id} className="space-y-3">
+                        <div className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <div className="font-medium">{team.name}</div>
+                            <div className="mt-1 text-sm text-zinc-500">
+                              Captain: {team.captainName}
                             </div>
-                          )}
+                            <div className="text-sm text-zinc-500">
+                              Members: {team.memberCount}
+                            </div>
+                            <div className="text-sm text-zinc-500">
+                              {team.logoUrl ? "Логотип загружен" : "Логотип не загружен"}
+                            </div>
+                            {team.isLockedForActiveTournament && (
+                              <div className="text-sm text-zinc-500">
+                                Roster locked after tournament entry
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-2 sm:flex-row">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTeamId(team.id)}
+                              disabled={isDeletingTeamId === team.id}
+                              className={`rounded border px-4 py-2 text-sm font-medium ${
+                                selectedTeamId === team.id
+                                  ? "border-zinc-300 bg-zinc-100 text-zinc-500"
+                                  : "border-zinc-400 bg-zinc-100 text-zinc-900"
+                              }`}
+                            >
+                              {selectedTeamId === team.id ? "Managing" : "Manage Team"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleTeamLogoEditor(team.id)}
+                              disabled={isDeletingTeamId === team.id}
+                              className={`rounded border px-4 py-2 text-sm font-medium ${
+                                editingLogoTeamId === team.id
+                                  ? "border-[#061726] bg-[#061726] text-white"
+                                  : "border-zinc-400 bg-white text-zinc-900"
+                              }`}
+                            >
+                              {editingLogoTeamId === team.id
+                                ? "Редактирование"
+                                : "Редактировать"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteTeam(team.id)}
+                              disabled={isDeletingTeamId === team.id}
+                              className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                            >
+                              {isDeletingTeamId === team.id ? "Deleting..." : "Delete"}
+                            </button>
+                          </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedTeamId(team.id)}
-                          disabled={isDeletingTeamId === team.id}
-                          className={`rounded border px-4 py-2 text-sm font-medium ${
-                            selectedTeamId === team.id
-                              ? "border-zinc-300 bg-zinc-100 text-zinc-500"
-                              : "border-zinc-400 bg-zinc-100 text-zinc-900"
-                          }`}
-                        >
-                          {selectedTeamId === team.id ? "Managing" : "Manage Team"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleDeleteTeam(team.id)}
-                          disabled={isDeletingTeamId === team.id}
-                          className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
-                        >
-                          {isDeletingTeamId === team.id ? "Deleting..." : "Delete"}
-                        </button>
+                        {editingLogoTeamId === team.id && (
+                          <div className="border-[3px] border-[#061726] bg-white px-4 py-4 shadow-[4px_4px_0px_0px_#061726]">
+                            <div className="text-sm font-bold uppercase tracking-wide text-[#061726]">
+                              Редактировать команду
+                            </div>
+                            <p className="mt-2 text-sm text-zinc-600">
+                              Загрузить логотип
+                            </p>
+                            <p className="mt-1 text-xs text-zinc-500">
+                              Рекомендуется квадратное изображение 1:1. На карточке
+                              команды логотип будет отображаться как ровный квадрат.
+                            </p>
+                            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+                              <label className="flex-1 text-sm font-medium text-zinc-700">
+                                Файл логотипа
+                                <input
+                                  type="file"
+                                  accept="image/png, image/jpeg, image/webp"
+                                  onChange={(event) =>
+                                    setSelectedLogoFile(event.target.files?.[0] ?? null)
+                                  }
+                                  className="mt-2 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => void handleSaveTeamLogo(team.id)}
+                                disabled={
+                                  !selectedLogoFile || isUploadingLogoTeamId === team.id
+                                }
+                                className="rounded border-[3px] border-[#061726] bg-[#CD9C3E] px-4 py-2 text-sm font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500 disabled:shadow-none"
+                              >
+                                {isUploadingLogoTeamId === team.id
+                                  ? "Сохранение..."
+                                  : "Сохранить"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingLogoTeamId(null);
+                                  setSelectedLogoFile(null);
+                                }}
+                                disabled={isUploadingLogoTeamId === team.id}
+                                className="rounded border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700"
+                              >
+                                Отмена
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
