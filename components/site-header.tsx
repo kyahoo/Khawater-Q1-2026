@@ -53,7 +53,9 @@ export function SiteHeader() {
         <nav className="flex flex-nowrap items-center gap-6 overflow-x-auto w-full px-4 py-4 md:gap-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
           <Link
             href="/tournament"
-            className="inline-flex shrink-0 items-center justify-center whitespace-nowrap text-base font-extrabold uppercase tracking-tighter text-white touch-manipulation md:text-lg"
+            className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap text-base uppercase tracking-tighter touch-manipulation md:text-lg ${
+              pathname === "/tournament" ? "font-black text-[#CD9C3E]" : "font-bold text-white"
+            }`}
           >
             Khawater
           </Link>
