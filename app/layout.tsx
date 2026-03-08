@@ -27,7 +27,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} bg-khawater-light bg-esports-pattern text-slate-900 antialiased`}
       >
-        {children}
+        <div className="fixed inset-0 z-[-10] overflow-hidden pointer-events-none bg-khawater-light">
+          <div className="absolute -left-48 -top-40 h-[600px] w-[800px] bg-khawater-blue opacity-5 -rotate-12 -skew-y-12 [clip-path:polygon(0_0,100%_0,78%_68%,14%_100%)]" />
+          <div className="absolute right-[-220px] bottom-[-180px] h-[640px] w-[860px] bg-khawater-blue opacity-10 rotate-12 skew-y-6 [clip-path:polygon(18%_0,100%_16%,100%_100%,0_82%)]" />
+          <div className="absolute left-[24%] top-[22%] h-[360px] w-[520px] bg-khawater-blue opacity-5 -rotate-6 [clip-path:polygon(12%_0,100%_18%,84%_100%,0_74%)]" />
+        </div>
+        <div className="relative z-0">{children}</div>
       </body>
     </html>
   );
