@@ -201,6 +201,13 @@ export default function AdminPage() {
   const [editingLogoTeamId, setEditingLogoTeamId] = useState<string | null>(null);
   const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
   const [isUploadingLogoTeamId, setIsUploadingLogoTeamId] = useState<string | null>(null);
+  const [editingBannerTournamentId, setEditingBannerTournamentId] = useState<string | null>(
+    null
+  );
+  const [selectedBannerFile, setSelectedBannerFile] = useState<File | null>(null);
+  const [isUploadingBannerTournamentId, setIsUploadingBannerTournamentId] = useState<
+    string | null
+  >(null);
   const [selectedMatches, setSelectedMatches] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<AdminTabId>("players");
 
@@ -735,6 +742,14 @@ export default function AdminPage() {
     setErrorMessage("");
   }
 
+  function handleToggleTournamentBannerEditor(tournamentId: string) {
+    setSelectedBannerFile(null);
+    setEditingBannerTournamentId((current) =>
+      current === tournamentId ? null : tournamentId
+    );
+    setErrorMessage("");
+  }
+
   async function handleSaveTeamLogo(teamId: string) {
     if (!selectedLogoFile) {
       setErrorMessage("Выберите файл логотипа.");
@@ -797,6 +812,75 @@ export default function AdminPage() {
       );
     } finally {
       setIsUploadingLogoTeamId(null);
+    }
+  }
+
+  async function handleSaveTournamentBanner(tournamentId: string) {
+    if (!selectedBannerFile) {
+      setErrorMessage("Выберите файл баннера.");
+      window.alert("Ошибка: не удалось загрузить баннер");
+      return;
+    }
+
+    if (!["image/png", "image/jpeg", "image/webp"].includes(selectedBannerFile.type)) {
+      setErrorMessage("Поддерживаются только PNG, JPEG и WEBP.");
+      window.alert("Ошибка: не удалось загрузить баннер");
+      return;
+    }
+
+    setIsUploadingBannerTournamentId(tournamentId);
+    setErrorMessage("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const extensionByType: Record<string, string> = {
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/webp": "webp",
+      };
+      const fileExtension =
+        extensionByType[selectedBannerFile.type] ??
+        selectedBannerFile.name.split(".").pop()?.toLowerCase() ??
+        "png";
+      const filePath = `${tournamentId}/${Date.now()}-${crypto.randomUUID()}.${fileExtension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("tournament-banners")
+        .upload(filePath, selectedBannerFile, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: selectedBannerFile.type,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("tournament-banners").getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from("tournaments")
+        .update({ banner_url: publicUrl })
+        .eq("id", tournamentId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      await loadAdminData();
+      setEditingBannerTournamentId(null);
+      setSelectedBannerFile(null);
+      window.alert("Баннер успешно загружен");
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        getSupabaseLikeErrorMessage(error, "Не удалось загрузить баннер турнира.")
+      );
+      window.alert("Ошибка: не удалось загрузить баннер");
+    } finally {
+      setIsUploadingBannerTournamentId(null);
     }
   }
 
@@ -1858,35 +1942,85 @@ export default function AdminPage() {
                 ) : (
                   <div className="space-y-3">
                     {tournaments.map((tournament) => (
-                      <div
-                        key={tournament.id}
-                        className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div>
-                          <div className="font-medium">{tournament.name}</div>
-                          <div className="mt-1 text-sm text-zinc-500">
-                            Status: {tournament.is_active ? "Active" : "Inactive"}
+                      <div key={tournament.id} className="space-y-3">
+                        <div className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <div className="font-medium">{tournament.name}</div>
+                            <div className="mt-1 text-sm text-zinc-500">
+                              Status: {tournament.is_active ? "Active" : "Inactive"}
+                            </div>
+                            <div className="text-sm text-zinc-500">
+                              {tournament.banner_url ? "Баннер загружен" : "Баннер не загружен"}
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleTournamentBannerEditor(tournament.id)}
+                              className={`rounded border px-4 py-2 text-sm font-medium ${
+                                editingBannerTournamentId === tournament.id
+                                  ? "border-[#061726] bg-[#061726] text-white"
+                                  : "border-zinc-400 bg-white text-zinc-900"
+                              }`}
+                            >
+                              {editingBannerTournamentId === tournament.id
+                                ? "Редактирование"
+                                : "Загрузить баннер"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleSetActiveTournament(tournament.id)}
+                              disabled={
+                                tournament.is_active ||
+                                isSwitchingTournamentId === tournament.id
+                              }
+                              className={`rounded border px-4 py-2 text-sm font-medium ${
+                                tournament.is_active
+                                  ? "border-zinc-300 bg-zinc-100 text-zinc-500"
+                                  : "border-zinc-400 bg-zinc-100 text-zinc-900"
+                              }`}
+                            >
+                              {tournament.is_active
+                                ? "Active Tournament"
+                                : isSwitchingTournamentId === tournament.id
+                                  ? "Updating..."
+                                  : "Set Active"}
+                            </button>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => void handleSetActiveTournament(tournament.id)}
-                          disabled={
-                            tournament.is_active ||
-                            isSwitchingTournamentId === tournament.id
-                          }
-                          className={`rounded border px-4 py-2 text-sm font-medium ${
-                            tournament.is_active
-                              ? "border-zinc-300 bg-zinc-100 text-zinc-500"
-                              : "border-zinc-400 bg-zinc-100 text-zinc-900"
-                          }`}
-                        >
-                          {tournament.is_active
-                            ? "Active Tournament"
-                            : isSwitchingTournamentId === tournament.id
-                              ? "Updating..."
-                              : "Set Active"}
-                        </button>
+                        {editingBannerTournamentId === tournament.id && (
+                          <div className="border-[3px] border-[#061726] bg-white px-4 py-4 shadow-[4px_4px_0px_0px_#061726]">
+                            <div className="text-sm font-bold uppercase tracking-wide text-[#061726]">
+                              Загрузить баннер
+                            </div>
+                            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+                              <label className="flex-1 text-sm font-medium text-zinc-700">
+                                Файл баннера
+                                <input
+                                  type="file"
+                                  accept="image/png, image/jpeg, image/webp"
+                                  onChange={(event) =>
+                                    setSelectedBannerFile(event.target.files?.[0] ?? null)
+                                  }
+                                  className="mt-2 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => void handleSaveTournamentBanner(tournament.id)}
+                                disabled={
+                                  !selectedBannerFile ||
+                                  isUploadingBannerTournamentId === tournament.id
+                                }
+                                className="rounded border-[3px] border-[#061726] bg-[#CD9C3E] px-4 py-2 text-sm font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500 disabled:shadow-none"
+                              >
+                                {isUploadingBannerTournamentId === tournament.id
+                                  ? "Загрузка..."
+                                  : "Загрузить баннер"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
