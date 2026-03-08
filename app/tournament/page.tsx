@@ -459,18 +459,18 @@ export default function TournamentPage() {
             {formatRoundLabel(match.roundLabel)} - {match.format}
           </div>
           <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-2 md:gap-4">
-            <div className="flex w-full items-center justify-start gap-4">
+            <div className="flex w-full min-w-0 items-center justify-start gap-4">
               <TeamLogo
                 teamName={match.teamAName}
                 logoUrl={match.teamALogoUrl}
-                sizeClassName="aspect-square h-16 w-16 md:h-20 md:w-20"
-                textClassName="text-2xl md:text-3xl"
+                sizeClassName="aspect-square h-10 w-10 md:h-20 md:w-20"
+                textClassName="text-base md:text-3xl"
               />
-              <span className="text-2xl font-bold text-white md:text-3xl">
+              <span className="min-w-0 truncate text-base font-bold text-white md:text-3xl">
                 {match.teamAName}
               </span>
             </div>
-            <div className="mx-4 flex items-center justify-center text-center text-3xl font-black text-[#CD9C3E] md:text-4xl">
+            <div className="mx-2 flex items-center justify-center text-center text-xl font-black text-[#CD9C3E] md:mx-4 md:text-4xl">
               {match.teamAScore !== null && match.teamBScore !== null
                 ? match.teamAScore > match.teamBScore
                   ? ">"
@@ -479,15 +479,15 @@ export default function TournamentPage() {
                     : "VS"
                 : "VS"}
             </div>
-            <div className="flex w-full items-center justify-end gap-4 text-right">
-              <span className="text-2xl font-bold text-white md:text-3xl">
+            <div className="flex w-full min-w-0 items-center justify-end gap-4 text-right">
+              <span className="min-w-0 truncate text-base font-bold text-white md:text-3xl">
                 {match.teamBName}
               </span>
               <TeamLogo
                 teamName={match.teamBName}
                 logoUrl={match.teamBLogoUrl}
-                sizeClassName="aspect-square h-16 w-16 md:h-20 md:w-20"
-                textClassName="text-2xl md:text-3xl"
+                sizeClassName="aspect-square h-10 w-10 md:h-20 md:w-20"
+                textClassName="text-base md:text-3xl"
               />
             </div>
           </div>
