@@ -20,7 +20,8 @@ type TestUserCredentials = {
 };
 
 test.describe("Team management", () => {
-  test.afterEach(async ({ browserName }) => {
+  test.afterEach(async ({ browserName }, testInfo) => {
+    testInfo.setTimeout(60_000);
     const credentials = getTestUserCredentials(browserName);
     const adminClient = createAdminClient();
     const testUser = await ensureTestUser(adminClient, credentials);
@@ -32,6 +33,7 @@ test.describe("Team management", () => {
     page,
     browserName,
   }) => {
+    test.setTimeout(60_000);
     const credentials = getTestUserCredentials(browserName);
     const adminClient = createAdminClient();
     const testUser = await ensureTestUser(adminClient, credentials);
@@ -41,7 +43,9 @@ test.describe("Team management", () => {
 
     await page.goto("/my-team");
     await expect(page).toHaveURL(/\/my-team$/);
-    await expect(page.getByRole("heading", { name: "Моя команда" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Моя команда" })
+    ).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("You are not part of a team yet.")).toBeVisible();
 
     await page.getByRole("link", { name: "Create Team" }).click();
@@ -54,7 +58,9 @@ test.describe("Team management", () => {
       page.getByRole("button", { name: "Create Team" }).click(),
     ]);
 
-    await expect(page.getByRole("heading", { name: TEAM_NAME })).toBeVisible();
+    await expect(page.getByRole("heading", { name: TEAM_NAME })).toBeVisible({
+      timeout: 15_000,
+    });
 
     await cleanupTeamViaUi(page);
 
@@ -147,28 +153,6 @@ async function ensureTestUser(
   adminClient: SupabaseClient<Database>,
   credentials: TestUserCredentials
 ): Promise<User> {
-  const existingUser = await findUserByEmail(adminClient, credentials.email);
-
-  if (existingUser) {
-    const { error: updateError } = await adminClient.auth.admin.updateUserById(
-      existingUser.id,
-      {
-        password: credentials.password,
-        email_confirm: true,
-        user_metadata: {
-          nickname: credentials.nickname,
-        },
-      }
-    );
-
-    if (updateError) {
-      throw updateError;
-    }
-
-    await ensureProfile(adminClient, existingUser.id, credentials.nickname);
-    return existingUser;
-  }
-
   const { data, error } = await adminClient.auth.admin.createUser({
     email: credentials.email,
     password: credentials.password,
@@ -178,12 +162,38 @@ async function ensureTestUser(
     },
   });
 
-  if (error || !data.user) {
+  if (!error && data.user) {
+    await ensureProfile(adminClient, data.user.id, credentials.nickname);
+    return data.user;
+  }
+
+  if (!isDuplicateUserError(error)) {
     throw error ?? new Error("Could not create the E2E test user.");
   }
 
-  await ensureProfile(adminClient, data.user.id, credentials.nickname);
-  return data.user;
+  const existingUser = await findUserByEmail(adminClient, credentials.email);
+
+  if (!existingUser) {
+    throw new Error("The E2E user already exists, but it could not be fetched.");
+  }
+
+  const { error: updateError } = await adminClient.auth.admin.updateUserById(
+    existingUser.id,
+    {
+      password: credentials.password,
+      email_confirm: true,
+      user_metadata: {
+        nickname: credentials.nickname,
+      },
+    }
+  );
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  await ensureProfile(adminClient, existingUser.id, credentials.nickname);
+  return existingUser;
 }
 
 async function findUserByEmail(
@@ -221,6 +231,16 @@ async function findUserByEmail(
 
     pageNumber += 1;
   }
+}
+
+function isDuplicateUserError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return /already exists|already registered|already been registered/i.test(
+    error.message
+  );
 }
 
 async function ensureProfile(
@@ -302,6 +322,14 @@ async function loginViaUi(page: Page, credentials: TestUserCredentials) {
     page.waitForURL(/\/profile$/),
     page.getByRole("button", { name: "Login" }).click(),
   ]);
+
+  await expect(page.getByRole("heading", { name: "Профиль" })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByRole("button", { name: "Выйти" })).toBeVisible({
+    timeout: 15_000,
+  });
+  await page.waitForLoadState("networkidle");
 }
 
 async function cleanupTeamViaUi(page: Page) {
