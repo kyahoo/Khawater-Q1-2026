@@ -377,7 +377,7 @@ export default function ProfilePage() {
       <SiteHeader />
 
       <main className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="mb-8 inline-block border-[3px] border-[#061726] bg-[#061726]/90 px-6 py-3 text-4xl font-black uppercase text-[#CD9C3E] shadow-[6px_6px_0px_0px_#061726] md:text-5xl">
+        <h1 className="mb-8 inline-block border-[3px] border-[#061726] bg-[#0B3A4A] px-6 py-3 text-4xl font-black uppercase text-[#CD9C3E] shadow-[6px_6px_0px_0px_#061726] md:text-5xl">
           Профиль
         </h1>
 
@@ -441,7 +441,7 @@ export default function ProfilePage() {
                 disabled={isSigningOut}
                 className="mt-6 bg-red-500 text-white font-extrabold uppercase px-6 py-2 border-[3px] border-[#061726] shadow-[4px_4px_0px_0px_#061726] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] transition-all w-fit"
               >
-                {isSigningOut ? "Выход..." : "ВЫЙТИ"}
+                {isSigningOut ? "Выход..." : "ВЫЙТИ ИЗ АККАУНТА"}
               </button>
             </div>
 
