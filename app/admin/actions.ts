@@ -844,47 +844,70 @@ function scheduleRoundRobinMatches(params: {
     throw new Error("Match interval must be a positive whole number of minutes.");
   }
 
+  const totalMatches = params.pairings.length;
+  const totalDays =
+    Math.floor(compareScheduleDates(endDate, startDate) / (24 * 60 * 60 * 1000)) + 1;
+  const maxMatchesPerDay = Math.floor(
+    (dailyEndMinutes - dailyStartMinutes) / matchIntervalMinutes
+  );
+
+  if (maxMatchesPerDay <= 0 || maxMatchesPerDay * totalDays < totalMatches) {
+    throw new Error(
+      "Not enough time slots to schedule all matches. Please extend the dates or adjust the times."
+    );
+  }
+
+  const baseMatchesPerDay = Math.floor(totalMatches / totalDays);
+  const extraMatchesDays = totalMatches % totalDays;
   const scheduledMatches: Array<{
     teamAId: string;
     teamBId: string;
     scheduledAt: string;
   }> = [];
+  let pairingIndex = 0;
   let currentDate = startDate;
-  let currentStartMinutes = dailyStartMinutes;
 
-  for (const [teamAId, teamBId] of params.pairings) {
-    let scheduledCurrentMatch = false;
+  for (let dayIndex = 0; dayIndex < totalDays; dayIndex += 1) {
+    const dailyQuota =
+      baseMatchesPerDay + (dayIndex < extraMatchesDays ? 1 : 0);
 
-    while (compareScheduleDates(currentDate, endDate) <= 0) {
-      if (currentStartMinutes + matchIntervalMinutes <= dailyEndMinutes) {
-        scheduledMatches.push({
-          teamAId,
-          teamBId,
-          scheduledAt: createScheduledAtIso(currentDate, currentStartMinutes),
-        });
-        scheduledCurrentMatch = true;
-
-        const nextStartMinutes = currentStartMinutes + matchIntervalMinutes;
-
-        if (nextStartMinutes + matchIntervalMinutes <= dailyEndMinutes) {
-          currentStartMinutes = nextStartMinutes;
-        } else {
-          currentDate = addDaysToScheduleDate(currentDate, 1);
-          currentStartMinutes = dailyStartMinutes;
-        }
-
-        break;
-      }
-
-      currentDate = addDaysToScheduleDate(currentDate, 1);
-      currentStartMinutes = dailyStartMinutes;
-    }
-
-    if (!scheduledCurrentMatch) {
+    if (dailyQuota > maxMatchesPerDay) {
       throw new Error(
         "Not enough time slots to schedule all matches. Please extend the dates or adjust the times."
       );
     }
+
+    for (let dayMatchIndex = 0; dayMatchIndex < dailyQuota; dayMatchIndex += 1) {
+      const pairing = params.pairings[pairingIndex];
+
+      if (!pairing) {
+        break;
+      }
+
+      const [teamAId, teamBId] = pairing;
+      const matchStartMinutes = dailyStartMinutes + dayMatchIndex * matchIntervalMinutes;
+
+      if (matchStartMinutes + matchIntervalMinutes > dailyEndMinutes) {
+        throw new Error(
+          "Not enough time slots to schedule all matches. Please extend the dates or adjust the times."
+        );
+      }
+
+      scheduledMatches.push({
+        teamAId,
+        teamBId,
+        scheduledAt: createScheduledAtIso(currentDate, matchStartMinutes),
+      });
+      pairingIndex += 1;
+    }
+
+    currentDate = addDaysToScheduleDate(currentDate, 1);
+  }
+
+  if (pairingIndex < totalMatches) {
+    throw new Error(
+      "Not enough time slots to schedule all matches. Please extend the dates or adjust the times."
+    );
   }
 
   return scheduledMatches;
