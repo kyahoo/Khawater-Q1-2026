@@ -2,14 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const router = useRouter();
   const [hasSession, setHasSession] = useState<boolean | null>(null);
-  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -32,20 +30,6 @@ export function SiteHeader() {
       subscription.unsubscribe();
     };
   }, []);
-
-  async function handleSignOut() {
-    setIsSigningOut(true);
-
-    try {
-      const supabase = getSupabaseBrowserClient();
-      await supabase.auth.signOut();
-      setHasSession(false);
-      router.replace("/");
-      router.refresh();
-    } finally {
-      setIsSigningOut(false);
-    }
-  }
 
   function isActivePath(href: string) {
     return pathname === href || pathname.startsWith(`${href}/`);
@@ -104,14 +88,6 @@ export function SiteHeader() {
               >
                 Профиль
               </Link>
-              <button
-                type="button"
-                onClick={() => void handleSignOut()}
-                disabled={isSigningOut}
-                className="w-fit text-sm font-bold uppercase tracking-wide text-[#FFFFFF] transition-colors hover:text-[#CD9C3E] md:text-base"
-              >
-                {isSigningOut ? "Выход..." : "Выйти"}
-              </button>
             </div>
           ) : (
             <Link

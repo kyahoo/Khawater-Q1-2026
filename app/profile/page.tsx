@@ -58,6 +58,7 @@ export default function ProfilePage() {
   const [isConfirmingParticipation, setIsConfirmingParticipation] = useState(false);
   const [isParticipationConfirmed, setIsParticipationConfirmed] = useState(false);
   const [isRegisteringDevice, setIsRegisteringDevice] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [hasLoadedDeviceBinding, setHasLoadedDeviceBinding] = useState(false);
   const [isDeviceBound, setIsDeviceBound] = useState(false);
   const [deviceMessage, setDeviceMessage] = useState("");
@@ -296,6 +297,24 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleSignOut() {
+    setIsSigningOut(true);
+    setErrorMessage("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      await supabase.auth.signOut();
+      router.replace("/auth");
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Не удалось выполнить выход."
+      );
+    } finally {
+      setIsSigningOut(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-zinc-100 px-6 py-10 text-zinc-900">
@@ -344,6 +363,14 @@ export default function ProfilePage() {
                   <p className="text-sm text-zinc-600">{deviceMessage}</p>
                 )}
               </div>
+              <button
+                type="button"
+                onClick={() => void handleSignOut()}
+                disabled={isSigningOut}
+                className="mt-6 bg-red-500 text-white font-extrabold uppercase px-6 py-2 border-[3px] border-[#061726] shadow-[4px_4px_0px_0px_#061726] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] transition-all w-fit"
+              >
+                {isSigningOut ? "Выход..." : "ВЫЙТИ"}
+              </button>
             </div>
 
             <div className="border border-zinc-300 bg-white p-5 shadow-md">
