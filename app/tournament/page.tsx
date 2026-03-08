@@ -597,10 +597,10 @@ export default function TournamentPage() {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`cursor-pointer select-none border-[4px] px-6 py-3 text-sm uppercase tracking-wider shadow-[6px_6px_0px_0px_#0B3A4A] transition-colors md:text-base ${
+                  className={`cursor-pointer select-none border-[4px] px-6 py-3 text-sm uppercase tracking-wider shadow-[6px_6px_0px_0px_#061726] transition-colors md:text-base ${
                     activeTab === tab.id
-                      ? "border-[#0B3A4A] bg-white font-extrabold text-[#CD9C3E]"
-                      : "border-[#0B3A4A] bg-[#0B3A4A] font-bold text-white hover:bg-[#0f4f66]"
+                      ? "border-[#061726] bg-white font-extrabold text-[#0B3A4A]"
+                      : "border-[#061726] bg-[#0B3A4A] font-bold text-white hover:bg-[#0f4f66]"
                   }`}
                 >
                   {tab.label}
@@ -623,9 +623,9 @@ export default function TournamentPage() {
                     {enteredTeams.map((team) => (
                       <div
                         key={team.id}
-                        className="group relative flex flex-col overflow-hidden border-[4px] border-[#0B3A4A] bg-white shadow-[6px_6px_0px_0px_#0B3A4A] transition-all hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#0B3A4A]"
+                        className="group relative flex flex-col overflow-hidden border-[4px] border-[#061726] bg-white shadow-[6px_6px_0px_0px_#061726] transition-all hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#061726]"
                       >
-                        <div className="border-b-[4px] border-[#0B3A4A] bg-khawater-blue p-4 text-xl font-extrabold uppercase tracking-widest text-[#FFFFFF]">
+                        <div className="border-b-[4px] border-[#061726] bg-khawater-blue p-4 text-xl font-extrabold uppercase tracking-widest text-[#FFFFFF]">
                           {team.name}{" "}
                           {team.isSuspended ? (
                             <span className="font-bold text-red-500">(Suspended)</span>
