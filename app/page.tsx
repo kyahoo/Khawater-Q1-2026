@@ -18,7 +18,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
+    <div className="min-h-screen bg-transparent text-white">
       <main className="px-6 py-12 sm:py-20">
         <section className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1fr_1fr] lg:items-center">
           <div className="max-w-2xl">

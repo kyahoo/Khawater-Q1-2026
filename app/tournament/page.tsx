@@ -563,7 +563,7 @@ export default function TournamentPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-zinc-100 text-zinc-900">
+    <div className="min-h-screen bg-transparent text-zinc-900">
       <SiteHeader />
 
       <main className="mx-auto max-w-6xl px-6 py-8">
