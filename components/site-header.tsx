@@ -63,7 +63,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 flex w-full flex-row items-center justify-between bg-khawater-blue px-8 py-4">
       <div className="mx-auto flex w-full max-w-6xl flex-row items-center justify-between">
         <div className="relative z-10 flex items-center gap-6">
-        <div className="inline-flex items-center justify-center text-2xl font-extrabold uppercase tracking-tighter text-white touch-manipulation md:text-3xl">
+        <div className="inline-flex items-center justify-center text-sm font-extrabold uppercase tracking-tighter text-white touch-manipulation md:text-base">
           Khawater
         </div>
 
@@ -104,7 +104,7 @@ export function SiteHeader() {
                 type="button"
                 onClick={() => void handleSignOut()}
                 disabled={isSigningOut}
-                className="w-fit text-sm font-bold uppercase tracking-wide text-[#FFFFFF] transition-colors hover:text-[#CD9C3E]"
+                className="w-fit text-sm font-bold uppercase tracking-wide text-[#FFFFFF] transition-colors hover:text-[#CD9C3E] md:text-base"
               >
                 {isSigningOut ? "Выход..." : "Выйти"}
               </button>
