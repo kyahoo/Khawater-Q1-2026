@@ -1127,7 +1127,7 @@ export default function AdminPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-zinc-100 px-6 py-10 text-zinc-900">
+      <div className="min-h-screen bg-transparent px-6 py-10 text-zinc-900">
         <div className="mx-auto max-w-5xl text-sm text-zinc-600">
           Loading admin...
         </div>
@@ -1136,7 +1136,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-100 text-zinc-900">
+    <div className="min-h-screen bg-transparent text-zinc-900">
       <SiteHeader />
 
       <div className="border-b border-zinc-300 bg-zinc-200 px-6 py-3">
@@ -1159,7 +1159,7 @@ export default function AdminPage() {
         )}
 
         {!hasAdminAccess ? (
-          <section className="border border-zinc-300 bg-white p-5">
+          <section className="border border-zinc-300 bg-white p-5 shadow-md">
             <h1 className="mb-3 text-2xl font-semibold">Admin</h1>
             <p className="text-sm text-zinc-600">
               You do not have admin access for this area.
@@ -1167,7 +1167,7 @@ export default function AdminPage() {
           </section>
         ) : (
         <div className="space-y-6">
-          <section className="border border-zinc-300 bg-white p-5">
+          <section className="border border-zinc-300 bg-white p-5 shadow-md">
             <h1 className="mb-4 text-2xl font-semibold">Tournament Admin</h1>
             <div className="text-sm text-zinc-600">
               Current active tournament:{" "}
@@ -1196,7 +1196,7 @@ export default function AdminPage() {
 
           {activeTab === "players" && (
             <div className="space-y-6">
-              <section className="border border-zinc-300 bg-white p-5">
+              <section className="border border-zinc-300 bg-white p-5 shadow-md">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                   Create Player
                 </h2>
@@ -1239,7 +1239,7 @@ export default function AdminPage() {
                 </div>
               </section>
 
-              <section className="border border-zinc-300 bg-white p-5">
+              <section className="border border-zinc-300 bg-white p-5 shadow-md">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                   Manage Players
                 </h2>
@@ -1275,7 +1275,7 @@ export default function AdminPage() {
 
           {activeTab === "teams" && (
             <div className="space-y-6">
-              <section className="border border-zinc-300 bg-white p-5">
+              <section className="border border-zinc-300 bg-white p-5 shadow-md">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">Teams</h2>
 
                 <div className="mb-5 flex flex-col gap-3 sm:flex-row">
@@ -1346,7 +1346,7 @@ export default function AdminPage() {
               </section>
 
               {selectedTeam && (
-                <section className="border border-zinc-300 bg-white p-5">
+                <section className="border border-zinc-300 bg-white p-5 shadow-md">
                   <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                     Manage Team
                   </h2>
@@ -1472,7 +1472,7 @@ export default function AdminPage() {
                 </section>
               )}
 
-              <section className="border border-zinc-300 bg-white p-5">
+              <section className="border border-zinc-300 bg-white p-5 shadow-md">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                   Active Tournament Entry
                 </h2>
@@ -1586,7 +1586,7 @@ export default function AdminPage() {
 
           {activeTab === "tournaments" && (
             <div className="space-y-6">
-              <section className="border border-zinc-300 bg-white p-5">
+              <section className="border border-zinc-300 bg-white p-5 shadow-md">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                   Create Tournament
                 </h2>
@@ -1646,7 +1646,7 @@ export default function AdminPage() {
                 </div>
               </section>
 
-              <section className="border border-zinc-300 bg-white p-5">
+              <section className="border border-zinc-300 bg-white p-5 shadow-md">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                   Tournaments
                 </h2>
@@ -1691,7 +1691,7 @@ export default function AdminPage() {
                 )}
               </section>
 
-              <section className="border border-zinc-300 bg-white p-5">
+              <section className="border border-zinc-300 bg-white p-5 shadow-md">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                   Generate Group Stage
                 </h2>
@@ -1920,7 +1920,7 @@ export default function AdminPage() {
                 )}
               </section>
 
-              <section className="border border-zinc-300 bg-white p-5">
+              <section className="border border-zinc-300 bg-white p-5 shadow-md">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                   Active Tournament Matches
                 </h2>

@@ -568,15 +568,15 @@ export default function TournamentPage() {
 
       <main className="mx-auto max-w-6xl px-6 py-8">
         {isLoading ? (
-          <div className="border border-zinc-300 bg-white p-5 text-sm text-zinc-600 shadow-sm">
+          <div className="border border-zinc-300 bg-white p-5 text-sm text-zinc-600 shadow-md">
             Загрузка турнира...
           </div>
         ) : errorMessage ? (
-          <div className="border border-red-300 bg-white p-5 text-sm text-red-600 shadow-sm">
+          <div className="border border-red-300 bg-white p-5 text-sm text-red-600 shadow-md">
             {errorMessage}
           </div>
         ) : !activeTournament ? (
-          <section className="border border-zinc-300 bg-white p-5 shadow-sm">
+          <section className="border border-zinc-300 bg-white p-5 shadow-md">
             <h1 className="mb-3 text-2xl font-semibold">Турнир</h1>
             <p className="text-sm text-zinc-600">Сейчас нет активного турнира.</p>
           </section>
@@ -613,7 +613,7 @@ export default function TournamentPage() {
             </nav>
 
             {activeTab === "teams" && (
-              <section className="border border-zinc-300 bg-white p-5 shadow-sm">
+              <section className="border border-zinc-300 bg-white p-5 shadow-md">
                 <h2 className="mb-6 flex items-center gap-3 text-2xl font-extrabold uppercase tracking-tight text-[#09090B] before:h-8 before:w-4 before:bg-[#FFD000] before:content-[''] before:clip-slant">
                   Заявленные команды
                 </h2>
@@ -653,7 +653,7 @@ export default function TournamentPage() {
             )}
 
             {activeTab === "matches" && (
-              <section className="border border-zinc-300 bg-white p-5 shadow-sm">
+              <section className="border border-zinc-300 bg-white p-5 shadow-md">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                   Расписание и результаты
                 </h2>
@@ -671,7 +671,7 @@ export default function TournamentPage() {
             )}
 
             {activeTab === "group" && (
-              <section className="border border-zinc-300 bg-white p-5 shadow-sm">
+              <section className="border border-zinc-300 bg-white p-5 shadow-md">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                   Таблица группового этапа
                 </h2>
@@ -721,7 +721,7 @@ export default function TournamentPage() {
             )}
 
             {activeTab === "playoffs" && (
-              <section className="border border-zinc-300 bg-white p-5 shadow-sm">
+              <section className="border border-zinc-300 bg-white p-5 shadow-md">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                   Сетка плей-офф
                 </h2>

@@ -319,7 +319,7 @@ export default function ProfilePage() {
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <section className="space-y-6">
-            <div className="border border-zinc-300 bg-white p-5 shadow-sm">
+            <div className="border border-zinc-300 bg-white p-5 shadow-md">
               <div className="mb-3 text-2xl font-semibold">
                 {profile?.nickname ?? "Player"}
               </div>
@@ -346,7 +346,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="border border-zinc-300 bg-white p-5 shadow-sm">
+            <div className="border border-zinc-300 bg-white p-5 shadow-md">
               <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                 Статус команды
               </h2>
@@ -384,7 +384,7 @@ export default function ProfilePage() {
               )}
             </div>
 
-            <div className="border border-zinc-300 bg-white p-5 shadow-sm">
+            <div className="border border-zinc-300 bg-white p-5 shadow-md">
               <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                 Участие в текущем турнире
               </h2>
@@ -435,7 +435,7 @@ export default function ProfilePage() {
             {teamData ? (
               <a
                 href="/my-team"
-                className="block rounded border border-zinc-300 bg-white px-5 py-4 text-sm font-medium shadow-sm"
+                className="block rounded border border-zinc-300 bg-white px-5 py-4 text-sm font-medium shadow-md"
               >
                 Моя команда
               </a>
@@ -443,13 +443,13 @@ export default function ProfilePage() {
               <>
                 <a
                   href="/create-team"
-                  className="block rounded border border-zinc-300 bg-white px-5 py-4 text-sm font-medium shadow-sm"
+                  className="block rounded border border-zinc-300 bg-white px-5 py-4 text-sm font-medium shadow-md"
                 >
                   Create Team
                 </a>
                 <a
                   href="/join-team"
-                  className="block rounded border border-zinc-300 bg-white px-5 py-4 text-sm font-medium shadow-sm"
+                  className="block rounded border border-zinc-300 bg-white px-5 py-4 text-sm font-medium shadow-md"
                 >
                   Join Team
                 </a>
