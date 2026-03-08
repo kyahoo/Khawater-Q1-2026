@@ -540,11 +540,15 @@ export default function AdminPage() {
       }
 
       await loadAdminData();
+      window.alert("Устройство успешно сброшено");
       router.refresh();
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Ошибка: не удалось сбросить устройство";
       setErrorMessage(
         error instanceof Error ? error.message : "Не удалось сбросить устройство."
       );
+      window.alert(`Ошибка: ${message}`);
     } finally {
       setIsResettingDeviceUserId(null);
     }
@@ -1380,7 +1384,7 @@ export default function AdminPage() {
                             type="button"
                             onClick={() => void handleResetPlayerDeviceBinding(player.id)}
                             disabled={isResettingDeviceUserId === player.id}
-                            className="w-fit border-2 border-[#061726] bg-yellow-500 px-4 py-1 text-xs font-extrabold uppercase text-[#061726] shadow-[2px_2px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-none disabled:cursor-not-allowed disabled:opacity-60"
+                            className="w-fit border-2 border-[#061726] bg-yellow-500 px-4 py-1 text-xs font-extrabold uppercase text-[#061726] shadow-[2px_2px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0px_0px_#061726]"
                           >
                             {isResettingDeviceUserId === player.id
                               ? "Сброс..."
