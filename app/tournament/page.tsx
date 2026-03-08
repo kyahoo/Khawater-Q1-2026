@@ -458,8 +458,8 @@ export default function TournamentPage() {
           <div className="mb-2 text-sm font-bold uppercase tracking-wider text-[#CD9C3E] md:text-base">
             {formatRoundLabel(match.roundLabel)} - {match.format}
           </div>
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
+          <div className="relative flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="flex items-center justify-start gap-3 md:w-1/2">
               <TeamLogo
                 teamName={match.teamAName}
                 logoUrl={match.teamALogoUrl}
@@ -470,10 +470,10 @@ export default function TournamentPage() {
                 {match.teamAName}
               </span>
             </div>
-            <div className="text-3xl font-black text-[#CD9C3E] md:mx-4 md:text-4xl">
+            <div className="text-3xl font-black text-[#CD9C3E] md:absolute md:left-1/2 md:-translate-x-1/2 md:text-4xl">
               VS
             </div>
-            <div className="flex items-center gap-3 md:flex-row-reverse">
+            <div className="flex items-center justify-start gap-3 md:ml-auto md:w-1/2 md:justify-end md:flex-row-reverse">
               <TeamLogo
                 teamName={match.teamBName}
                 logoUrl={match.teamBLogoUrl}
