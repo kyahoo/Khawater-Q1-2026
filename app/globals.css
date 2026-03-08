@@ -17,9 +17,11 @@
 }
 
 @layer base {
+  html,
   body {
     min-height: 100vh;
-    background-color: var(--color-khawater-light);
+    background-color: #061726;
+    overscroll-behavior-y: none;
     color: #0f172a;
     font-family: Arial, Helvetica, sans-serif;
   }
