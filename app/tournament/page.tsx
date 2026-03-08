@@ -453,7 +453,7 @@ export default function TournamentPage() {
     const content = (
       <div className="mb-4 flex w-full flex-col items-start border-2 border-[#061726] bg-[#0B3A4A] p-4 md:flex-row md:items-center md:justify-between">
         <div className="w-full">
-          <div className="mb-2 text-xs font-bold uppercase tracking-wider text-[#CD9C3E]">
+          <div className="mb-2 text-sm font-bold uppercase tracking-wider text-[#CD9C3E] md:text-base">
             {formatRoundLabel(match.roundLabel)} - {match.format}
           </div>
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -461,27 +461,33 @@ export default function TournamentPage() {
               <TeamLogo
                 teamName={match.teamAName}
                 logoUrl={match.teamALogoUrl}
-                sizeClassName="aspect-square h-10 w-10"
-                textClassName="text-lg"
+                sizeClassName="aspect-square h-16 w-16 md:h-20 md:w-20"
+                textClassName="text-2xl md:text-3xl"
               />
-              <span className="text-lg font-bold text-white">{match.teamAName}</span>
+              <span className="text-2xl font-bold text-white md:text-3xl">
+                {match.teamAName}
+              </span>
             </div>
-            <div className="text-xl font-black text-[#CD9C3E] md:mx-4">VS</div>
+            <div className="text-3xl font-black text-[#CD9C3E] md:mx-4 md:text-4xl">
+              VS
+            </div>
             <div className="flex items-center gap-3 md:flex-row-reverse">
               <TeamLogo
                 teamName={match.teamBName}
                 logoUrl={match.teamBLogoUrl}
-                sizeClassName="aspect-square h-10 w-10"
-                textClassName="text-lg"
+                sizeClassName="aspect-square h-16 w-16 md:h-20 md:w-20"
+                textClassName="text-2xl md:text-3xl"
               />
-              <span className="text-lg font-bold text-white">{match.teamBName}</span>
+              <span className="text-2xl font-bold text-white md:text-3xl">
+                {match.teamBName}
+              </span>
             </div>
           </div>
           {matchResult && (
             <div className="mt-2 text-sm font-bold text-white">Счет: {matchResult}</div>
           )}
         </div>
-        <div className="mt-2 text-sm font-medium text-gray-300 md:mt-0 md:pl-6">
+        <div className="mt-2 text-base font-medium text-gray-300 md:mt-0 md:pl-6 md:text-lg">
           {formattedSchedule}
         </div>
       </div>
