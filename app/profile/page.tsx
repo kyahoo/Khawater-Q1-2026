@@ -91,15 +91,19 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const localOwner = localStorage.getItem("khawater_device_owner");
+    setLocalOwnerId(localOwner);
+  }, []);
 
-    if (!hasPasskey && currentUserId && localOwner === currentUserId) {
-      localStorage.removeItem("khawater_device_owner");
-      setLocalOwnerId(null);
+  useEffect(() => {
+    if (!hasLoadedDeviceBinding || hasPasskey || !currentUserId) {
       return;
     }
 
-    setLocalOwnerId(localOwner);
-  }, [hasPasskey, currentUserId]);
+    if (localOwnerId === currentUserId) {
+      localStorage.removeItem("khawater_device_owner");
+      setLocalOwnerId(null);
+    }
+  }, [currentUserId, hasLoadedDeviceBinding, hasPasskey, localOwnerId]);
 
   useEffect(() => {
     const loadProfile = async () => {
