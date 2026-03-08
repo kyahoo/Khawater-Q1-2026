@@ -7,7 +7,7 @@
   --color-arcade-accent-hover: #E6BB00;
   --color-arcade-surface: #FFFFFF;
   --color-arcade-muted: #A1A1AA;
-  --color-khawater-blue: #0B3A4A;
+  --color-khawater-blue: #0F172A;
   --color-khawater-light: #F0F4F8;
 }
 
@@ -43,9 +43,9 @@
 
   .bg-esports-pattern {
     background-image:
-      radial-gradient(circle at 1px 1px, rgba(11, 58, 74, 0.05) 1px, transparent 0),
-      linear-gradient(rgba(59, 91, 113, 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(59, 91, 113, 0.04) 1px, transparent 1px);
+      radial-gradient(circle at 1px 1px, rgba(15, 23, 42, 0.05) 1px, transparent 0),
+      linear-gradient(rgba(51, 65, 85, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(51, 65, 85, 0.04) 1px, transparent 1px);
     background-size: 24px 24px;
     background-position: 0 0;
   }
