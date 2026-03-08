@@ -48,44 +48,29 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-50 flex w-full items-center justify-between bg-khawater-blue px-4 py-4 md:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-nowrap items-center gap-6 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
-        <div className="relative z-10 flex flex-nowrap items-center gap-6">
-        <Link
-          href="/tournament"
-          className="inline-flex shrink-0 items-center justify-center whitespace-nowrap text-base font-extrabold uppercase tracking-tighter text-white touch-manipulation md:text-lg"
-        >
-          Khawater
-        </Link>
-
-          <nav className="relative z-10 flex flex-nowrap items-center gap-6 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
-            <Link
-              href="/rules"
-              className={navLinkClass("/rules")}
-            >
-              Правила
-            </Link>
-          </nav>
-        </div>
-
-        <div className="relative z-10 flex flex-nowrap items-center gap-6 overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+    <header className="sticky top-0 z-50 w-full bg-khawater-blue">
+      <div className="mx-auto w-full max-w-6xl">
+        <nav className="flex flex-nowrap items-center gap-6 overflow-x-auto w-full px-4 py-4 md:gap-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+          <Link
+            href="/tournament"
+            className="inline-flex shrink-0 items-center justify-center whitespace-nowrap text-base font-extrabold uppercase tracking-tighter text-white touch-manipulation md:text-lg"
+          >
+            Khawater
+          </Link>
+          <Link href="/rules" className={navLinkClass("/rules")}>
+            Правила
+          </Link>
           {hasSession === null ? (
             <div className="h-9 w-24 shrink-0 bg-white/10" />
           ) : hasSession ? (
-            <div className="flex flex-nowrap items-center gap-6">
-              <Link
-                href="/matches"
-                className={navLinkClass("/matches")}
-              >
+            <>
+              <Link href="/matches" className={navLinkClass("/matches")}>
                 Мои матчи
               </Link>
-              <Link
-                href="/profile"
-                className={navLinkClass("/profile")}
-              >
+              <Link href="/profile" className={navLinkClass("/profile")}>
                 Профиль
               </Link>
-            </div>
+            </>
           ) : (
             <Link
               href="/auth"
@@ -94,7 +79,7 @@ export function SiteHeader() {
               Войти
             </Link>
           )}
-        </div>
+        </nav>
       </div>
     </header>
   );
