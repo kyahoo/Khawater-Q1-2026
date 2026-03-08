@@ -177,6 +177,7 @@ export default function TournamentPage() {
       {
         teamId: string;
         teamName: string;
+        teamLogoUrl: string | null;
         wins: number;
         losses: number;
         draws: number;
@@ -184,7 +185,7 @@ export default function TournamentPage() {
       }
     >();
 
-    const ensureTeam = (teamId: string, teamName: string) => {
+    const ensureTeam = (teamId: string, teamName: string, teamLogoUrl: string | null) => {
       const existing = standingsByTeam.get(teamId);
 
       if (existing) {
@@ -194,6 +195,7 @@ export default function TournamentPage() {
       const nextTeam = {
         teamId,
         teamName,
+        teamLogoUrl,
         wins: 0,
         losses: 0,
         draws: 0,
@@ -205,8 +207,8 @@ export default function TournamentPage() {
     };
 
     for (const match of groupMatches) {
-      const teamA = ensureTeam(match.teamAId, match.teamAName);
-      const teamB = ensureTeam(match.teamBId, match.teamBName);
+      const teamA = ensureTeam(match.teamAId, match.teamAName, match.teamALogoUrl);
+      const teamB = ensureTeam(match.teamBId, match.teamBName, match.teamBLogoUrl);
       const scoreText = `${match.teamAScore} - ${match.teamBScore}`;
       const [teamAScoreText, teamBScoreText] = scoreText.split(" - ");
       const teamAScore = Number(teamAScoreText);
@@ -694,44 +696,76 @@ export default function TournamentPage() {
             )}
 
             {activeTab === "group" && (
-              <section className="border border-zinc-300 bg-white p-5 shadow-md">
-                <h2 className="mb-4 text-lg font-semibold text-zinc-500">
+              <section className="w-full overflow-x-auto border-[3px] border-[#061726] bg-[#061726]/85 p-6 shadow-[6px_6px_0px_0px_#061726] backdrop-blur-md md:p-8">
+                <h2 className="mb-8 text-4xl font-black uppercase text-[#CD9C3E] md:text-5xl">
                   Таблица группового этапа
                 </h2>
 
                 {matchesErrorMessage ? (
-                  <p className="text-sm text-zinc-600">{matchesErrorMessage}</p>
+                  <p className="text-sm text-gray-300">{matchesErrorMessage}</p>
                 ) : groupStandings.length === 0 ? (
-                  <p className="text-sm text-zinc-600">
-                    Group stage standings will appear here once finished group-stage
-                    matches are available.
+                  <p className="text-sm text-gray-300">
+                    Таблица появится после завершения матчей группового этапа.
                   </p>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="min-w-full border border-zinc-200 text-left text-sm">
-                      <thead className="bg-zinc-100 text-zinc-600">
+                    <table className="w-full min-w-[600px] border-collapse text-left">
+                      <thead className="border-b-[3px] border-[#061726] text-[#CD9C3E]">
                         <tr>
-                          <th className="px-4 py-3 font-medium">Место</th>
-                          <th className="px-4 py-3 font-medium">Команда</th>
-                          <th className="px-4 py-3 font-medium">В</th>
-                          <th className="px-4 py-3 font-medium">П</th>
-                          <th className="px-4 py-3 font-medium">Н</th>
-                          <th className="px-4 py-3 font-medium">Очки</th>
+                          <th className="px-4 pb-4 text-sm font-bold uppercase tracking-wider md:text-base">
+                            Место
+                          </th>
+                          <th className="px-4 pb-4 text-sm font-bold uppercase tracking-wider md:text-base">
+                            Команда
+                          </th>
+                          <th className="px-4 pb-4 text-sm font-bold uppercase tracking-wider md:text-base">
+                            В
+                          </th>
+                          <th className="px-4 pb-4 text-sm font-bold uppercase tracking-wider md:text-base">
+                            П
+                          </th>
+                          <th className="px-4 pb-4 text-sm font-bold uppercase tracking-wider md:text-base">
+                            Н
+                          </th>
+                          <th className="px-4 pb-4 text-sm font-bold uppercase tracking-wider md:text-base">
+                            Очки
+                          </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white">
+                      <tbody>
                         {groupStandings.map((team, index) => (
-                          <tr key={team.teamId} className="border-t border-zinc-200">
-                            <td className="px-4 py-3 font-medium text-zinc-900">
+                          <tr
+                            key={team.teamId}
+                            className="border-b-2 border-[#061726] bg-[#0B3A4A] transition-colors hover:bg-[#0d4a5e]"
+                          >
+                            <td
+                              className={`p-4 text-base font-medium md:text-lg ${
+                                index === 0 ? "font-black text-[#CD9C3E]" : "text-white"
+                              }`}
+                            >
                               {index + 1}
                             </td>
-                            <td className="px-4 py-3 font-medium text-zinc-900">
-                              {team.teamName}
+                            <td className="p-4 text-base font-medium text-white md:text-lg">
+                              <div className="flex items-center gap-4">
+                                <TeamLogo
+                                  teamName={team.teamName}
+                                  logoUrl={team.teamLogoUrl}
+                                  sizeClassName="aspect-square h-10 w-10 md:h-12 md:w-12"
+                                  textClassName="text-lg md:text-xl"
+                                />
+                                <span>{team.teamName}</span>
+                              </div>
                             </td>
-                            <td className="px-4 py-3 text-zinc-600">{team.wins}</td>
-                            <td className="px-4 py-3 text-zinc-600">{team.losses}</td>
-                            <td className="px-4 py-3 text-zinc-600">{team.draws}</td>
-                            <td className="px-4 py-3 font-medium text-zinc-900">
+                            <td className="p-4 text-base font-medium text-white md:text-lg">
+                              {team.wins}
+                            </td>
+                            <td className="p-4 text-base font-medium text-white md:text-lg">
+                              {team.losses}
+                            </td>
+                            <td className="p-4 text-base font-medium text-white md:text-lg">
+                              {team.draws}
+                            </td>
+                            <td className="p-4 text-base font-medium text-white md:text-lg">
                               {team.points}
                             </td>
                           </tr>
