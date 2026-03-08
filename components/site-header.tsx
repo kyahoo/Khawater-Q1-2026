@@ -59,6 +59,10 @@ export function SiteHeader() {
     }`;
   }
 
+  if (pathname === "/auth" || pathname.startsWith("/auth/")) {
+    return null;
+  }
+
   return (
     <header className="sticky top-0 z-50 flex w-full flex-row items-center justify-between bg-khawater-blue px-8 py-4">
       <div className="mx-auto flex w-full max-w-6xl flex-row items-center justify-between">
