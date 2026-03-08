@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getProfileByUserId } from "@/lib/supabase/profiles";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { SiteHeader } from "@/components/site-header";
 
-async function routeUserAfterAuth(userId: string, router: ReturnType<typeof useRouter>) {
-  const profile = await getProfileByUserId(userId);
-  router.replace(profile ? "/profile" : "/player-setup");
+async function routeUserAfterAuth(router: ReturnType<typeof useRouter>) {
+  router.replace("/tournament");
 }
 
 function getCredentialsFromForm(form: HTMLFormElement) {
@@ -34,7 +32,7 @@ export default function AuthPage() {
       } = await supabase.auth.getUser();
 
       if (user) {
-        await routeUserAfterAuth(user.id, router);
+        await routeUserAfterAuth(router);
       }
     };
 
@@ -62,7 +60,7 @@ export default function AuthPage() {
         throw new Error("Вход выполнен, но пользователь не был возвращен.");
       }
 
-      await routeUserAfterAuth(data.user.id, router);
+      await routeUserAfterAuth(router);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Не удалось выполнить вход.");
     } finally {
@@ -82,7 +80,7 @@ export default function AuthPage() {
         email: nextEmail,
         password: nextPassword,
         options: {
-          emailRedirectTo: "http://localhost:3000/profile",
+          emailRedirectTo: "http://localhost:3000/tournament",
         },
       });
 
@@ -91,7 +89,7 @@ export default function AuthPage() {
       }
 
       if (data.user) {
-        await routeUserAfterAuth(data.user.id, router);
+        await routeUserAfterAuth(router);
         return;
       }
 
