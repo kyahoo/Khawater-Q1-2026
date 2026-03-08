@@ -328,7 +328,7 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-zinc-100 px-6 py-10 text-zinc-900">
+      <div className="min-h-screen bg-transparent px-6 py-10 text-zinc-900">
         <div className="mx-auto max-w-5xl text-sm text-zinc-600">
           Загрузка профиля...
         </div>
@@ -337,7 +337,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-100 text-zinc-900">
+    <div className="min-h-screen bg-transparent text-zinc-900">
       <SiteHeader />
 
       <main className="mx-auto max-w-5xl px-6 py-10">
