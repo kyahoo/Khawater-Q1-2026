@@ -39,6 +39,10 @@ type DeleteTeamResult = {
   error: string | null;
 };
 
+type DeleteMatchResult = {
+  error: string | null;
+};
+
 type AdminActionContext = {
   supabaseUrl: string;
   serviceRoleKey: string;
@@ -384,6 +388,69 @@ export async function deleteTeam(
   revalidatePath("/profile");
   revalidatePath("/matches");
   revalidatePath("/tournament");
+
+  return {
+    error: null,
+  };
+}
+
+export async function deleteMatch(
+  matchId: string,
+  accessToken: string
+): Promise<DeleteMatchResult> {
+  const normalizedMatchId = matchId.trim();
+
+  if (!normalizedMatchId) {
+    return {
+      error: "Match is required.",
+    };
+  }
+
+  const authResult = await verifyAdminAction(accessToken);
+
+  if (authResult.error || !authResult.context) {
+    return {
+      error: authResult.error,
+    };
+  }
+
+  const adminClient = createClient<Database>(
+    authResult.context.supabaseUrl,
+    authResult.context.serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+
+  const { error: deleteCheckInsError } = await adminClient
+    .from("match_check_ins")
+    .delete()
+    .eq("match_id", normalizedMatchId);
+
+  if (deleteCheckInsError) {
+    return {
+      error: deleteCheckInsError.message,
+    };
+  }
+
+  const { error: deleteMatchError } = await adminClient
+    .from("tournament_matches")
+    .delete()
+    .eq("id", normalizedMatchId);
+
+  if (deleteMatchError) {
+    return {
+      error: deleteMatchError.message,
+    };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/tournament");
+  revalidatePath("/matches");
+  revalidatePath(`/matches/${normalizedMatchId}`);
 
   return {
     error: null,

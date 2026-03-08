@@ -8,6 +8,7 @@ import {
   adminRemovePlayerFromTeam,
   createAdminPlayerAction,
   deletePlayer,
+  deleteMatch,
   deleteTeam,
   generateGroupStageMatches,
   listAdminPlayers,
@@ -189,6 +190,7 @@ export default function AdminPage() {
     string | null
   >(null);
   const [isDeletingTeamId, setIsDeletingTeamId] = useState<string | null>(null);
+  const [isDeletingMatchId, setIsDeletingMatchId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTabId>("players");
 
   async function getCurrentAdminAccessToken() {
@@ -534,6 +536,39 @@ export default function AdminPage() {
       );
     } finally {
       setIsDeletingTeamId(null);
+    }
+  }
+
+  async function handleDeleteMatch(matchId: string) {
+    const shouldDelete = window.confirm("Are you sure you want to delete this match?");
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setIsDeletingMatchId(matchId);
+    setErrorMessage("");
+
+    try {
+      const accessToken = await getCurrentAdminAccessToken();
+      const result = await deleteMatch(matchId, accessToken);
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      if (editingMatchId === matchId) {
+        resetMatchForm();
+      }
+
+      await loadAdminData();
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not delete match."
+      );
+    } finally {
+      setIsDeletingMatchId(null);
     }
   }
 
@@ -2051,13 +2086,24 @@ export default function AdminPage() {
                                   </div>
                                 )}
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleEditMatch(match)}
-                              className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
-                            >
-                              Edit Match
-                            </button>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                              <button
+                                type="button"
+                                onClick={() => handleEditMatch(match)}
+                                disabled={isDeletingMatchId === match.id}
+                                className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
+                              >
+                                Edit Match
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void handleDeleteMatch(match.id)}
+                                disabled={isDeletingMatchId === match.id}
+                                className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                              >
+                                {isDeletingMatchId === match.id ? "Deleting..." : "Delete"}
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
