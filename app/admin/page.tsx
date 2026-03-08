@@ -1613,106 +1613,134 @@ export default function AdminPage() {
                 ) : (
                   <div className="space-y-4">
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                      <select
-                        aria-label="Group stage tournament"
-                        value={groupStageForm.tournamentId}
-                        onChange={(event) => {
-                          setGroupStageForm((current) => ({
-                            ...current,
-                            tournamentId: event.target.value,
-                            teamIds: [],
-                          }));
-                          setGroupStageErrorMessage("");
-                          setGroupStageSuccessMessage("");
-                        }}
-                        className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                      >
-                        <option value="">Select tournament</option>
-                        {tournaments.map((tournament) => (
-                          <option key={tournament.id} value={tournament.id}>
-                            {tournament.name}
-                            {tournament.is_active ? " (Active)" : ""}
-                          </option>
-                        ))}
-                      </select>
+                      <label className="flex flex-col gap-1 text-sm text-zinc-700">
+                        <span className="font-medium">Select Tournament</span>
+                        <select
+                          aria-label="Group stage tournament"
+                          value={groupStageForm.tournamentId}
+                          onChange={(event) => {
+                            setGroupStageForm((current) => ({
+                              ...current,
+                              tournamentId: event.target.value,
+                              teamIds: [],
+                            }));
+                            setGroupStageErrorMessage("");
+                            setGroupStageSuccessMessage("");
+                          }}
+                          className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                        >
+                          <option value="">Select tournament</option>
+                          {tournaments.map((tournament) => (
+                            <option key={tournament.id} value={tournament.id}>
+                              {tournament.name}
+                              {tournament.is_active ? " (Active)" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
 
-                      <input
-                        aria-label="Group stage start date"
-                        type="date"
-                        value={groupStageForm.startDate}
-                        onChange={(event) => {
-                          setGroupStageForm((current) => ({
-                            ...current,
-                            startDate: event.target.value,
-                          }));
-                          setGroupStageErrorMessage("");
-                          setGroupStageSuccessMessage("");
-                        }}
-                        className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                      />
+                      <label className="flex flex-col gap-1 text-sm text-zinc-700">
+                        <span className="font-medium">
+                          Start Date (First day of matches)
+                        </span>
+                        <input
+                          aria-label="Group stage start date"
+                          type="date"
+                          value={groupStageForm.startDate}
+                          onChange={(event) => {
+                            setGroupStageForm((current) => ({
+                              ...current,
+                              startDate: event.target.value,
+                            }));
+                            setGroupStageErrorMessage("");
+                            setGroupStageSuccessMessage("");
+                          }}
+                          className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                        />
+                      </label>
 
-                      <input
-                        aria-label="Group stage end date"
-                        type="date"
-                        value={groupStageForm.endDate}
-                        onChange={(event) => {
-                          setGroupStageForm((current) => ({
-                            ...current,
-                            endDate: event.target.value,
-                          }));
-                          setGroupStageErrorMessage("");
-                          setGroupStageSuccessMessage("");
-                        }}
-                        className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                      />
+                      <label className="flex flex-col gap-1 text-sm text-zinc-700">
+                        <span className="font-medium">
+                          End Date (Last day of matches)
+                        </span>
+                        <input
+                          aria-label="Group stage end date"
+                          type="date"
+                          value={groupStageForm.endDate}
+                          onChange={(event) => {
+                            setGroupStageForm((current) => ({
+                              ...current,
+                              endDate: event.target.value,
+                            }));
+                            setGroupStageErrorMessage("");
+                            setGroupStageSuccessMessage("");
+                          }}
+                          className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                        />
+                      </label>
 
-                      <input
-                        aria-label="Group stage daily start time"
-                        type="time"
-                        value={groupStageForm.dailyStartTime}
-                        onChange={(event) => {
-                          setGroupStageForm((current) => ({
-                            ...current,
-                            dailyStartTime: event.target.value,
-                          }));
-                          setGroupStageErrorMessage("");
-                          setGroupStageSuccessMessage("");
-                        }}
-                        className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                      />
+                      <label className="flex flex-col gap-1 text-sm text-zinc-700">
+                        <span className="font-medium">
+                          Daily Start Time (Earliest match start)
+                        </span>
+                        <input
+                          aria-label="Group stage daily start time"
+                          type="time"
+                          value={groupStageForm.dailyStartTime}
+                          onChange={(event) => {
+                            setGroupStageForm((current) => ({
+                              ...current,
+                              dailyStartTime: event.target.value,
+                            }));
+                            setGroupStageErrorMessage("");
+                            setGroupStageSuccessMessage("");
+                          }}
+                          className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                        />
+                      </label>
 
-                      <input
-                        aria-label="Group stage daily end time"
-                        type="time"
-                        value={groupStageForm.dailyEndTime}
-                        onChange={(event) => {
-                          setGroupStageForm((current) => ({
-                            ...current,
-                            dailyEndTime: event.target.value,
-                          }));
-                          setGroupStageErrorMessage("");
-                          setGroupStageSuccessMessage("");
-                        }}
-                        className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                      />
+                      <label className="flex flex-col gap-1 text-sm text-zinc-700">
+                        <span className="font-medium">
+                          Daily End Time (Latest allowed match start)
+                        </span>
+                        <input
+                          aria-label="Group stage daily end time"
+                          type="time"
+                          value={groupStageForm.dailyEndTime}
+                          onChange={(event) => {
+                            setGroupStageForm((current) => ({
+                              ...current,
+                              dailyEndTime: event.target.value,
+                            }));
+                            setGroupStageErrorMessage("");
+                            setGroupStageSuccessMessage("");
+                          }}
+                          className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                        />
+                      </label>
 
-                      <input
-                        aria-label="Group stage match interval in minutes"
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={groupStageForm.matchIntervalMinutes}
-                        onChange={(event) => {
-                          setGroupStageForm((current) => ({
-                            ...current,
-                            matchIntervalMinutes: event.target.value,
-                          }));
-                          setGroupStageErrorMessage("");
-                          setGroupStageSuccessMessage("");
-                        }}
-                        placeholder="Match interval in minutes"
-                        className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                      />
+                      <label className="flex flex-col gap-1 text-sm text-zinc-700 sm:col-span-2 lg:col-span-1">
+                        <span className="font-medium">
+                          Match Interval (Minutes between games)
+                        </span>
+                        <input
+                          aria-label="Group stage match interval in minutes"
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={groupStageForm.matchIntervalMinutes}
+                          onChange={(event) => {
+                            setGroupStageForm((current) => ({
+                              ...current,
+                              matchIntervalMinutes: event.target.value,
+                            }));
+                            setGroupStageErrorMessage("");
+                            setGroupStageSuccessMessage("");
+                          }}
+                          placeholder="Match interval in minutes"
+                          className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                        />
+                      </label>
                     </div>
 
                     {!groupStageForm.tournamentId ? (
@@ -1725,32 +1753,34 @@ export default function AdminPage() {
                       </p>
                     ) : (
                       <div className="space-y-2">
-                        <label className="block text-sm font-medium text-zinc-700">
-                          Teams
+                        <label className="flex flex-col gap-1 text-sm text-zinc-700">
+                          <span className="font-medium">
+                            Select Teams for Round-Robin
+                          </span>
+                          <select
+                            multiple
+                            value={groupStageForm.teamIds}
+                            onChange={(event) => {
+                              setGroupStageForm((current) => ({
+                                ...current,
+                                teamIds: Array.from(
+                                  event.target.selectedOptions,
+                                  (option) => option.value
+                                ),
+                              }));
+                              setGroupStageErrorMessage("");
+                              setGroupStageSuccessMessage("");
+                            }}
+                            className="min-h-56 w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                          >
+                            {enteredGroupStageTeams.map((team) => (
+                              <option key={team.id} value={team.id}>
+                                {team.name}
+                                {team.isSuspended ? " (Suspended)" : ""}
+                              </option>
+                            ))}
+                          </select>
                         </label>
-                        <select
-                          multiple
-                          value={groupStageForm.teamIds}
-                          onChange={(event) => {
-                            setGroupStageForm((current) => ({
-                              ...current,
-                              teamIds: Array.from(
-                                event.target.selectedOptions,
-                                (option) => option.value
-                              ),
-                            }));
-                            setGroupStageErrorMessage("");
-                            setGroupStageSuccessMessage("");
-                          }}
-                          className="min-h-56 w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                        >
-                          {enteredGroupStageTeams.map((team) => (
-                            <option key={team.id} value={team.id}>
-                              {team.name}
-                              {team.isSuspended ? " (Suspended)" : ""}
-                            </option>
-                          ))}
-                        </select>
                         <p className="text-sm text-zinc-600">
                           Generated matches use the existing schema defaults:
                           Group Stage, BO3, scheduled. Scheduling uses the
