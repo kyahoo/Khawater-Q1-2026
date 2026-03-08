@@ -458,8 +458,8 @@ export default function TournamentPage() {
           <div className="mb-2 text-sm font-bold uppercase tracking-wider text-[#CD9C3E] md:text-base">
             {formatRoundLabel(match.roundLabel)} - {match.format}
           </div>
-          <div className="relative flex w-full flex-col gap-3 md:flex md:w-full md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-1 items-center justify-start gap-4">
+          <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-2 md:gap-4">
+            <div className="flex items-center justify-start gap-2 md:gap-4">
               <TeamLogo
                 teamName={match.teamAName}
                 logoUrl={match.teamALogoUrl}
@@ -470,16 +470,18 @@ export default function TournamentPage() {
                 {match.teamAName}
               </span>
             </div>
-            <div className="text-3xl font-black text-[#CD9C3E] md:absolute md:left-1/2 md:-translate-x-1/2 md:text-center md:text-4xl">
-              {match.teamAScore !== null && match.teamBScore !== null
-                ? match.teamAScore > match.teamBScore
-                  ? ">"
-                  : match.teamBScore > match.teamAScore
-                    ? "<"
-                    : "VS"
-                : "VS"}
+            <div className="mx-2 flex justify-center text-center md:mx-4">
+              <div className="text-3xl font-black text-[#CD9C3E] md:text-4xl">
+                {match.teamAScore !== null && match.teamBScore !== null
+                  ? match.teamAScore > match.teamBScore
+                    ? ">"
+                    : match.teamBScore > match.teamAScore
+                      ? "<"
+                      : "VS"
+                  : "VS"}
+              </div>
             </div>
-            <div className="flex flex-1 items-center justify-end gap-4 text-right md:flex-row-reverse">
+            <div className="flex items-center justify-end gap-2 text-right md:gap-4 md:flex-row-reverse">
               <TeamLogo
                 teamName={match.teamBName}
                 logoUrl={match.teamBLogoUrl}
