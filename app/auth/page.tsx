@@ -59,12 +59,12 @@ export default function AuthPage() {
       }
 
       if (!data.user) {
-        throw new Error("Login did not return a user.");
+        throw new Error("Вход выполнен, но пользователь не был возвращен.");
       }
 
       await routeUserAfterAuth(data.user.id, router);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Login failed.");
+      setErrorMessage(error instanceof Error ? error.message : "Не удалось выполнить вход.");
     } finally {
       setIsLoading(false);
     }
@@ -96,11 +96,11 @@ export default function AuthPage() {
       }
 
       setErrorMessage(
-        "Signup succeeded but no active session was created. Check your Supabase auth settings."
+        "Регистрация прошла успешно, но активная сессия не была создана. Проверьте настройки Supabase Auth."
       );
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Registration failed."
+        error instanceof Error ? error.message : "Не удалось завершить регистрацию."
       );
     } finally {
       setIsLoading(false);
@@ -112,10 +112,10 @@ export default function AuthPage() {
       <SiteHeader />
 
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="mb-4 text-3xl font-semibold">Auth</h1>
+        <h1 className="mb-4 text-3xl font-semibold">Авторизация</h1>
         <p className="mb-6 max-w-2xl text-sm leading-7 text-zinc-700">
-          Log in to your existing account or register as a player to begin using
-          Khawater in phase 1.
+          Войдите в свой аккаунт или зарегистрируйтесь как игрок, чтобы начать
+          использовать Khawater.
         </p>
 
         <form
@@ -132,19 +132,19 @@ export default function AuthPage() {
               name="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="Enter email"
+              placeholder="Введите email"
               className="w-full rounded border border-zinc-300 bg-white px-4 py-3 text-sm outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">Password</label>
+            <label className="mb-2 block text-sm font-medium">Пароль</label>
             <input
               type="password"
               name="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter password"
+              placeholder="Введите пароль"
               className="w-full rounded border border-zinc-300 bg-white px-4 py-3 text-sm outline-none"
             />
           </div>
@@ -154,7 +154,7 @@ export default function AuthPage() {
               disabled={isLoading}
               className="rounded border border-zinc-400 bg-white px-5 py-2.5 text-sm font-medium"
             >
-              {isLoading ? "Working..." : "Login"}
+              {isLoading ? "Обработка..." : "Войти"}
             </button>
             <button
               type="button"
@@ -170,7 +170,7 @@ export default function AuthPage() {
               disabled={isLoading}
               className="rounded border border-zinc-400 px-5 py-2.5 text-sm font-medium"
             >
-              {isLoading ? "Working..." : "Register as Player"}
+              {isLoading ? "Обработка..." : "Регистрация игрока"}
             </button>
           </div>
         </form>
@@ -182,9 +182,9 @@ export default function AuthPage() {
         )}
 
         <p className="max-w-2xl text-sm leading-7 text-zinc-600">
-          Registration is only the first step. After creating an account, the
-          flow continues into basic player setup so the user can complete their
-          profile and move into team or tournament participation.
+          Регистрация — это только первый шаг. После создания аккаунта вам будет
+          предложено настроить профиль, чтобы присоединиться к команде и
+          участвовать в турнирах.
         </p>
       </main>
     </div>
