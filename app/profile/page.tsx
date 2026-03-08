@@ -50,7 +50,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [deviceOwnerId, setDeviceOwnerId] = useState<string | null>(null);
+  const [localOwnerId, setLocalOwnerId] = useState<string | null>(null);
   const [teamData, setTeamData] = useState<Awaited<
     ReturnType<typeof getCurrentTeamDetails>
   > | null>(null);
@@ -78,20 +78,28 @@ export default function ProfilePage() {
     "w-fit border-[3px] border-[#061726] bg-white px-6 py-2 text-sm font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]";
   const destructiveActionButtonClassName =
     "w-fit border-[3px] border-[#061726] bg-red-600 px-6 py-2 text-white font-extrabold uppercase shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]";
-  const occupiedDeviceButtonClassName =
-    "bg-red-900/50 text-red-200 font-bold uppercase px-6 py-2 border-[3px] border-[#061726] cursor-not-allowed w-fit text-sm text-center";
-  const isDeviceClaimedByCurrentUser =
-    Boolean(deviceOwnerId) && Boolean(currentUserId) && deviceOwnerId === currentUserId;
-  const isDeviceClaimedByAnotherUser =
-    Boolean(deviceOwnerId) && Boolean(currentUserId) && deviceOwnerId !== currentUserId;
+  const successDeviceButtonClassName =
+    "bg-green-800 text-green-200 font-bold uppercase px-6 py-2 border-[3px] border-[#061726] shadow-[4px_4px_0px_0px_#061726] opacity-90 cursor-not-allowed w-fit text-sm text-center";
+  const blockedDeviceButtonClassName =
+    "bg-red-900 text-red-200 font-bold uppercase px-6 py-2 border-[3px] border-[#061726] shadow-[4px_4px_0px_0px_#061726] opacity-90 cursor-not-allowed w-fit text-sm text-center";
+  const hasPasskey = isDeviceBound;
+  const isReadyToBind = !hasPasskey && (!localOwnerId || localOwnerId === currentUserId);
+  const isBoundHere = hasPasskey && Boolean(currentUserId) && localOwnerId === currentUserId;
+  const isBoundElsewhere = hasPasskey && Boolean(currentUserId) && localOwnerId !== currentUserId;
+  const isDeviceOccupied =
+    !hasPasskey && Boolean(localOwnerId) && Boolean(currentUserId) && localOwnerId !== currentUserId;
 
   useEffect(() => {
-    const owner = localStorage.getItem("khawater_device_owner");
+    const localOwner = localStorage.getItem("khawater_device_owner");
 
-    if (owner) {
-      setDeviceOwnerId(owner);
+    if (!hasPasskey && currentUserId && localOwner === currentUserId) {
+      localStorage.removeItem("khawater_device_owner");
+      setLocalOwnerId(null);
+      return;
     }
-  }, []);
+
+    setLocalOwnerId(localOwner);
+  }, [hasPasskey, currentUserId]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -139,10 +147,6 @@ export default function ProfilePage() {
         } else {
           setHasLoadedDeviceBinding(true);
           setIsDeviceBound(deviceBindingStatus.isDeviceBound);
-          if (!deviceBindingStatus.isDeviceBound) {
-            localStorage.removeItem("khawater_device_owner");
-            setDeviceOwnerId(null);
-          }
           setDeviceMessage("");
         }
 
@@ -260,13 +264,13 @@ export default function ProfilePage() {
   }
 
   async function handleRegisterDevice() {
-    if (isDeviceClaimedByAnotherUser) {
+    if (isDeviceOccupied) {
       setDeviceMessage("Это устройство уже занято другим игроком.");
       return;
     }
 
-    if (!hasLoadedDeviceBinding || isDeviceBound || isDeviceClaimedByCurrentUser) {
-      setDeviceMessage(isDeviceBound ? "" : "Не удалось проверить привязку устройства.");
+    if (!hasLoadedDeviceBinding || !isReadyToBind) {
+      setDeviceMessage(hasPasskey ? "" : "Не удалось проверить привязку устройства.");
       return;
     }
 
@@ -330,7 +334,7 @@ export default function ProfilePage() {
       setDeviceMessage("");
       if (currentUserId) {
         localStorage.setItem("khawater_device_owner", currentUserId);
-        setDeviceOwnerId(currentUserId);
+        setLocalOwnerId(currentUserId);
       }
       router.refresh();
     } catch (error) {
@@ -394,30 +398,38 @@ export default function ProfilePage() {
                   disabled={
                     isRegisteringDevice ||
                     !hasLoadedDeviceBinding ||
-                    isDeviceBound ||
-                    isDeviceClaimedByCurrentUser ||
-                    isDeviceClaimedByAnotherUser
+                    isBoundHere ||
+                    isBoundElsewhere ||
+                    isDeviceOccupied ||
+                    !isReadyToBind
                   }
                   className={
-                    isDeviceClaimedByAnotherUser
-                      ? occupiedDeviceButtonClassName
-                      : isRegisteringDevice ||
-                          !hasLoadedDeviceBinding ||
-                          isDeviceBound ||
-                          isDeviceClaimedByCurrentUser
-                        ? mutedStatusButtonClassName
-                      : primaryActionButtonClassName
+                    isRegisteringDevice
+                      ? mutedStatusButtonClassName
+                      : isBoundHere
+                        ? successDeviceButtonClassName
+                        : isBoundElsewhere || isDeviceOccupied
+                          ? blockedDeviceButtonClassName
+                          : !hasLoadedDeviceBinding
+                            ? mutedStatusButtonClassName
+                            : primaryActionButtonClassName
                   }
                 >
-                  {isDeviceClaimedByAnotherUser
-                    ? "Устройство занято другим игроком"
-                    : isDeviceBound || isDeviceClaimedByCurrentUser
-                      ? "Аккаунт уже привязан к устройству"
-                    : isRegisteringDevice
-                      ? "Привязка..."
-                      : hasLoadedDeviceBinding
-                        ? "Привязать устройство"
-                        : "Проверяю привязку..."}
+                  {isRegisteringDevice
+                    ? "Привязка..."
+                    : isBoundHere
+                      ? "Устройство привязано"
+                      : isBoundElsewhere
+                        ? "Привязано к другому устройству"
+                        : isDeviceOccupied
+                          ? "Устройство занято другим игроком"
+                          : isReadyToBind
+                            ? "Привязать устройство"
+                            : !hasLoadedDeviceBinding
+                              ? "Проверяю привязку..."
+                              : hasPasskey
+                                ? "Устройство привязано"
+                                : "Привязать устройство"}
                 </button>
                 {deviceMessage && (
                   <p className="text-sm text-white/80">{deviceMessage}</p>
