@@ -35,6 +35,10 @@ type DeletePlayerResult = {
   error: string | null;
 };
 
+type DeleteTeamResult = {
+  error: string | null;
+};
+
 type AdminActionContext = {
   supabaseUrl: string;
   serviceRoleKey: string;
@@ -288,6 +292,96 @@ export async function deletePlayer(
   revalidatePath("/admin");
   revalidatePath("/profile");
   revalidatePath("/my-team");
+  revalidatePath("/matches");
+  revalidatePath("/tournament");
+
+  return {
+    error: null,
+  };
+}
+
+export async function deleteTeam(
+  teamId: string,
+  accessToken: string
+): Promise<DeleteTeamResult> {
+  const normalizedTeamId = teamId.trim();
+
+  if (!normalizedTeamId) {
+    return {
+      error: "Team is required.",
+    };
+  }
+
+  const authResult = await verifyAdminAction(accessToken);
+
+  if (authResult.error || !authResult.context) {
+    return {
+      error: authResult.error,
+    };
+  }
+
+  const adminClient = createClient<Database>(
+    authResult.context.supabaseUrl,
+    authResult.context.serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+
+  const { data: matches, error: matchesError } = await adminClient
+    .from("tournament_matches")
+    .select("id")
+    .or(`team_a_id.eq.${normalizedTeamId},team_b_id.eq.${normalizedTeamId}`);
+
+  if (matchesError) {
+    return {
+      error: matchesError.message,
+    };
+  }
+
+  const matchIds = (matches ?? []).map((match) => match.id);
+
+  if (matchIds.length > 0) {
+    const { error: deleteCheckInsError } = await adminClient
+      .from("match_check_ins")
+      .delete()
+      .in("match_id", matchIds);
+
+    if (deleteCheckInsError) {
+      return {
+        error: deleteCheckInsError.message,
+      };
+    }
+
+    const { error: deleteMatchesError } = await adminClient
+      .from("tournament_matches")
+      .delete()
+      .in("id", matchIds);
+
+    if (deleteMatchesError) {
+      return {
+        error: deleteMatchesError.message,
+      };
+    }
+  }
+
+  const { error: deleteTeamError } = await adminClient
+    .from("teams")
+    .delete()
+    .eq("id", normalizedTeamId);
+
+  if (deleteTeamError) {
+    return {
+      error: deleteTeamError.message,
+    };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/my-team");
+  revalidatePath("/profile");
   revalidatePath("/matches");
   revalidatePath("/tournament");
 

@@ -8,6 +8,7 @@ import {
   adminRemovePlayerFromTeam,
   createAdminPlayerAction,
   deletePlayer,
+  deleteTeam,
   listAdminPlayers,
   toggleTeamSuspension,
   updateTournamentMatchAction,
@@ -171,6 +172,7 @@ export default function AdminPage() {
   const [isDeletingPlayerUserId, setIsDeletingPlayerUserId] = useState<
     string | null
   >(null);
+  const [isDeletingTeamId, setIsDeletingTeamId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTabId>("players");
 
   async function getCurrentAdminAccessToken() {
@@ -407,6 +409,42 @@ export default function AdminPage() {
       );
     } finally {
       setIsDeletingPlayerUserId(null);
+    }
+  }
+
+  async function handleDeleteTeam(teamId: string) {
+    const shouldDelete = window.confirm(
+      "Delete this team and all related team memberships, entries, and matches? This cannot be undone."
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setIsDeletingTeamId(teamId);
+    setErrorMessage("");
+
+    try {
+      const accessToken = await getCurrentAdminAccessToken();
+      const result = await deleteTeam(teamId, accessToken);
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      if (selectedTeamId === teamId) {
+        setSelectedTeamId(null);
+        setSelectedTeamMembers([]);
+      }
+
+      await loadAdminData();
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not delete team."
+      );
+    } finally {
+      setIsDeletingTeamId(null);
     }
   }
 
@@ -999,6 +1037,7 @@ export default function AdminPage() {
                         <button
                           type="button"
                           onClick={() => setSelectedTeamId(team.id)}
+                          disabled={isDeletingTeamId === team.id}
                           className={`rounded border px-4 py-2 text-sm font-medium ${
                             selectedTeamId === team.id
                               ? "border-zinc-300 bg-zinc-100 text-zinc-500"
@@ -1006,6 +1045,14 @@ export default function AdminPage() {
                           }`}
                         >
                           {selectedTeamId === team.id ? "Managing" : "Manage Team"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteTeam(team.id)}
+                          disabled={isDeletingTeamId === team.id}
+                          className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                        >
+                          {isDeletingTeamId === team.id ? "Deleting..." : "Delete"}
                         </button>
                       </div>
                     ))}
