@@ -15,6 +15,26 @@ type CreateAdminPlayerResult = {
   error: string | null;
 };
 
+export type AdminPlayerListItem = {
+  id: string;
+  nickname: string;
+  email: string;
+};
+
+type ListAdminPlayersResult =
+  | {
+      error: string;
+      players: [];
+    }
+  | {
+      error: null;
+      players: AdminPlayerListItem[];
+    };
+
+type DeletePlayerResult = {
+  error: string | null;
+};
+
 type AdminActionContext = {
   supabaseUrl: string;
   serviceRoleKey: string;
@@ -149,6 +169,127 @@ export async function createAdminPlayerAction(
   }
 
   revalidatePath("/admin");
+
+  return {
+    error: null,
+  };
+}
+
+export async function listAdminPlayers(
+  accessToken: string
+): Promise<ListAdminPlayersResult> {
+  const authResult = await verifyAdminAction(accessToken);
+
+  if (authResult.error || !authResult.context) {
+    return {
+      error: authResult.error,
+      players: [],
+    };
+  }
+
+  const adminClient = createClient<Database>(
+    authResult.context.supabaseUrl,
+    authResult.context.serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+
+  const { data: usersData, error: usersError } = await adminClient.auth.admin.listUsers();
+
+  if (usersError) {
+    return {
+      error: usersError.message,
+      players: [],
+    };
+  }
+
+  const users = usersData.users;
+  const userIds = users.map((user) => user.id);
+  let nicknameByUserId = new Map<string, string>();
+
+  if (userIds.length > 0) {
+    const { data: profiles, error: profilesError } = await adminClient
+      .from("profiles")
+      .select("id, nickname")
+      .in("id", userIds);
+
+    if (profilesError) {
+      return {
+        error: profilesError.message,
+        players: [],
+      };
+    }
+
+    nicknameByUserId = new Map(
+      ((profiles ?? []) as Array<{ id: string; nickname: string }>).map((profile) => [
+        profile.id,
+        profile.nickname,
+      ])
+    );
+  }
+
+  const players = users
+    .map((user) => ({
+      id: user.id,
+      nickname: nicknameByUserId.get(user.id) ?? user.user_metadata?.nickname ?? "Unknown",
+      email: user.email ?? "No email",
+    }))
+    .sort((playerA, playerB) => playerA.nickname.localeCompare(playerB.nickname));
+
+  return {
+    error: null,
+    players,
+  };
+}
+
+export async function deletePlayer(
+  userId: string,
+  accessToken: string
+): Promise<DeletePlayerResult> {
+  const normalizedUserId = userId.trim();
+
+  if (!normalizedUserId) {
+    return {
+      error: "Player is required.",
+    };
+  }
+
+  const authResult = await verifyAdminAction(accessToken);
+
+  if (authResult.error || !authResult.context) {
+    return {
+      error: authResult.error,
+    };
+  }
+
+  const adminClient = createClient<Database>(
+    authResult.context.supabaseUrl,
+    authResult.context.serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+
+  const { error } = await adminClient.auth.admin.deleteUser(normalizedUserId);
+
+  if (error) {
+    return {
+      error: error.message,
+    };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/profile");
+  revalidatePath("/my-team");
+  revalidatePath("/matches");
+  revalidatePath("/tournament");
 
   return {
     error: null,

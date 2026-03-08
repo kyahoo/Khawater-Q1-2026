@@ -7,8 +7,11 @@ import {
   adminForceAddPlayerToTeam,
   adminRemovePlayerFromTeam,
   createAdminPlayerAction,
+  deletePlayer,
+  listAdminPlayers,
   toggleTeamSuspension,
   updateTournamentMatchAction,
+  type AdminPlayerListItem,
 } from "./actions";
 import { SiteHeader } from "@/components/site-header";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -109,6 +112,7 @@ export default function AdminPage() {
   const [matches, setMatches] = useState<TournamentMatch[]>([]);
   const [teams, setTeams] = useState<TeamListItem[]>([]);
   const [profiles, setProfiles] = useState<AdminProfileListItem[]>([]);
+  const [players, setPlayers] = useState<AdminPlayerListItem[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedTeamMembers, setSelectedTeamMembers] = useState<
     Awaited<ReturnType<typeof getTeamMembers>>
@@ -156,21 +160,44 @@ export default function AdminPage() {
   const [isRemovingPlayerUserId, setIsRemovingPlayerUserId] = useState<
     string | null
   >(null);
+  const [isDeletingPlayerUserId, setIsDeletingPlayerUserId] = useState<
+    string | null
+  >(null);
+
+  async function getCurrentAdminAccessToken() {
+    const supabase = getSupabaseBrowserClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new Error("Could not verify the current admin session.");
+    }
+
+    return session.access_token;
+  }
 
   async function loadAdminData() {
     setPageErrorMessage("");
     setEntrySectionErrorMessage("");
     setMatchesSectionErrorMessage("");
+    const accessToken = await getCurrentAdminAccessToken();
 
-    const [nextTournaments, nextTeams, nextProfiles] = await Promise.all([
+    const [nextTournaments, nextTeams, nextProfiles, nextPlayersResult] = await Promise.all([
       listTournaments(),
       listTeamsWithMeta(),
       listProfilesWithTeamMeta(),
+      listAdminPlayers(accessToken),
     ]);
+
+    if (nextPlayersResult.error) {
+      throw new Error(nextPlayersResult.error);
+    }
 
     setTournaments(nextTournaments);
     setTeams(nextTeams);
     setProfiles(nextProfiles);
+    setPlayers(nextPlayersResult.players);
 
     const nextActiveTournament =
       nextTournaments.find((tournament) => tournament.is_active) ?? null;
@@ -316,17 +343,10 @@ export default function AdminPage() {
     setErrorMessage("");
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session?.access_token) {
-        throw new Error("Could not verify the current admin session.");
-      }
+      const accessToken = await getCurrentAdminAccessToken();
 
       const result = await createAdminPlayerAction({
-        accessToken: session.access_token,
+        accessToken,
         email,
         nickname,
         password: newPlayerPassword,
@@ -347,6 +367,37 @@ export default function AdminPage() {
       );
     } finally {
       setIsCreatingPlayer(false);
+    }
+  }
+
+  async function handleDeletePlayer(userId: string) {
+    const shouldDelete = window.confirm(
+      "Delete this player account permanently? This cannot be undone."
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setIsDeletingPlayerUserId(userId);
+    setErrorMessage("");
+
+    try {
+      const accessToken = await getCurrentAdminAccessToken();
+      const result = await deletePlayer(userId, accessToken);
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      await loadAdminData();
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not delete player."
+      );
+    } finally {
+      setIsDeletingPlayerUserId(null);
     }
   }
 
@@ -1239,6 +1290,38 @@ export default function AdminPage() {
                 available in team management.
               </p>
             </div>
+          </section>
+
+          <section className="border border-zinc-300 bg-white p-5">
+            <h2 className="mb-4 text-lg font-semibold text-zinc-500">
+              Manage Players
+            </h2>
+
+            {players.length === 0 ? (
+              <p className="text-sm text-zinc-600">No registered players found yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {players.map((player) => (
+                  <div
+                    key={player.id}
+                    className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <div className="font-medium">{player.nickname}</div>
+                      <div className="mt-1 text-sm text-zinc-500">{player.email}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeletePlayer(player.id)}
+                      disabled={isDeletingPlayerUserId === player.id}
+                      className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                    >
+                      {isDeletingPlayerUserId === player.id ? "Deleting..." : "Delete"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="border border-zinc-300 bg-white p-5">
