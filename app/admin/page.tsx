@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   adminForceConfirmTeam,
@@ -281,38 +281,38 @@ export default function AdminPage() {
     }
   }
 
-  useEffect(() => {
-    const loadAdminPage = async () => {
-      try {
-        setPageErrorMessage("");
-        setErrorMessage("");
-        const supabase = getSupabaseBrowserClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+  const loadAdminPage = useEffectEvent(async () => {
+    try {
+      setPageErrorMessage("");
+      setErrorMessage("");
+      const supabase = getSupabaseBrowserClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-        if (!user) {
-          router.replace("/auth");
-          return;
-        }
-
-        const nextProfile = await getProfileByUserId(user.id);
-        setProfile(nextProfile);
-
-        if (!nextProfile?.is_admin) {
-          return;
-        }
-
-        await loadAdminData();
-      } catch (error) {
-        setPageErrorMessage(
-          error instanceof Error ? error.message : "Could not load admin page."
-        );
-      } finally {
-        setIsLoading(false);
+      if (!user) {
+        router.replace("/auth");
+        return;
       }
-    };
 
+      const nextProfile = await getProfileByUserId(user.id);
+      setProfile(nextProfile);
+
+      if (!nextProfile?.is_admin) {
+        return;
+      }
+
+      await loadAdminData();
+    } catch (error) {
+      setPageErrorMessage(
+        error instanceof Error ? error.message : "Could not load admin page."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  });
+
+  useEffect(() => {
     void loadAdminPage();
   }, [router]);
 
@@ -375,7 +375,11 @@ export default function AdminPage() {
   }, [groupStageForm.tournamentId]);
 
   useEffect(() => {
-    const validTeamIds = new Set(enteredGroupStageTeams.map((team) => team.id));
+    const validTeamIds = new Set(
+      groupStageTeams
+        .filter((team) => team.hasEntered)
+        .map((team) => team.id)
+    );
 
     setGroupStageForm((current) => {
       const nextTeamIds = current.teamIds.filter((teamId) => validTeamIds.has(teamId));
@@ -389,7 +393,7 @@ export default function AdminPage() {
         teamIds: nextTeamIds,
       };
     });
-  }, [enteredGroupStageTeams]);
+  }, [groupStageTeams]);
 
   async function handleCreateTournament() {
     const trimmedName = newTournamentName.trim();
@@ -931,6 +935,18 @@ export default function AdminPage() {
 
     if (groupStageForm.teamIds.length < 2) {
       setGroupStageErrorMessage("Select at least two teams.");
+      setGroupStageSuccessMessage("");
+      return;
+    }
+
+    if (!groupStageForm.startDateTime.trim()) {
+      setGroupStageErrorMessage("Enter a start date and time.");
+      setGroupStageSuccessMessage("");
+      return;
+    }
+
+    if (!groupStageForm.matchIntervalMinutes.trim()) {
+      setGroupStageErrorMessage("Enter the match interval in minutes.");
       setGroupStageSuccessMessage("");
       return;
     }
@@ -1561,8 +1577,9 @@ export default function AdminPage() {
                   </p>
                 ) : (
                   <div className="space-y-4">
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-3">
                       <select
+                        aria-label="Group stage tournament"
                         value={groupStageForm.tournamentId}
                         onChange={(event) => {
                           setGroupStageForm((current) => ({
@@ -1585,6 +1602,7 @@ export default function AdminPage() {
                       </select>
 
                       <input
+                        aria-label="Group stage start date and time"
                         type="datetime-local"
                         value={groupStageForm.startDateTime}
                         onChange={(event) => {
@@ -1599,6 +1617,7 @@ export default function AdminPage() {
                       />
 
                       <input
+                        aria-label="Group stage match interval in minutes"
                         type="number"
                         min="0"
                         step="1"
@@ -1678,7 +1697,9 @@ export default function AdminPage() {
                       disabled={
                         isGeneratingGroupStage ||
                         !groupStageForm.tournamentId ||
-                        enteredGroupStageTeams.length < 2
+                        !groupStageForm.startDateTime.trim() ||
+                        !groupStageForm.matchIntervalMinutes.trim() ||
+                        groupStageForm.teamIds.length < 2
                       }
                       className="w-fit rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
                     >

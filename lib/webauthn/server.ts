@@ -73,6 +73,11 @@ export type CompleteProfilePasskeyRegistrationResult = {
   error: string | null;
 };
 
+export type ProfilePasskeyBindingStatusResult = {
+  error: string | null;
+  isDeviceBound: boolean;
+};
+
 function normalizeDelimitedValues(value: string | undefined) {
   return (value ?? "")
     .split(",")
@@ -218,6 +223,42 @@ async function getUserPasskeys(adminClient: AdminClient, userId: string) {
   }
 
   return (data ?? []) as PasskeyRow[];
+}
+
+async function getUserPasskeyCount(adminClient: AdminClient, userId: string) {
+  const { count, error } = await adminClient
+    .from("user_passkeys")
+    .select("credential_id", {
+      count: "exact",
+      head: true,
+    })
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error("Не удалось проверить привязку устройства.");
+  }
+
+  return count ?? 0;
+}
+
+export async function getProfilePasskeyBindingStatus(params: {
+  adminClient: AdminClient;
+  userId: string;
+}): Promise<ProfilePasskeyBindingStatusResult> {
+  try {
+    return {
+      error: null,
+      isDeviceBound: (await getUserPasskeyCount(params.adminClient, params.userId)) > 0,
+    };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Не удалось проверить привязку устройства.",
+      isDeviceBound: false,
+    };
+  }
 }
 
 async function getCheckedInRow(
@@ -398,6 +439,12 @@ export async function beginProfilePasskeyRegistration(params: {
   const { adminClient, user } = params;
 
   try {
+    if ((await getUserPasskeyCount(adminClient, user.id)) > 0) {
+      return {
+        error: "Аккаунт уже привязан к устройству",
+      };
+    }
+
     const { webAuthnConfig, options } = await buildRegistrationOptionsForUser({
       adminClient,
       user,
@@ -433,6 +480,12 @@ export async function completeProfilePasskeyRegistration(params: {
   userId: string;
   response: RegistrationResponseJSON;
 }): Promise<CompleteProfilePasskeyRegistrationResult> {
+  if ((await getUserPasskeyCount(params.adminClient, params.userId)) > 0) {
+    return {
+      error: "Аккаунт уже привязан к устройству",
+    };
+  }
+
   const challengePayload = await consumeChallengeCookie("registration");
 
   if (

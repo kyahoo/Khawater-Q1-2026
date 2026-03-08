@@ -18,6 +18,7 @@ import {
 } from "@/lib/supabase/tournaments";
 import { SiteHeader } from "@/components/site-header";
 import {
+  getProfilePasskeyBindingStatus,
   getProfilePasskeyRegistrationOptions,
   verifyProfilePasskeyRegistration,
 } from "./actions";
@@ -57,6 +58,8 @@ export default function ProfilePage() {
   const [isConfirmingParticipation, setIsConfirmingParticipation] = useState(false);
   const [isParticipationConfirmed, setIsParticipationConfirmed] = useState(false);
   const [isRegisteringDevice, setIsRegisteringDevice] = useState(false);
+  const [hasLoadedDeviceBinding, setHasLoadedDeviceBinding] = useState(false);
+  const [isDeviceBound, setIsDeviceBound] = useState(false);
   const [deviceMessage, setDeviceMessage] = useState("");
   const isCaptain = teamData?.membership.is_captain ?? false;
   const isLastMember = (teamData?.members.length ?? 0) === 1;
@@ -68,8 +71,16 @@ export default function ProfilePage() {
         const {
           data: { user },
         } = await supabase.auth.getUser();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
         if (!user) {
+          router.replace("/auth");
+          return;
+        }
+
+        if (!session?.access_token) {
           router.replace("/auth");
           return;
         }
@@ -82,13 +93,23 @@ export default function ProfilePage() {
         }
 
         setProfile(nextProfile);
-        const [nextTeamData, nextActiveTournament] = await Promise.all([
+        const [nextTeamData, nextActiveTournament, deviceBindingStatus] = await Promise.all([
           getCurrentTeamDetails(user.id),
           getActiveTournament(),
+          getProfilePasskeyBindingStatus(session.access_token),
         ]);
 
         setTeamData(nextTeamData);
         setActiveTournament(nextActiveTournament);
+
+        if (deviceBindingStatus.error) {
+          setHasLoadedDeviceBinding(false);
+          setDeviceMessage(deviceBindingStatus.error);
+        } else {
+          setHasLoadedDeviceBinding(true);
+          setIsDeviceBound(deviceBindingStatus.isDeviceBound);
+          setDeviceMessage("");
+        }
 
         if (nextActiveTournament && nextTeamData) {
           const confirmation = await getTournamentConfirmation(
@@ -204,6 +225,11 @@ export default function ProfilePage() {
   }
 
   async function handleRegisterDevice() {
+    if (!hasLoadedDeviceBinding || isDeviceBound) {
+      setDeviceMessage(isDeviceBound ? "" : "Не удалось проверить привязку устройства.");
+      return;
+    }
+
     setIsRegisteringDevice(true);
     setDeviceMessage("");
     setErrorMessage("");
@@ -227,6 +253,13 @@ export default function ProfilePage() {
       const beginResult = await getProfilePasskeyRegistrationOptions(session.access_token);
 
       if (beginResult.error || !beginResult.options) {
+        if (beginResult.error === "Аккаунт уже привязан к устройству") {
+          setIsDeviceBound(true);
+          setHasLoadedDeviceBinding(true);
+          setDeviceMessage("");
+          return;
+        }
+
         setDeviceMessage(beginResult.error ?? "Не удалось начать регистрацию устройства.");
         return;
       }
@@ -241,11 +274,20 @@ export default function ProfilePage() {
       );
 
       if (finishResult.error) {
+        if (finishResult.error === "Аккаунт уже привязан к устройству") {
+          setIsDeviceBound(true);
+          setHasLoadedDeviceBinding(true);
+          setDeviceMessage("");
+          return;
+        }
+
         setDeviceMessage(finishResult.error);
         return;
       }
 
-      setDeviceMessage("Устройство успешно привязано.");
+      setIsDeviceBound(true);
+      setHasLoadedDeviceBinding(true);
+      setDeviceMessage("");
       router.refresh();
     } catch (error) {
       setDeviceMessage(getWebAuthnErrorMessage(error));
@@ -277,7 +319,7 @@ export default function ProfilePage() {
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <section className="space-y-6">
-            <div className="border border-zinc-300 bg-white p-5">
+            <div className="border border-zinc-300 bg-white p-5 shadow-sm">
               <div className="mb-3 text-2xl font-semibold">
                 {profile?.nickname ?? "Player"}
               </div>
@@ -285,10 +327,18 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => void handleRegisterDevice()}
-                  disabled={isRegisteringDevice}
-                  className="rounded border border-zinc-400 bg-white px-4 py-2 text-sm font-medium"
+                  disabled={
+                    isRegisteringDevice || !hasLoadedDeviceBinding || isDeviceBound
+                  }
+                  className="rounded border border-zinc-400 bg-white px-4 py-2 text-sm font-medium disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
                 >
-                  {isRegisteringDevice ? "Привязка..." : "Привязать устройство"}
+                  {isDeviceBound
+                    ? "Аккаунт уже привязан к устройству"
+                    : isRegisteringDevice
+                      ? "Привязка..."
+                      : hasLoadedDeviceBinding
+                        ? "Привязать устройство"
+                        : "Проверяю привязку..."}
                 </button>
                 {deviceMessage && (
                   <p className="text-sm text-zinc-600">{deviceMessage}</p>
@@ -296,7 +346,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="border border-zinc-300 bg-white p-5">
+            <div className="border border-zinc-300 bg-white p-5 shadow-sm">
               <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                 Статус команды
               </h2>
@@ -334,7 +384,7 @@ export default function ProfilePage() {
               )}
             </div>
 
-            <div className="border border-zinc-300 bg-white p-5">
+            <div className="border border-zinc-300 bg-white p-5 shadow-sm">
               <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                 Участие в текущем турнире
               </h2>
@@ -385,7 +435,7 @@ export default function ProfilePage() {
             {teamData ? (
               <a
                 href="/my-team"
-                className="block rounded border border-zinc-300 bg-white px-5 py-4 text-sm font-medium"
+                className="block rounded border border-zinc-300 bg-white px-5 py-4 text-sm font-medium shadow-sm"
               >
                 Моя команда
               </a>
@@ -393,13 +443,13 @@ export default function ProfilePage() {
               <>
                 <a
                   href="/create-team"
-                  className="block rounded border border-zinc-300 bg-white px-5 py-4 text-sm font-medium"
+                  className="block rounded border border-zinc-300 bg-white px-5 py-4 text-sm font-medium shadow-sm"
                 >
                   Create Team
                 </a>
                 <a
                   href="/join-team"
-                  className="block rounded border border-zinc-300 bg-white px-5 py-4 text-sm font-medium"
+                  className="block rounded border border-zinc-300 bg-white px-5 py-4 text-sm font-medium shadow-sm"
                 >
                   Join Team
                 </a>

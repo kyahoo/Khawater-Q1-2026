@@ -16,6 +16,7 @@ export default {
         "arcade-surface": "#FFFFFF",
         "arcade-muted": "#A1A1AA",
         "khawater-blue": "#0B3A4A",
+        "khawater-light": "#F0F4F8",
       },
     },
   },

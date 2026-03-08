@@ -9,6 +9,8 @@ import {
   completeProfilePasskeyRegistration,
   type BeginProfilePasskeyRegistrationResult,
   type CompleteProfilePasskeyRegistrationResult,
+  getProfilePasskeyBindingStatus as getProfilePasskeyBindingStatusFromServer,
+  type ProfilePasskeyBindingStatusResult,
 } from "@/lib/webauthn/server";
 
 type ProfileActionContext = {
@@ -101,6 +103,33 @@ export async function getProfilePasskeyRegistrationOptions(
   return beginProfilePasskeyRegistration({
     adminClient: authResult.context.adminClient,
     user: authResult.context.user,
+  });
+}
+
+export async function getProfilePasskeyBindingStatus(
+  accessToken: string
+): Promise<ProfilePasskeyBindingStatusResult> {
+  const trimmedToken = accessToken.trim();
+
+  if (!trimmedToken) {
+    return {
+      error: "Session is required.",
+      isDeviceBound: false,
+    };
+  }
+
+  const authResult = await getProfileActionContext(trimmedToken);
+
+  if (authResult.error || !authResult.context) {
+    return {
+      error: authResult.error ?? "Could not verify your session.",
+      isDeviceBound: false,
+    };
+  }
+
+  return getProfilePasskeyBindingStatusFromServer({
+    adminClient: authResult.context.adminClient,
+    userId: authResult.context.user.id,
   });
 }
 

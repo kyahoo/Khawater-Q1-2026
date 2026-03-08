@@ -568,15 +568,15 @@ export default function TournamentPage() {
 
       <main className="mx-auto max-w-6xl px-6 py-8">
         {isLoading ? (
-          <div className="border border-zinc-300 bg-white p-5 text-sm text-zinc-600">
+          <div className="border border-zinc-300 bg-white p-5 text-sm text-zinc-600 shadow-sm">
             Загрузка турнира...
           </div>
         ) : errorMessage ? (
-          <div className="border border-red-300 bg-white p-5 text-sm text-red-600">
+          <div className="border border-red-300 bg-white p-5 text-sm text-red-600 shadow-sm">
             {errorMessage}
           </div>
         ) : !activeTournament ? (
-          <section className="border border-zinc-300 bg-white p-5">
+          <section className="border border-zinc-300 bg-white p-5 shadow-sm">
             <h1 className="mb-3 text-2xl font-semibold">Турнир</h1>
             <p className="text-sm text-zinc-600">Сейчас нет активного турнира.</p>
           </section>
@@ -613,7 +613,7 @@ export default function TournamentPage() {
             </nav>
 
             {activeTab === "teams" && (
-              <section className="border border-zinc-300 bg-white p-5">
+              <section className="border border-zinc-300 bg-white p-5 shadow-sm">
                 <h2 className="mb-6 flex items-center gap-3 text-2xl font-extrabold uppercase tracking-tight text-[#09090B] before:h-8 before:w-4 before:bg-[#FFD000] before:content-[''] before:clip-slant">
                   Заявленные команды
                 </h2>
@@ -627,7 +627,7 @@ export default function TournamentPage() {
                     {enteredTeams.map((team) => (
                       <div
                         key={team.id}
-                        className="group relative flex flex-col overflow-hidden border-[3px] border-arcade-black bg-arcade-surface shadow-[4px_4px_0px_0px_#09090B] transition-all clip-chamfer hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#09090B]"
+                        className="group relative flex flex-col overflow-hidden border-[3px] border-arcade-black bg-white shadow-md transition-all clip-chamfer hover:-translate-y-1 hover:shadow-lg"
                       >
                         <div className="border-b-[3px] border-[#09090B] bg-khawater-blue p-4 text-xl font-extrabold uppercase tracking-widest text-[#FFFFFF] transition-colors">
                           {team.name}{" "}
@@ -653,7 +653,7 @@ export default function TournamentPage() {
             )}
 
             {activeTab === "matches" && (
-              <section className="border border-zinc-300 bg-white p-5">
+              <section className="border border-zinc-300 bg-white p-5 shadow-sm">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                   Расписание и результаты
                 </h2>
@@ -671,7 +671,7 @@ export default function TournamentPage() {
             )}
 
             {activeTab === "group" && (
-              <section className="border border-zinc-300 bg-white p-5">
+              <section className="border border-zinc-300 bg-white p-5 shadow-sm">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                   Таблица группового этапа
                 </h2>
@@ -721,7 +721,7 @@ export default function TournamentPage() {
             )}
 
             {activeTab === "playoffs" && (
-              <section className="border border-zinc-300 bg-white p-5">
+              <section className="border border-zinc-300 bg-white p-5 shadow-sm">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                   Сетка плей-офф
                 </h2>

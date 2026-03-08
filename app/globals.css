@@ -8,6 +8,7 @@
   --color-arcade-surface: #FFFFFF;
   --color-arcade-muted: #A1A1AA;
   --color-khawater-blue: #0B3A4A;
+  --color-khawater-light: #F0F4F8;
 }
 
 @theme inline {
@@ -18,10 +19,8 @@
 @layer base {
   body {
     min-height: 100vh;
-    background-color: var(--color-arcade-bg);
-    background-image: radial-gradient(#e4e4e7 1px, transparent 1px);
-    background-size: 20px 20px;
-    color: var(--color-arcade-black);
+    background-color: var(--color-khawater-light);
+    color: #0f172a;
     font-family: Arial, Helvetica, sans-serif;
   }
 }
@@ -40,5 +39,14 @@
 
   .clip-slant {
     clip-path: polygon(0 0, 100% 0, 95% 100%, 0 100%);
+  }
+
+  .bg-esports-pattern {
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(11, 58, 74, 0.05) 1px, transparent 0),
+      linear-gradient(rgba(59, 91, 113, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59, 91, 113, 0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: 0 0;
   }
 }
