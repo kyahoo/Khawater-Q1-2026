@@ -13,6 +13,7 @@ import {
   deleteTeam,
   generateGroupStageMatches,
   listAdminPlayers,
+  resetPlayerDeviceBinding,
   toggleTeamSuspension,
   updateTournamentMatchAction,
   type AdminPlayerListItem,
@@ -190,6 +191,9 @@ export default function AdminPage() {
     string | null
   >(null);
   const [isDeletingPlayerUserId, setIsDeletingPlayerUserId] = useState<
+    string | null
+  >(null);
+  const [isResettingDeviceUserId, setIsResettingDeviceUserId] = useState<
     string | null
   >(null);
   const [isDeletingTeamId, setIsDeletingTeamId] = useState<string | null>(null);
@@ -512,6 +516,37 @@ export default function AdminPage() {
       );
     } finally {
       setIsDeletingPlayerUserId(null);
+    }
+  }
+
+  async function handleResetPlayerDeviceBinding(userId: string) {
+    const shouldReset = window.confirm(
+      "Вы уверены, что хотите сбросить привязку устройства для этого игрока?"
+    );
+
+    if (!shouldReset) {
+      return;
+    }
+
+    setIsResettingDeviceUserId(userId);
+    setErrorMessage("");
+
+    try {
+      const accessToken = await getCurrentAdminAccessToken();
+      const result = await resetPlayerDeviceBinding(userId, accessToken);
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      await loadAdminData();
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Не удалось сбросить устройство."
+      );
+    } finally {
+      setIsResettingDeviceUserId(null);
     }
   }
 
@@ -1340,14 +1375,26 @@ export default function AdminPage() {
                           <div className="font-medium">{player.nickname}</div>
                           <div className="mt-1 text-sm text-zinc-500">{player.email}</div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => void handleDeletePlayer(player.id)}
-                          disabled={isDeletingPlayerUserId === player.id}
-                          className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
-                        >
-                          {isDeletingPlayerUserId === player.id ? "Deleting..." : "Delete"}
-                        </button>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <button
+                            type="button"
+                            onClick={() => void handleResetPlayerDeviceBinding(player.id)}
+                            disabled={isResettingDeviceUserId === player.id}
+                            className="w-fit border-2 border-[#061726] bg-yellow-500 px-4 py-1 text-xs font-extrabold uppercase text-[#061726] shadow-[2px_2px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-none disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isResettingDeviceUserId === player.id
+                              ? "Сброс..."
+                              : "Сбросить устройство"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleDeletePlayer(player.id)}
+                            disabled={isDeletingPlayerUserId === player.id}
+                            className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                          >
+                            {isDeletingPlayerUserId === player.id ? "Deleting..." : "Delete"}
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

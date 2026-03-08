@@ -139,6 +139,10 @@ export default function ProfilePage() {
         } else {
           setHasLoadedDeviceBinding(true);
           setIsDeviceBound(deviceBindingStatus.isDeviceBound);
+          if (!deviceBindingStatus.isDeviceBound) {
+            localStorage.removeItem("khawater_device_owner");
+            setDeviceOwnerId(null);
+          }
           setDeviceMessage("");
         }
 

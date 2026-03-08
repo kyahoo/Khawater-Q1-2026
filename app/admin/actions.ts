@@ -35,6 +35,10 @@ type DeletePlayerResult = {
   error: string | null;
 };
 
+type ResetPlayerDeviceBindingResult = {
+  error: string | null;
+};
+
 type DeleteTeamResult = {
   error: string | null;
 };
@@ -255,6 +259,56 @@ export async function listAdminPlayers(
   return {
     error: null,
     players,
+  };
+}
+
+export async function resetPlayerDeviceBinding(
+  userId: string,
+  accessToken: string
+): Promise<ResetPlayerDeviceBindingResult> {
+  const trimmedUserId = userId.trim();
+
+  if (!trimmedUserId) {
+    return {
+      error: "Player ID is required.",
+    };
+  }
+
+  const authResult = await verifyAdminAction(accessToken);
+
+  if (authResult.error || !authResult.context) {
+    return {
+      error: authResult.error,
+    };
+  }
+
+  const adminClient = createClient<Database>(
+    authResult.context.supabaseUrl,
+    authResult.context.serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+
+  const { error } = await adminClient
+    .from("user_passkeys")
+    .delete()
+    .eq("user_id", trimmedUserId);
+
+  if (error) {
+    return {
+      error: error.message,
+    };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/profile");
+
+  return {
+    error: null,
   };
 }
 
