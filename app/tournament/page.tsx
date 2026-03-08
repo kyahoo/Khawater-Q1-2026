@@ -583,7 +583,7 @@ export default function TournamentPage() {
         ) : (
           <div className="space-y-6">
             <section className="mb-8 border-[4px] border-[#09090B] bg-[#0B3A4A] p-8 shadow-[6px_6px_0px_0px_#09090B]">
-              <div className="mb-4 inline-block bg-[#09090B] px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#CD9C3E]">
+              <div className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[#CD9C3E]">
                 Активный турнир
               </div>
               <h1 className="text-4xl font-extrabold uppercase tracking-tight text-[#CD9C3E] md:text-5xl">
@@ -599,7 +599,7 @@ export default function TournamentPage() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`cursor-pointer select-none border-[4px] px-6 py-3 text-sm uppercase tracking-wider shadow-[6px_6px_0px_0px_#0B3A4A] transition-colors md:text-base ${
                     activeTab === tab.id
-                      ? "border-[#0B3A4A] bg-[#CD9C3E] font-extrabold text-[#09090B]"
+                      ? "border-[#0B3A4A] bg-white font-extrabold text-[#CD9C3E]"
                       : "border-[#0B3A4A] bg-[#0B3A4A] font-bold text-white hover:bg-[#0f4f66]"
                   }`}
                 >

@@ -80,7 +80,7 @@ export function SiteHeader() {
             <div className="flex items-center gap-6">
               <Link
                 href="/matches"
-                className="relative z-10 inline-flex w-fit shrink-0 items-center justify-center bg-[#CD9C3E] px-8 py-3 text-sm font-extrabold uppercase text-[#09090B] transition-transform touch-manipulation clip-slant hover:-translate-y-1 md:text-base"
+                className="inline-flex w-fit shrink-0 items-center justify-center text-sm font-bold uppercase tracking-wide text-[#CD9C3E] transition-colors touch-manipulation hover:text-[#e0b154] md:text-base"
               >
                 Мои матчи
               </Link>
