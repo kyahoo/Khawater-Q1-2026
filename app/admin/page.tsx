@@ -1794,7 +1794,7 @@ export default function AdminPage() {
 
                       <label className="flex flex-col gap-1 text-sm text-zinc-700">
                         <span className="font-medium">
-                          Daily End Time (Latest allowed match start)
+                          Daily End Time (Latest match allowed to finish)
                         </span>
                         <input
                           aria-label="Group stage daily end time"
