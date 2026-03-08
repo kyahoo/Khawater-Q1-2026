@@ -285,22 +285,35 @@ async function markBiometricVerified(
   matchId: string,
   userId: string
 ) {
-  const { data, error } = await adminClient
-    .from("match_check_ins")
-    .update({
-      biometric_verified: true,
-    })
-    .eq("match_id", matchId)
-    .eq("player_id", userId)
-    .select("player_id")
-    .maybeSingle();
+  const existingRow = await getCheckedInRow(adminClient, matchId, userId);
 
-  if (error) {
-    throw new Error("Не удалось обновить биометрическую проверку.");
+  if (existingRow) {
+    const { error } = await adminClient
+      .from("match_check_ins")
+      .update({
+        biometric_verified: true,
+      })
+      .eq("match_id", matchId)
+      .eq("player_id", userId);
+
+    if (error) {
+      throw new Error("Не удалось обновить биометрическую проверку.");
+    }
+
+    return;
   }
 
-  if (!data) {
-    throw new Error("Сначала отметьтесь на матч.");
+  const { error } = await adminClient.from("match_check_ins").insert({
+    match_id: matchId,
+    player_id: userId,
+    created_at: new Date().toISOString(),
+    biometric_verified: true,
+    is_checked_in: false,
+    lobby_screenshot_url: null,
+  });
+
+  if (error) {
+    throw new Error("Не удалось сохранить биометрическую проверку.");
   }
 }
 
@@ -533,20 +546,6 @@ export async function beginMatchBiometricVerification(params: {
   user: User;
 }): Promise<BeginMatchBiometricVerificationResult> {
   const { adminClient, matchId, user } = params;
-  const checkedInRow = await getCheckedInRow(adminClient, matchId, user.id);
-
-  if (!checkedInRow) {
-    return {
-      error: "Сначала отметьтесь на матч.",
-    };
-  }
-
-  if (checkedInRow.biometric_verified) {
-    return {
-      error: "Личность уже подтверждена.",
-    };
-  }
-
   const webAuthnConfig = await getWebAuthnRequestConfig();
   const passkeys = await getUserPasskeys(adminClient, user.id);
 

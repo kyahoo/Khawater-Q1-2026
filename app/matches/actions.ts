@@ -19,9 +19,21 @@ type CheckInResult = {
   error: string | null;
 };
 
+type SaveLobbyScreenshotResult = {
+  error: string | null;
+};
+
 type MatchActionContext = {
   user: User;
   adminClient: SupabaseClient<Database>;
+};
+
+type MatchActionMatchRow = Database["public"]["Tables"]["tournament_matches"]["Row"];
+type MatchCheckInRow = Database["public"]["Tables"]["match_check_ins"]["Row"];
+
+type AuthorizedMatchActionContext = MatchActionContext & {
+  match: MatchActionMatchRow;
+  checkInRow: MatchCheckInRow | null;
 };
 
 const CHECK_IN_WINDOW_MS = 30 * 60 * 1000;
@@ -93,6 +105,82 @@ async function getMatchActionContext(
   };
 }
 
+async function getAuthorizedMatchActionContext(
+  matchId: string,
+  accessToken: string
+): Promise<{
+  error: string | null;
+  context: AuthorizedMatchActionContext | null;
+}> {
+  const authResult = await getMatchActionContext(accessToken);
+
+  if (authResult.error || !authResult.context) {
+    return {
+      error: authResult.error,
+      context: null,
+    };
+  }
+
+  const { adminClient, user } = authResult.context;
+  const { data: matchRow, error: matchError } = await adminClient
+    .from("tournament_matches")
+    .select("id, team_a_id, team_b_id, scheduled_at, lobby_name, lobby_password")
+    .eq("id", matchId)
+    .maybeSingle();
+
+  if (matchError || !matchRow) {
+    return {
+      error: "Матч не найден.",
+      context: null,
+    };
+  }
+
+  const typedMatch = matchRow as MatchActionMatchRow;
+  const { data: membership, error: membershipError } = await adminClient
+    .from("team_members")
+    .select("team_id")
+    .eq("user_id", user.id)
+    .in("team_id", [typedMatch.team_a_id, typedMatch.team_b_id])
+    .maybeSingle();
+
+  if (membershipError || !membership) {
+    return {
+      error: "Вы не входите в состав этого матча.",
+      context: null,
+    };
+  }
+
+  const { data: checkInRow, error: checkInError } = await adminClient
+    .from("match_check_ins")
+    .select("*")
+    .eq("match_id", matchId)
+    .eq("player_id", user.id)
+    .maybeSingle();
+
+  if (checkInError) {
+    return {
+      error: "Не удалось загрузить статус чекина.",
+      context: null,
+    };
+  }
+
+  return {
+    error: null,
+    context: {
+      user,
+      adminClient,
+      match: typedMatch,
+      checkInRow: (checkInRow ?? null) as MatchCheckInRow | null,
+    },
+  };
+}
+
+function revalidateMatchPaths(matchId: string) {
+  revalidatePath(`/matches/${matchId}`);
+  revalidatePath("/matches");
+  revalidatePath("/tournament");
+}
+
 export async function checkInToMatch(
   matchId: string,
   accessToken: string
@@ -104,31 +192,19 @@ export async function checkInToMatch(
     return { error: "Match and session are required." };
   }
 
-  const authResult = await getMatchActionContext(trimmedToken);
+  const authResult = await getAuthorizedMatchActionContext(
+    trimmedMatchId,
+    trimmedToken
+  );
 
   if (authResult.error || !authResult.context) {
     return { error: authResult.error };
   }
 
-  const { adminClient, user } = authResult.context;
-  const userId = user.id;
+  const { adminClient, checkInRow, match, user } = authResult.context;
 
-  const { data: matchRow, error: matchError } = await adminClient
-    .from("tournament_matches")
-    .select("id, team_a_id, team_b_id, scheduled_at, lobby_name, lobby_password")
-    .eq("id", trimmedMatchId)
-    .maybeSingle();
-
-  if (matchError || !matchRow) {
-    return { error: "Match not found." };
-  }
-
-  const typedMatch = matchRow as Database["public"]["Tables"]["tournament_matches"]["Row"];
-  const teamAId = typedMatch.team_a_id;
-  const teamBId = typedMatch.team_b_id;
-
-  if (typedMatch.scheduled_at) {
-    const scheduledTimeMs = new Date(typedMatch.scheduled_at).getTime();
+  if (match.scheduled_at) {
+    const scheduledTimeMs = new Date(match.scheduled_at).getTime();
 
     if (!Number.isNaN(scheduledTimeMs)) {
       const checkInOpensAtMs = scheduledTimeMs - CHECK_IN_WINDOW_MS;
@@ -141,56 +217,46 @@ export async function checkInToMatch(
     }
   }
 
-  const { data: membership, error: membershipError } = await adminClient
-    .from("team_members")
-    .select("team_id")
-    .eq("user_id", userId)
-    .in("team_id", [teamAId, teamBId])
-    .maybeSingle();
-
-  if (membershipError || !membership) {
-    return { error: "You are not on either team in this match." };
+  if (!checkInRow?.biometric_verified) {
+    return {
+      error: "Сначала подтвердите личность через passkey.",
+    };
   }
 
-  const { data: existingCheckIn, error: existingError } = await adminClient
+  if (checkInRow.is_checked_in) {
+    return {
+      error: "Вы уже прошли чек-ин.",
+    };
+  }
+
+  const { error: updateError } = await adminClient
     .from("match_check_ins")
-    .select("player_id")
+    .update({
+      is_checked_in: true,
+    })
     .eq("match_id", trimmedMatchId)
-    .eq("player_id", userId)
-    .maybeSingle();
+    .eq("player_id", user.id);
 
-  if (existingError) {
-    return { error: "Could not verify check-in status." };
+  if (updateError) {
+    return { error: updateError.message };
   }
 
-  if (existingCheckIn) {
-    return { error: "You have already checked in." };
-  }
-
-  const { error: insertError } = await adminClient.from("match_check_ins").insert({
-    match_id: trimmedMatchId,
-    player_id: userId,
-    created_at: new Date().toISOString(),
-  });
-
-  if (insertError) {
-    return { error: insertError.message };
-  }
-
-  const { data: checkIns, error: countError } = await adminClient
+  const { count, error: countError } = await adminClient
     .from("match_check_ins")
-    .select("player_id")
-    .eq("match_id", trimmedMatchId);
+    .select("player_id", {
+      count: "exact",
+      head: true,
+    })
+    .eq("match_id", trimmedMatchId)
+    .eq("is_checked_in", true);
 
-  if (countError || !checkIns || checkIns.length < 10) {
-    revalidatePath(`/matches/${trimmedMatchId}`);
-    revalidatePath("/matches");
-    revalidatePath("/tournament");
+  if (countError || (count ?? 0) < 10) {
+    revalidateMatchPaths(trimmedMatchId);
     return { error: null };
   }
 
-  let lobbyName = typedMatch.lobby_name;
-  let lobbyPassword = typedMatch.lobby_password;
+  let lobbyName = match.lobby_name;
+  let lobbyPassword = match.lobby_password;
 
   if (!lobbyName || !lobbyPassword) {
     lobbyName = `KHW_${trimmedMatchId}`;
@@ -205,16 +271,12 @@ export async function checkInToMatch(
       .eq("id", trimmedMatchId);
 
     if (updateError) {
-      revalidatePath(`/matches/${trimmedMatchId}`);
-      revalidatePath("/matches");
-      revalidatePath("/tournament");
+      revalidateMatchPaths(trimmedMatchId);
       return { error: null };
     }
   }
 
-  revalidatePath(`/matches/${trimmedMatchId}`);
-  revalidatePath("/matches");
-  revalidatePath("/tournament");
+  revalidateMatchPaths(trimmedMatchId);
 
   return { error: null };
 }
@@ -232,7 +294,10 @@ export async function getMatchBiometricVerificationOptions(
     };
   }
 
-  const authResult = await getMatchActionContext(trimmedToken);
+  const authResult = await getAuthorizedMatchActionContext(
+    trimmedMatchId,
+    trimmedToken
+  );
 
   if (authResult.error || !authResult.context) {
     return {
@@ -271,7 +336,10 @@ export async function verifyMatchBiometricRegistration(
     };
   }
 
-  const authResult = await getMatchActionContext(trimmedToken);
+  const authResult = await getAuthorizedMatchActionContext(
+    trimmedMatchId,
+    trimmedToken
+  );
 
   if (authResult.error || !authResult.context) {
     return {
@@ -288,9 +356,7 @@ export async function verifyMatchBiometricRegistration(
     });
 
     if (!result.error) {
-      revalidatePath(`/matches/${trimmedMatchId}`);
-      revalidatePath("/matches");
-      revalidatePath("/tournament");
+      revalidateMatchPaths(trimmedMatchId);
     }
 
     return result;
@@ -319,7 +385,10 @@ export async function verifyMatchBiometricAuthentication(
     };
   }
 
-  const authResult = await getMatchActionContext(trimmedToken);
+  const authResult = await getAuthorizedMatchActionContext(
+    trimmedMatchId,
+    trimmedToken
+  );
 
   if (authResult.error || !authResult.context) {
     return {
@@ -336,9 +405,7 @@ export async function verifyMatchBiometricAuthentication(
     });
 
     if (!result.error) {
-      revalidatePath(`/matches/${trimmedMatchId}`);
-      revalidatePath("/matches");
-      revalidatePath("/tournament");
+      revalidateMatchPaths(trimmedMatchId);
     }
 
     return result;
@@ -351,4 +418,82 @@ export async function verifyMatchBiometricAuthentication(
           : "Не удалось завершить биометрическую проверку.",
     };
   }
+}
+
+export async function saveMatchLobbyScreenshot(
+  matchId: string,
+  accessToken: string,
+  lobbyScreenshotUrl: string
+): Promise<SaveLobbyScreenshotResult> {
+  const trimmedMatchId = matchId.trim();
+  const trimmedToken = accessToken.trim();
+  const trimmedLobbyScreenshotUrl = lobbyScreenshotUrl.trim();
+
+  if (!trimmedMatchId || !trimmedToken || !trimmedLobbyScreenshotUrl) {
+    return {
+      error: "Матч, сессия и URL скриншота обязательны.",
+    };
+  }
+
+  try {
+    new URL(trimmedLobbyScreenshotUrl);
+  } catch {
+    return {
+      error: "Некорректный URL скриншота.",
+    };
+  }
+
+  const authResult = await getAuthorizedMatchActionContext(
+    trimmedMatchId,
+    trimmedToken
+  );
+
+  if (authResult.error || !authResult.context) {
+    return {
+      error: authResult.error ?? "Не удалось проверить сессию.",
+    };
+  }
+
+  const { adminClient, checkInRow, user } = authResult.context;
+
+  if (!checkInRow?.is_checked_in) {
+    return {
+      error: "Сначала пройдите чек-ин на матч.",
+    };
+  }
+
+  const { count, error: countError } = await adminClient
+    .from("match_check_ins")
+    .select("player_id", {
+      count: "exact",
+      head: true,
+    })
+    .eq("match_id", trimmedMatchId)
+    .eq("is_checked_in", true);
+
+  if (countError || (count ?? 0) < 10) {
+    return {
+      error: "Подтверждение лобби откроется после чек-ина всех 10 игроков.",
+    };
+  }
+
+  const { error: updateError } = await adminClient
+    .from("match_check_ins")
+    .update({
+      lobby_screenshot_url: trimmedLobbyScreenshotUrl,
+    })
+    .eq("match_id", trimmedMatchId)
+    .eq("player_id", user.id);
+
+  if (updateError) {
+    return {
+      error: updateError.message,
+    };
+  }
+
+  revalidateMatchPaths(trimmedMatchId);
+
+  return {
+    error: null,
+  };
 }

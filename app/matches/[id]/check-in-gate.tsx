@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 const CHECK_IN_WINDOW_MS = 30 * 60 * 1000;
 
@@ -20,6 +20,8 @@ type CheckInGateProps = {
   isEligible: boolean;
   isCheckedIn: boolean;
   isCheckingIn: boolean;
+  checkedInCount: number;
+  totalPlayers: number;
   onCheckIn: () => void;
 };
 
@@ -28,6 +30,8 @@ export function CheckInGate({
   isEligible,
   isCheckedIn,
   isCheckingIn,
+  checkedInCount,
+  totalPlayers,
   onCheckIn,
 }: CheckInGateProps) {
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
@@ -42,40 +46,60 @@ export function CheckInGate({
     };
   }, []);
 
-  const scheduledTimeMs = useMemo(() => {
-    if (!scheduledAt) {
-      return null;
-    }
-
-    const parsedTime = new Date(scheduledAt).getTime();
-    return Number.isNaN(parsedTime) ? null : parsedTime;
-  }, [scheduledAt]);
+  const scheduledTimeMs = scheduledAt ? new Date(scheduledAt).getTime() : null;
+  const hasValidScheduledTime =
+    typeof scheduledTimeMs === "number" && !Number.isNaN(scheduledTimeMs);
 
   if (!isEligible && !isCheckedIn) {
     return null;
   }
 
+  const counterLabel = `ОЖИДАНИЕ ИГРОКОВ (${Math.min(
+    checkedInCount,
+    totalPlayers
+  )}/${totalPlayers})`;
+
   if (isCheckedIn) {
     return (
-      <div className="mt-4">
-        <span className="inline-flex rounded bg-green-100 px-3 py-1.5 text-sm font-medium text-green-800">
-          Вы готовы
-        </span>
+      <div className="mt-6 border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
+              Пре-матч
+            </p>
+            <h2 className="mt-2 text-2xl font-black uppercase text-white">
+              Чек-ин подтвержден
+            </h2>
+          </div>
+          <span className="w-fit border-[3px] border-[#061726] bg-[#163f1d] px-4 py-2 text-sm font-black uppercase text-[#D9F99D] shadow-[4px_4px_0px_0px_#061726]">
+            Готов
+          </span>
+        </div>
+        <p className="mt-4 text-sm font-bold uppercase tracking-[0.18em] text-[#CD9C3E]">
+          {counterLabel}
+        </p>
       </div>
     );
   }
 
-  if (!scheduledTimeMs) {
+  if (!hasValidScheduledTime) {
     return (
-      <div className="mt-4 space-y-2">
+      <div className="mt-6 border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
+          Пре-матч
+        </p>
+        <h2 className="mt-2 text-2xl font-black uppercase text-white">Чек-ин</h2>
+        <p className="mt-4 text-sm font-bold uppercase tracking-[0.18em] text-[#CD9C3E]">
+          {counterLabel}
+        </p>
         <button
           type="button"
           disabled
-          className="rounded border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-500"
+          className="mt-4 border-[3px] border-[#061726] bg-[#3B5561] px-6 py-3 text-sm font-black uppercase text-[#D4D4D8] shadow-[4px_4px_0px_0px_#061726]"
         >
-          Чекин откроется за 30 минут до начала
+          Чек-ин откроется позже
         </button>
-        <p className="text-sm text-zinc-500">Время матча еще не назначено.</p>
+        <p className="mt-3 text-sm text-white/80">Время матча еще не назначено.</p>
       </div>
     );
   }
@@ -86,15 +110,22 @@ export function CheckInGate({
 
   if (!isWindowOpen) {
     return (
-      <div className="mt-4 space-y-2">
+      <div className="mt-6 border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
+          Пре-матч
+        </p>
+        <h2 className="mt-2 text-2xl font-black uppercase text-white">Чек-ин</h2>
+        <p className="mt-4 text-sm font-bold uppercase tracking-[0.18em] text-[#CD9C3E]">
+          {counterLabel}
+        </p>
         <button
           type="button"
           disabled
-          className="rounded border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-500"
+          className="mt-4 border-[3px] border-[#061726] bg-[#3B5561] px-6 py-3 text-sm font-black uppercase text-[#D4D4D8] shadow-[4px_4px_0px_0px_#061726]"
         >
-          Чекин откроется за 30 минут до начала
+          Чек-ин закрыт
         </button>
-        <p className="text-sm text-zinc-500">
+        <p className="mt-3 text-sm text-white/80">
           До открытия чекина: {formatCountdown(millisecondsUntilOpen)}
         </p>
       </div>
@@ -102,14 +133,28 @@ export function CheckInGate({
   }
 
   return (
-    <div className="mt-4">
+    <div className="mt-6 border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
+            Пре-матч
+          </p>
+          <h2 className="mt-2 text-2xl font-black uppercase text-white">Чек-ин</h2>
+          <p className="mt-3 text-sm font-bold uppercase tracking-[0.18em] text-[#CD9C3E]">
+            {counterLabel}
+          </p>
+        </div>
+        <p className="max-w-sm text-sm text-white/80">
+          Нажмите кнопку, пройдите биометрию и подтвердите присутствие на матч.
+        </p>
+      </div>
       <button
         type="button"
         onClick={onCheckIn}
         disabled={isCheckingIn}
-        className="rounded border border-zinc-300 bg-zinc-50 px-4 py-2 text-sm font-medium hover:bg-zinc-100 disabled:opacity-50"
+        className="mt-5 border-[3px] border-[#061726] bg-[#CD9C3E] px-6 py-3 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70 disabled:shadow-[4px_4px_0px_0px_#061726]"
       >
-        {isCheckingIn ? "Отмечаюсь..." : "Чекин"}
+        {isCheckingIn ? "Проверка..." : "ЧЕК-ИН"}
       </button>
     </div>
   );

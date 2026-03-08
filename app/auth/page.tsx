@@ -24,6 +24,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     const checkSession = async () => {
@@ -43,6 +44,7 @@ export default function AuthPage() {
   async function handleLogin(credentials?: { email: string; password: string }) {
     setIsLoading(true);
     setErrorMessage("");
+    setSuccessMessage("");
 
     try {
       const nextEmail = credentials?.email ?? email;
@@ -72,6 +74,7 @@ export default function AuthPage() {
   async function handleRegister(credentials?: { email: string; password: string }) {
     setIsLoading(true);
     setErrorMessage("");
+    setSuccessMessage("");
 
     try {
       const nextEmail = credentials?.email ?? email;
@@ -89,13 +92,12 @@ export default function AuthPage() {
         throw error;
       }
 
-      if (data.user) {
-        await routeUserAfterAuth(router);
-        return;
+      if (!data.user) {
+        throw new Error("Не удалось завершить регистрацию.");
       }
 
-      setErrorMessage(
-        "Регистрация прошла успешно, но активная сессия не была создана. Проверьте настройки Supabase Auth."
+      setSuccessMessage(
+        "Регистрация почти завершена! Пожалуйста, проверьте ваш email для подтверждения аккаунта."
       );
     } catch (error) {
       setErrorMessage(
@@ -191,6 +193,12 @@ export default function AuthPage() {
               {isLoading ? "Обработка..." : "Создать аккаунт"}
             </button>
           </div>
+
+          {successMessage && (
+            <div className="mt-6 border-[3px] border-[#CD9C3E] bg-[#061726] p-4 text-center font-bold text-[#CD9C3E] shadow-[4px_4px_0px_0px_#CD9C3E]">
+              {successMessage}
+            </div>
+          )}
 
           {errorMessage && (
             <p className="text-sm leading-7 text-red-300">{errorMessage}</p>
