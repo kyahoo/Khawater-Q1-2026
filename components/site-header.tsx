@@ -60,13 +60,13 @@ export function SiteHeader() {
           <nav className="relative z-10 flex items-center gap-8">
             <Link
               href="/tournament"
-              className="inline-flex items-center justify-center text-sm font-bold uppercase tracking-wide text-white transition-colors touch-manipulation hover:text-[#FFD000] md:text-base"
+              className="inline-flex items-center justify-center text-sm font-bold uppercase tracking-wide text-white transition-colors touch-manipulation hover:text-[#CD9C3E] md:text-base"
             >
               Турнир
             </Link>
             <Link
               href="/rules"
-              className="inline-flex items-center justify-center text-sm font-bold uppercase tracking-wide text-white transition-colors touch-manipulation hover:text-[#FFD000] md:text-base"
+              className="inline-flex items-center justify-center text-sm font-bold uppercase tracking-wide text-white transition-colors touch-manipulation hover:text-[#CD9C3E] md:text-base"
             >
               Правила
             </Link>
@@ -80,13 +80,13 @@ export function SiteHeader() {
             <div className="flex items-center gap-6">
               <Link
                 href="/matches"
-                className="relative z-10 inline-flex w-fit shrink-0 items-center justify-center bg-[#FFD000] px-8 py-3 text-sm font-extrabold uppercase text-[#09090B] transition-transform touch-manipulation clip-slant hover:-translate-y-1 md:text-base"
+                className="relative z-10 inline-flex w-fit shrink-0 items-center justify-center bg-[#CD9C3E] px-8 py-3 text-sm font-extrabold uppercase text-[#09090B] transition-transform touch-manipulation clip-slant hover:-translate-y-1 md:text-base"
               >
                 Мои матчи
               </Link>
               <Link
                 href="/profile"
-                className="inline-flex w-fit items-center justify-center text-sm font-bold uppercase tracking-wide text-[#FFFFFF] transition-colors touch-manipulation hover:text-[#FFD000]"
+                className="inline-flex w-fit items-center justify-center text-sm font-bold uppercase tracking-wide text-[#FFFFFF] transition-colors touch-manipulation hover:text-[#CD9C3E]"
               >
                 Профиль
               </Link>
@@ -94,7 +94,7 @@ export function SiteHeader() {
                 type="button"
                 onClick={() => void handleSignOut()}
                 disabled={isSigningOut}
-                className="w-fit text-sm font-bold uppercase tracking-wide text-[#FFFFFF] transition-colors hover:text-[#FFD000]"
+                className="w-fit text-sm font-bold uppercase tracking-wide text-[#FFFFFF] transition-colors hover:text-[#CD9C3E]"
               >
                 {isSigningOut ? "Выход..." : "Выйти"}
               </button>
@@ -102,7 +102,7 @@ export function SiteHeader() {
           ) : (
             <Link
               href="/auth"
-              className="inline-flex w-fit items-center justify-center text-sm font-bold uppercase tracking-wide text-[#FFFFFF] transition-colors touch-manipulation hover:text-[#FFD000]"
+              className="inline-flex w-fit items-center justify-center text-sm font-bold uppercase tracking-wide text-[#FFFFFF] transition-colors touch-manipulation hover:text-[#CD9C3E]"
             >
               Войти
             </Link>

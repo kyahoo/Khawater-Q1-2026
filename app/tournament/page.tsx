@@ -582,7 +582,7 @@ export default function TournamentPage() {
           </section>
         ) : (
           <div className="space-y-6">
-            <section className="relative mb-8 overflow-hidden border-[3px] border-arcade-black bg-[#FFD000] p-8 shadow-[8px_8px_0px_0px_#09090B] clip-chamfer">
+            <section className="relative mb-8 overflow-hidden border-[3px] border-arcade-black bg-[#CD9C3E] p-8 shadow-[8px_8px_0px_0px_#09090B] clip-chamfer">
               <div className="mb-4 inline-block bg-[#09090B] px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#FFFFFF] clip-slant">
                 Активный турнир
               </div>
@@ -595,7 +595,7 @@ export default function TournamentPage() {
               />
             </section>
 
-            <nav className="mb-8 flex flex-wrap gap-3 border-b-[4px] border-[#0F172A] pb-2">
+            <nav className="mb-8 flex flex-wrap gap-3 border-b-[4px] border-[#0B3A4A] pb-2">
               {TOURNAMENT_TABS.map((tab) => (
                 <button
                   key={tab.id}
@@ -603,8 +603,8 @@ export default function TournamentPage() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`cursor-pointer select-none border-[3px] px-6 py-3 text-sm uppercase tracking-wider transition-colors -skew-x-[12deg] md:text-base ${
                     activeTab === tab.id
-                      ? "translate-y-[2px] border-[#0F172A] bg-[#FFD700] text-[#09090B]"
-                      : "border-[#0F172A] bg-slate-900 text-white hover:bg-slate-800"
+                      ? "translate-y-[2px] border-[#0B3A4A] bg-[#CD9C3E] text-[#09090B]"
+                      : "border-[#0B3A4A] bg-[#0B3A4A] text-white hover:bg-[#0f4f66]"
                   }`}
                 >
                   <span
@@ -622,7 +622,7 @@ export default function TournamentPage() {
 
             {activeTab === "teams" && (
               <section className="border border-zinc-300 bg-white p-5 shadow-md">
-                <h2 className="mb-6 flex items-center gap-3 text-2xl font-extrabold uppercase tracking-tight text-[#09090B] before:h-8 before:w-4 before:bg-[#FFD000] before:content-[''] before:clip-slant">
+                <h2 className="mb-6 flex items-center gap-3 text-2xl font-extrabold uppercase tracking-tight text-[#09090B] before:h-8 before:w-4 before:bg-[#CD9C3E] before:content-[''] before:clip-slant">
                   Заявленные команды
                 </h2>
 
