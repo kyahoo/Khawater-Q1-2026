@@ -643,19 +643,48 @@ function normalizeAdminMatchPayload(params: {
 }
 
 function generateRoundRobinPairings(teamIds: string[]): Array<[string, string]> {
-  const pairings: Array<[string, string]> = [];
-
-  for (let teamAIndex = 0; teamAIndex < teamIds.length - 1; teamAIndex += 1) {
-    for (
-      let teamBIndex = teamAIndex + 1;
-      teamBIndex < teamIds.length;
-      teamBIndex += 1
-    ) {
-      pairings.push([teamIds[teamAIndex], teamIds[teamBIndex]]);
-    }
+  if (teamIds.length < 2) {
+    return [];
   }
 
-  return pairings;
+  const rotatingTeams: Array<string | null> =
+    teamIds.length % 2 === 0 ? [...teamIds] : [...teamIds, null];
+  const rounds: Array<Array<[string, string]>> = [];
+  const roundsToPlay = rotatingTeams.length - 1;
+  const matchesPerRound = rotatingTeams.length / 2;
+
+  for (let roundIndex = 0; roundIndex < roundsToPlay; roundIndex += 1) {
+    const roundPairings: Array<[string, string]> = [];
+
+    for (let matchIndex = 0; matchIndex < matchesPerRound; matchIndex += 1) {
+      const teamAId = rotatingTeams[matchIndex];
+      const teamBId = rotatingTeams[rotatingTeams.length - 1 - matchIndex];
+
+      if (!teamAId || !teamBId) {
+        continue;
+      }
+
+      roundPairings.push(
+        matchIndex === 0 && roundIndex % 2 === 1
+          ? [teamBId, teamAId]
+          : [teamAId, teamBId]
+      );
+    }
+
+    rounds.push(roundPairings);
+
+    const fixedTeam = rotatingTeams[0];
+    const rotatedTeams = rotatingTeams.slice(1);
+    const lastRotatingTeam = rotatedTeams.pop() ?? null;
+
+    rotatedTeams.unshift(lastRotatingTeam);
+    rotatingTeams.splice(0, rotatingTeams.length, fixedTeam, ...rotatedTeams);
+  }
+
+  return rounds.reduce<Array<[string, string]>>((allPairings, roundPairings) => {
+    allPairings.push(...roundPairings);
+    return allPairings;
+  }, []);
 }
 
 type ScheduleDateParts = {
