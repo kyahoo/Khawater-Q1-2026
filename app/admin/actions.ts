@@ -603,7 +603,11 @@ function normalizeAdminMatchPayload(params: {
 
   const normalizedStatus = params.status === "finished" ? "finished" : "scheduled";
   const normalizedFormat =
-    params.format === "BO1" || params.format === "BO2" ? params.format : "BO3";
+    params.format === "BO1" ||
+    params.format === "BO2" ||
+    params.format === "BO5"
+      ? params.format
+      : "BO3";
   const normalizedScheduledAt = params.scheduledAt.trim();
 
   if (normalizedScheduledAt) {
@@ -1066,13 +1070,20 @@ export async function generateGroupStageMatches(
   endDate: string,
   dailyStartTime: string,
   dailyEndTime: string,
-  matchIntervalMinutes: number
+  matchIntervalMinutes: number,
+  format: string
 ): Promise<GenerateGroupStageMatchesResult> {
   const normalizedTournamentId = tournamentId.trim();
   const normalizedStartDate = startDate.trim();
   const normalizedEndDate = endDate.trim();
   const normalizedDailyStartTime = dailyStartTime.trim();
   const normalizedDailyEndTime = dailyEndTime.trim();
+  const normalizedFormat =
+    format.trim() === "BO1" ||
+    format.trim() === "BO2" ||
+    format.trim() === "BO5"
+      ? format.trim()
+      : "BO3";
   const trimmedTeamIds = teamIds.map((teamId) => teamId.trim()).filter(Boolean);
   const normalizedTeamIds = Array.from(new Set(trimmedTeamIds));
 
@@ -1206,7 +1217,7 @@ export async function generateGroupStageMatches(
           status: "scheduled",
           teamAScore: "",
           teamBScore: "",
-          format: "BO3",
+          format: normalizedFormat,
         }),
         display_order: matchIndex,
       })

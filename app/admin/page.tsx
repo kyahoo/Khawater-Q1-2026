@@ -64,10 +64,12 @@ const EMPTY_GROUP_STAGE_FORM = {
   endDate: "",
   dailyStartTime: "18:00",
   dailyEndTime: "23:30",
+  format: "BO3",
   matchIntervalMinutes: "90",
 };
 
 const MATCH_FORMAT_OPTIONS = ["BO1", "BO2", "BO3"] as const;
+const GROUP_STAGE_MATCH_FORMAT_OPTIONS = ["BO1", "BO2", "BO3", "BO5"] as const;
 
 const MATCH_ROUND_OPTIONS = [
   "Group Stage",
@@ -1096,7 +1098,8 @@ export default function AdminPage() {
         groupStageForm.endDate,
         groupStageForm.dailyStartTime,
         groupStageForm.dailyEndTime,
-        intervalMinutes
+        intervalMinutes,
+        groupStageForm.format
       );
 
       if (result.error) {
@@ -1702,7 +1705,7 @@ export default function AdminPage() {
                   </p>
                 ) : (
                   <div className="space-y-4">
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
                       <label className="flex flex-col gap-1 text-sm text-zinc-700">
                         <span className="font-medium">Select Tournament</span>
                         <select
@@ -1809,6 +1812,29 @@ export default function AdminPage() {
                         />
                       </label>
 
+                      <label className="flex flex-col gap-1 text-sm text-zinc-700">
+                        <span className="font-medium">Match Format</span>
+                        <select
+                          aria-label="Group stage match format"
+                          value={groupStageForm.format}
+                          onChange={(event) => {
+                            setGroupStageForm((current) => ({
+                              ...current,
+                              format: event.target.value,
+                            }));
+                            setGroupStageErrorMessage("");
+                            setGroupStageSuccessMessage("");
+                          }}
+                          className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                        >
+                          {GROUP_STAGE_MATCH_FORMAT_OPTIONS.map((formatOption) => (
+                            <option key={formatOption} value={formatOption}>
+                              {formatOption}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
                       <label className="flex flex-col gap-1 text-sm text-zinc-700 sm:col-span-2 lg:col-span-1">
                         <span className="font-medium">
                           Match Interval (Minutes between games)
@@ -1873,9 +1899,9 @@ export default function AdminPage() {
                         </label>
                         <p className="text-sm text-zinc-600">
                           Generated matches use the existing schema defaults:
-                          Group Stage, BO3, scheduled. Scheduling uses the
-                          daily Almaty-time window and rolls to the next day
-                          when a slot would exceed it.
+                          Group Stage and scheduled status. Scheduling uses the
+                          daily Almaty-time window and rolls to the next day when
+                          a slot would exceed it.
                         </p>
                       </div>
                     )}

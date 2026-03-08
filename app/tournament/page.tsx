@@ -595,19 +595,27 @@ export default function TournamentPage() {
               />
             </section>
 
-            <nav className="mb-8 flex flex-wrap gap-2 border-b-[4px] border-arcade-black pb-2">
+            <nav className="mb-8 flex flex-wrap gap-3 border-b-[4px] border-[#0F172A] pb-2">
               {TOURNAMENT_TABS.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`cursor-pointer select-none border-[3px] px-6 py-3 text-sm uppercase tracking-wider clip-slant md:text-base ${
+                  className={`cursor-pointer select-none border-[3px] px-6 py-3 text-sm uppercase tracking-wider transition-colors -skew-x-[12deg] md:text-base ${
                     activeTab === tab.id
-                      ? "translate-y-[2px] border-[#09090B] bg-[#FFD000] font-extrabold text-[#09090B]"
-                      : "border-transparent bg-[#F4F4F5] font-bold text-[#A1A1AA] transition-all hover:border-[#09090B] hover:bg-[#FFFFFF] hover:text-[#09090B]"
+                      ? "translate-y-[2px] border-[#0F172A] bg-[#FFD700] text-[#09090B]"
+                      : "border-[#0F172A] bg-slate-900 text-white hover:bg-slate-800"
                   }`}
                 >
-                  {tab.label}
+                  <span
+                    className={`block skew-x-[-12deg] ${
+                      activeTab === tab.id
+                        ? "font-extrabold text-[#09090B]"
+                        : "font-bold text-white"
+                    }`}
+                  >
+                    {tab.label}
+                  </span>
                 </button>
               ))}
             </nav>
