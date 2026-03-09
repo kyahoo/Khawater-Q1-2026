@@ -328,7 +328,7 @@ export type Database = {
           created_at: string;
           biometric_verified: boolean;
           is_checked_in: boolean;
-          is_ready: boolean;
+          is_ready?: boolean | null;
           lobby_screenshot_url: string | null;
         };
         Insert: {
@@ -337,7 +337,7 @@ export type Database = {
           created_at?: string;
           biometric_verified?: boolean;
           is_checked_in?: boolean;
-          is_ready?: boolean;
+          is_ready?: boolean | null;
           lobby_screenshot_url?: string | null;
         };
         Update: {
@@ -346,7 +346,7 @@ export type Database = {
           created_at?: string;
           biometric_verified?: boolean;
           is_checked_in?: boolean;
-          is_ready?: boolean;
+          is_ready?: boolean | null;
           lobby_screenshot_url?: string | null;
         };
         Relationships: [];
