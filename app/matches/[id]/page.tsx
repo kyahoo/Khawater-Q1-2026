@@ -779,6 +779,7 @@ export default function MatchRoomPage() {
                     ref={screenshotInputRef}
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     className="hidden"
                     onChange={(event) => void handleLobbyScreenshotChange(event)}
                   />
