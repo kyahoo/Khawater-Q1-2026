@@ -1,41 +1,16 @@
-import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import type { Database } from "@/lib/supabase/database.types";
 
 export const dynamic = "force-dynamic";
 
 const STEAM_OPENID_ENDPOINT = "https://steamcommunity.com/openid/login";
-const STEAM_LINK_TOKEN_COOKIE = "khawater_steam_link_token";
-
-function copyCookies(source: NextResponse, target: NextResponse) {
-  source.cookies.getAll().forEach((cookie) => {
-    target.cookies.set(cookie);
-  });
-}
+const STEAM_PENDING_DATA_COOKIE = "steam_pending_data";
 
 function buildErrorResponse(
   message: string,
-  status: number,
-  cookieResponse?: NextResponse
+  status: number
 ) {
   const response = NextResponse.json({ error: message }, { status });
-  if (cookieResponse) {
-    copyCookies(cookieResponse, response);
-  }
-  response.cookies.delete(STEAM_LINK_TOKEN_COOKIE);
-  return response;
-}
-
-function buildProfileRedirectResponse(
-  request: NextRequest,
-  cookieResponse?: NextResponse
-) {
-  const response = NextResponse.redirect(new URL("/profile", request.url));
-  if (cookieResponse) {
-    copyCookies(cookieResponse, response);
-  }
-  response.cookies.delete(STEAM_LINK_TOKEN_COOKIE);
+  response.cookies.delete(STEAM_PENDING_DATA_COOKIE);
   return response;
 }
 
@@ -71,11 +46,9 @@ async function validateSteamCallback(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const steamApiKey = process.env.STEAM_API_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey || !steamApiKey) {
+  if (!supabaseUrl || !steamApiKey) {
     return buildErrorResponse("Steam callback is missing required environment variables.", 500);
   }
 
@@ -89,35 +62,6 @@ export async function GET(request: NextRequest) {
 
   if (!steamId) {
     return buildErrorResponse("Steam ID was not returned by OpenID.", 400);
-  }
-
-  const cookieResponse = NextResponse.next();
-  const supabase = createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          cookieResponse.cookies.set(name, value, options);
-        });
-      },
-    },
-  });
-
-  const [
-    {
-      data: { user },
-      error: userError,
-    },
-    {
-      data: { session },
-      error: sessionError,
-    },
-  ] = await Promise.all([supabase.auth.getUser(), supabase.auth.getSession()]);
-
-  if (userError || sessionError || !user || !session) {
-    return buildErrorResponse("Auth session lost during Steam redirect.", 401, cookieResponse);
   }
 
   let player:
@@ -140,8 +84,7 @@ export async function GET(request: NextRequest) {
     if (!steamResponse.ok) {
       return buildErrorResponse(
         `Steam API request failed with status ${steamResponse.status}.`,
-        502,
-        cookieResponse
+        502
       );
     }
 
@@ -157,46 +100,33 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return buildErrorResponse(
       error instanceof Error ? error.message : "Steam API request failed.",
-      500,
-      cookieResponse
+      500
     );
   }
 
   if (!player?.personaname) {
     return buildErrorResponse(
       "Steam profile data was not returned for this account.",
-      404,
-      cookieResponse
+      404
     );
   }
 
-  const adminClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
+  const pendingSteamData = Buffer.from(
+    JSON.stringify({
+      steamId,
+      username: player.personaname,
+      avatar_url: player.avatarfull ?? null,
+    })
+  ).toString("base64url");
+
+  const response = NextResponse.redirect(new URL("/api/steam/confirm", request.url));
+  response.cookies.set(STEAM_PENDING_DATA_COOKIE, pendingSteamData, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: request.nextUrl.protocol === "https:",
+    path: "/",
+    maxAge: 60 * 5,
   });
 
-  try {
-    const { error: updateError } = await adminClient
-      .from("profiles")
-      .update({
-        steam_id: steamId,
-        username: player.personaname,
-        avatar_url: player.avatarfull ?? null,
-      })
-      .eq("id", user.id);
-
-    if (updateError) {
-      return buildErrorResponse(updateError.message, 500, cookieResponse);
-    }
-  } catch (error) {
-    return buildErrorResponse(
-      error instanceof Error ? error.message : "Steam profile update failed.",
-      500,
-      cookieResponse
-    );
-  }
-
-  return buildProfileRedirectResponse(request, cookieResponse);
+  return response;
 }
