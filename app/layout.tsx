@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Image from "next/image";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
@@ -31,8 +32,20 @@ export default function RootLayout({
   return (
     <html lang="ru" className="bg-[#0B3A4A]">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-[100dvh] bg-[#0B3A4A] bg-[url('/esports-bg.png')] bg-cover bg-fixed bg-[position:75%_center] bg-no-repeat text-slate-900 antialiased md:bg-center`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-[100dvh] overflow-x-hidden bg-[#0B3A4A] font-sans text-slate-900 antialiased`}
       >
+        <div aria-hidden="true" className="pointer-events-none fixed inset-0">
+          <Image
+            src="/esports-bg.png"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-[75%_center] md:object-center"
+          />
+          <div className="absolute inset-0 bg-[#0B3A4A]/45" />
+        </div>
+
         <div className="relative z-0 min-h-[100dvh]">
           <SiteHeader />
           {children}

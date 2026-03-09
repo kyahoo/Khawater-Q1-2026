@@ -205,6 +205,7 @@ export function MatchTabs({
   const canNotifyOpponent = Boolean(
     isCurrentUserHostCaptain && currentTeamId
   );
+  const normalizedMatchId = String(match.id ?? "").trim();
 
   return (
     <>
@@ -423,7 +424,7 @@ export function MatchTabs({
                   </div>
                 </div>
 
-                {isCurrentUserNonHostCaptain && (
+                {isCurrentUserHostCaptain && (
                   <div className="border-[4px] border-[#061726] bg-[#123C4D] p-5 shadow-[6px_6px_0px_0px_#061726]">
                     <input
                       ref={screenshotInputRef}
@@ -442,12 +443,11 @@ export function MatchTabs({
                     </h3>
                     <div className="mt-4 border-[3px] border-[#CD9C3E] bg-[#061726] p-4 shadow-[4px_4px_0px_0px_#061726]">
                       <p className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
-                        Капитан гостевой команды
+                        Капитан хоста
                       </p>
                       <p className="mt-3 max-w-2xl text-sm font-bold text-white/90">
-                        Хост создает лобби, а вы подтверждаете готовность:
-                        загрузите скриншот, где видно всех игроков, ваше имя и
-                        имя хоста.
+                        Подтвердите устройство, затем загрузите фото лобби. На
+                        скриншоте должно быть видно ваше имя и состав в лобби.
                       </p>
                     </div>
                     {isCurrentUserLobbyConfirmed ? (
@@ -545,6 +545,22 @@ export function MatchTabs({
                     )}
                   </div>
                 )}
+
+                {isCurrentUserNonHostCaptain && (
+                  <div className="border-[4px] border-[#061726] bg-[#123C4D] p-5 shadow-[6px_6px_0px_0px_#061726]">
+                    <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
+                      Этап 2
+                    </p>
+                    <h3 className="mt-2 text-2xl font-black uppercase text-white">
+                      ОЖИДАНИЕ РЕЗУЛЬТАТОВ
+                    </h3>
+                    <p className="mt-3 max-w-2xl text-sm text-white/80">
+                      В лобби-вкладке для второго капитана больше нет биометрической
+                      проверки. Фото лобби загружается позже во вкладке
+                      «Результаты».
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </section>
@@ -567,7 +583,7 @@ export function MatchTabs({
                     только капитану команды-хоста.
                   </p>
                   <NotifyButton
-                    matchId={match.id}
+                    matchId={normalizedMatchId}
                     currentTeamId={currentTeamId}
                     initialIsNotified={opponentNotified}
                   />
@@ -588,7 +604,7 @@ export function MatchTabs({
                 </p>
                 <div className="mt-5">
                   <ForfeitClaimButton
-                    matchId={match.id}
+                    matchId={normalizedMatchId}
                     claimingTeamId={currentTeamId!}
                     opponentTeamId={opponentTeamId!}
                     isMatchFinished={match.status === "finished"}
@@ -904,6 +920,115 @@ export function MatchTabs({
                   : "ПОДТВЕРДИТЬ РЕЗУЛЬТАТ"}
               </button>
             </form>
+          )}
+        </section>
+      ) : isCurrentUserNonHostCaptain ? (
+        <section className="mt-6 border-[4px] border-[#CD9C3E] bg-[#061726] p-5 shadow-[6px_6px_0px_0px_#CD9C3E] md:p-6">
+          <input
+            ref={screenshotInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(event) => void onLobbyScreenshotChange(event)}
+          />
+
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
+                Пост-матч
+              </p>
+              <h2 className="mt-2 text-2xl font-black uppercase text-white">
+                ЗАГРУЗКА ФОТО ЛОББИ
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm text-white/80">
+                Второй капитан загружает подтверждающее фото лобби здесь. Скриншот
+                должен показывать всех игроков, ваше имя и имя хоста.
+              </p>
+            </div>
+
+            <div className="w-fit border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-white shadow-[4px_4px_0px_0px_#061726]">
+              КАПИТАН СОПЕРНИКА
+            </div>
+          </div>
+
+          {isCurrentUserLobbyConfirmed ? (
+            <>
+              <div className="mt-5 border-[3px] border-[#061726] bg-[#163f1d] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#D9F99D] shadow-[4px_4px_0px_0px_#061726]">
+                ФОТО ЛОББИ ЗАГРУЖЕНО ✅
+              </div>
+
+              <button
+                type="button"
+                onClick={onAnalyze}
+                disabled={isAnalyzing}
+                className="mt-4 border-[3px] border-[#061726] bg-[#0B3A4A] px-6 py-3 text-sm font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
+              >
+                {isAnalyzing ? "Анализ..." : "АНАЛИЗ ФОТО ЛОББИ"}
+              </button>
+
+              {ocrData && (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="border-[3px] border-[#061726] bg-black p-4 text-xs font-mono text-[#39FF14] shadow-[4px_4px_0px_0px_#061726]">
+                    <p className="uppercase tracking-[0.18em] text-white/70">
+                      Host Match
+                    </p>
+                    <p
+                      className={`mt-3 text-2xl font-black uppercase ${
+                        ocrData.is_host_found ? "text-[#39FF14]" : "text-[#F87171]"
+                      }`}
+                    >
+                      {String(ocrData.is_host_found)}
+                    </p>
+                  </div>
+                  <div className="border-[3px] border-[#061726] bg-black p-4 text-xs font-mono text-[#39FF14] shadow-[4px_4px_0px_0px_#061726]">
+                    <p className="uppercase tracking-[0.18em] text-white/70">
+                      Uploader Match
+                    </p>
+                    <p
+                      className={`mt-3 text-2xl font-black uppercase ${
+                        ocrData.is_uploader_found
+                          ? "text-[#39FF14]"
+                          : "text-[#F87171]"
+                      }`}
+                    >
+                      {String(ocrData.is_uploader_found)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {lobbyErrorMessage && (
+                <p className="mt-3 text-sm font-bold text-[#FCA5A5]">
+                  {lobbyErrorMessage}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onOpenLobbyScreenshotPicker}
+                disabled={
+                  isUploadingLobbyScreenshot || !isCurrentUserCheckedIn
+                }
+                className="mt-5 border-[3px] border-[#061726] bg-[#CD9C3E] px-6 py-3 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70 disabled:shadow-[4px_4px_0px_0px_#061726]"
+              >
+                {isUploadingLobbyScreenshot ? "Загрузка..." : "ЗАГРУЗИТЬ ФОТО ЛОББИ"}
+              </button>
+
+              {!isCurrentUserCheckedIn && (
+                <p className="mt-3 text-sm text-white/80">
+                  Сначала завершите пре-матч чек-ин.
+                </p>
+              )}
+
+              {lobbyErrorMessage && (
+                <p className="mt-3 text-sm font-bold text-[#FCA5A5]">
+                  {lobbyErrorMessage}
+                </p>
+              )}
+            </>
           )}
         </section>
       ) : (
