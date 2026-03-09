@@ -518,7 +518,7 @@ export default function MatchRoomPage() {
   if (!matchId) {
     return (
       <div className="min-h-screen text-white">
-        <div className="min-h-screen bg-[#061726]/80 backdrop-blur-sm">
+        <div className="min-h-screen bg-[#0B3A4A]/10 backdrop-blur-sm shadow-[0_0_60px_-10px_rgba(11,58,74,0.3)]">
           <SiteHeader />
           <main className="mx-auto max-w-6xl px-6 py-8">
             <p className="text-sm text-white/75">Invalid match.</p>
@@ -531,7 +531,7 @@ export default function MatchRoomPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen text-white">
-        <div className="min-h-screen bg-[#061726]/80 backdrop-blur-sm">
+        <div className="min-h-screen bg-[#0B3A4A]/10 backdrop-blur-sm shadow-[0_0_60px_-10px_rgba(11,58,74,0.3)]">
           <SiteHeader />
           <main className="mx-auto max-w-6xl px-6 py-8">
             <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
@@ -550,7 +550,7 @@ export default function MatchRoomPage() {
 
     return (
       <div className="min-h-screen text-white">
-        <div className="min-h-screen bg-[#061726]/80 backdrop-blur-sm">
+        <div className="min-h-screen bg-[#0B3A4A]/10 backdrop-blur-sm shadow-[0_0_60px_-10px_rgba(11,58,74,0.3)]">
           <SiteHeader />
           <main className="mx-auto max-w-6xl px-6 py-8">
             <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
@@ -599,7 +599,7 @@ export default function MatchRoomPage() {
 
   return (
     <div className="min-h-screen text-white">
-      <div className="min-h-screen bg-[#061726]/80 backdrop-blur-sm">
+      <div className="min-h-screen bg-[#0B3A4A]/10 backdrop-blur-sm shadow-[0_0_60px_-10px_rgba(11,58,74,0.3)]">
         <SiteHeader />
 
         <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
