@@ -6,3 +6,7 @@ create table if not exists public.profiles (
 
 alter table public.profiles
 add column if not exists is_admin boolean not null default false;
+alter table public.profiles
+  add column if not exists username text,
+  add column if not exists avatar_url text,
+  add column if not exists steam_id text;
