@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import webpush from "web-push";
+import { sendNotificationToUsers } from "@/lib/notifications/push";
 import type { Database } from "@/lib/supabase/database.types";
 
 export const runtime = "nodejs";
@@ -16,32 +16,14 @@ type ReminderMatchRow = Pick<
   reminder_30m_sent: boolean;
 };
 
-type PushSubscriptionRow = Pick<
-  Database["public"]["Tables"]["push_subscriptions"]["Row"],
-  "id" | "subscription"
->;
-
-function getWebPushStatusCode(error: unknown) {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "statusCode" in error &&
-    typeof error.statusCode === "number"
-  ) {
-    return error.statusCode;
-  }
-
-  return null;
-}
-
-async function getSubscriptionsForMatchTeams(
+async function getUserIdsForMatchTeams(
   adminClient: ReturnType<typeof createClient<Database>>,
   teamIds: string[]
 ) {
   const uniqueTeamIds = Array.from(new Set(teamIds.filter(Boolean)));
 
   if (uniqueTeamIds.length === 0) {
-    return [] as PushSubscriptionRow[];
+    return [] as string[];
   }
 
   const { data: memberships, error: membershipsError } = await adminClient
@@ -57,20 +39,7 @@ async function getSubscriptionsForMatchTeams(
     new Set((memberships ?? []).map((membership) => membership.user_id))
   );
 
-  if (userIds.length === 0) {
-    return [] as PushSubscriptionRow[];
-  }
-
-  const { data: subscriptions, error: subscriptionsError } = await adminClient
-    .from("push_subscriptions")
-    .select("id, subscription")
-    .in("user_id", userIds);
-
-  if (subscriptionsError) {
-    throw new Error(subscriptionsError.message);
-  }
-
-  return (subscriptions ?? []) as PushSubscriptionRow[];
+  return userIds;
 }
 
 async function sendReminderBatch(params: {
@@ -81,48 +50,32 @@ async function sendReminderBatch(params: {
 }) {
   let notificationsSent = 0;
   let expiredSubscriptionsDeleted = 0;
+  let inboxNotificationsCreated = 0;
 
   for (const match of params.matches) {
-    const subscriptions = await getSubscriptionsForMatchTeams(params.adminClient, [
+    const userIds = await getUserIdsForMatchTeams(params.adminClient, [
       match.team_a_id,
       match.team_b_id,
     ]);
+    const sendResult = await sendNotificationToUsers({
+      adminClient: params.adminClient,
+      userIds,
+      payload: {
+        title: params.title,
+        body: params.body,
+        linkUrl: `/matches/${match.id}`,
+      },
+    });
 
-    for (const subscriptionRow of subscriptions) {
-      try {
-        await webpush.sendNotification(
-          (subscriptionRow.subscription as unknown) as webpush.PushSubscription,
-          JSON.stringify({
-            title: params.title,
-            body: params.body,
-          })
-        );
-        notificationsSent += 1;
-      } catch (error) {
-        if (getWebPushStatusCode(error) === 410) {
-          const { error: deleteError } = await params.adminClient
-            .from("push_subscriptions")
-            .delete()
-            .eq("id", subscriptionRow.id);
-
-          if (deleteError) {
-            throw new Error(deleteError.message);
-          }
-
-          expiredSubscriptionsDeleted += 1;
-          continue;
-        }
-
-        throw new Error(
-          error instanceof Error ? error.message : "Failed to send push notification."
-        );
-      }
-    }
+    notificationsSent += sendResult.notificationsSent;
+    expiredSubscriptionsDeleted += sendResult.expiredSubscriptionsDeleted;
+    inboxNotificationsCreated += sendResult.inboxNotificationsCreated;
   }
 
   return {
     notificationsSent,
     expiredSubscriptionsDeleted,
+    inboxNotificationsCreated,
   };
 }
 
@@ -157,6 +110,7 @@ async function processReminderWindow(params: {
       processedMatches: 0,
       notificationsSent: 0,
       expiredSubscriptionsDeleted: 0,
+      inboxNotificationsCreated: 0,
     };
   }
 
@@ -185,6 +139,7 @@ async function processReminderWindow(params: {
     processedMatches: reminderMatches.length,
     notificationsSent: sendResult.notificationsSent,
     expiredSubscriptionsDeleted: sendResult.expiredSubscriptionsDeleted,
+    inboxNotificationsCreated: sendResult.inboxNotificationsCreated,
   };
 }
 
@@ -198,10 +153,7 @@ export async function GET(request: NextRequest) {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey || !vapidPublicKey || !vapidPrivateKey) {
+  if (!supabaseUrl || !serviceRoleKey) {
     return NextResponse.json(
       { error: "Missing server environment configuration." },
       { status: 500 }
@@ -214,12 +166,6 @@ export async function GET(request: NextRequest) {
       persistSession: false,
     },
   });
-
-  webpush.setVapidDetails(
-    "mailto:admin@airbafresh.com",
-    vapidPublicKey,
-    vapidPrivateKey
-  );
 
   try {
     const oneHourResult = await processReminderWindow({

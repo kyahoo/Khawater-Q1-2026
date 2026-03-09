@@ -6,7 +6,7 @@ import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
 } from "@simplewebauthn/server";
-import webpush from "web-push";
+import { sendNotificationToUsers } from "@/lib/notifications/push";
 import { logBehaviorPenalty } from "@/lib/supabase/behavior";
 import type { Database } from "@/lib/supabase/database.types";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -253,19 +253,6 @@ function getMatchActionEnv() {
     supabaseAnonKey,
     serviceRoleKey,
   };
-}
-
-function getWebPushStatusCode(error: unknown) {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "statusCode" in error &&
-    typeof error.statusCode === "number"
-  ) {
-    return error.statusCode;
-  }
-
-  return null;
 }
 
 async function getMatchActionContext(
@@ -1643,15 +1630,6 @@ export async function notifyOpponentLobbyReady(
     };
   }
 
-  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-
-  if (!vapidPublicKey || !vapidPrivateKey) {
-    return {
-      error: "Push-уведомления не настроены на сервере.",
-    };
-  }
-
   try {
     const supabase = await getSupabaseServerClient();
     const {
@@ -1731,46 +1709,15 @@ export async function notifyOpponentLobbyReady(
     );
 
     if (opponentUserIds.length > 0) {
-      const { data: subscriptions, error: subscriptionsError } = await adminClient
-        .from("push_subscriptions")
-        .select("id, subscription")
-        .in("user_id", opponentUserIds);
-
-      if (subscriptionsError) {
-        return {
-          error: subscriptionsError.message,
-        };
-      }
-
-      webpush.setVapidDetails(
-        "mailto:admin@airbafresh.com",
-        vapidPublicKey,
-        vapidPrivateKey
-      );
-
-      for (const subscriptionRow of subscriptions ?? []) {
-        try {
-          await webpush.sendNotification(
-            (subscriptionRow.subscription as unknown) as webpush.PushSubscription,
-            JSON.stringify({
-              title: "ЛОББИ ГОТОВО!",
-              body: "Капитан противника создал лобби. Заходите в игру!",
-            })
-          );
-        } catch (error) {
-          if (getWebPushStatusCode(error) === 410) {
-            await adminClient.from("push_subscriptions").delete().eq("id", subscriptionRow.id);
-            continue;
-          }
-
-          return {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Не удалось отправить push-уведомление сопернику.",
-          };
-        }
-      }
+      await sendNotificationToUsers({
+        adminClient,
+        userIds: opponentUserIds,
+        payload: {
+          title: "ЛОББИ ГОТОВО!",
+          body: "Капитан противника создал лобби. Заходите в игру!",
+          linkUrl: `/matches/${trimmedMatchId}`,
+        },
+      });
     }
 
     const { error: updateError } = await adminClient
