@@ -24,6 +24,7 @@ export type AdminPlayerListItem = {
   openTaskCount: number;
   mmrStatus: "pending" | "verified" | "rejected";
   behaviorScore: number;
+  tournamentBadge: "none" | "gold" | "silver" | "bronze";
 };
 
 type ListAdminPlayersResult =
@@ -49,6 +50,10 @@ type UpdateMMRStatusResult = {
 };
 
 type ResetPlayerBehaviorScoreResult = {
+  error: string | null;
+};
+
+type UpdatePlayerBadgeResult = {
   error: string | null;
 };
 
@@ -241,12 +246,13 @@ export async function listAdminPlayers(
   let nicknameByUserId = new Map<string, string>();
   let mmrStatusByUserId = new Map<string, "pending" | "verified" | "rejected">();
   let behaviorScoreByUserId = new Map<string, number>();
+  let tournamentBadgeByUserId = new Map<string, "none" | "gold" | "silver" | "bronze">();
   let openTaskCountByUserId = {} as Record<string, number>;
 
   if (userIds.length > 0) {
     const { data: profiles, error: profilesError } = await adminClient
       .from("profiles")
-      .select("id, nickname, mmr_status, behavior_score")
+      .select("id, nickname, mmr_status, behavior_score, tournament_badge")
       .in("id", userIds);
 
     if (profilesError) {
@@ -281,6 +287,15 @@ export async function listAdminPlayers(
       ).map((profile) => [profile.id, profile.behavior_score ?? 5])
     );
 
+    tournamentBadgeByUserId = new Map(
+      (
+        (profiles ?? []) as Array<{
+          id: string;
+          tournament_badge: "none" | "gold" | "silver" | "bronze" | null;
+        }>
+      ).map((profile) => [profile.id, profile.tournament_badge ?? "none"])
+    );
+
     openTaskCountByUserId = await getActiveTaskCountsForUsers(adminClient, userIds);
   }
 
@@ -292,6 +307,7 @@ export async function listAdminPlayers(
       openTaskCount: openTaskCountByUserId[user.id] ?? 0,
       mmrStatus: mmrStatusByUserId.get(user.id) ?? "pending",
       behaviorScore: behaviorScoreByUserId.get(user.id) ?? 5,
+      tournamentBadge: tournamentBadgeByUserId.get(user.id) ?? "none",
     }))
     .sort((playerA, playerB) => playerA.nickname.localeCompare(playerB.nickname));
 
@@ -484,6 +500,85 @@ export async function resetPlayerBehaviorScore(
 
   revalidatePath("/admin");
   revalidatePath("/profile");
+
+  return {
+    error: null,
+  };
+}
+
+export async function updatePlayerBadge(
+  userId: string,
+  badge: string
+): Promise<UpdatePlayerBadgeResult> {
+  const normalizedUserId = userId.trim();
+  const normalizedBadge = badge.trim();
+
+  if (!normalizedUserId) {
+    return {
+      error: "Player ID is required.",
+    };
+  }
+
+  if (!["none", "gold", "silver", "bronze"].includes(normalizedBadge)) {
+    return {
+      error: "Invalid tournament badge.",
+    };
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return {
+      error: "Missing Supabase server environment configuration.",
+    };
+  }
+
+  const supabase = await getSupabaseServerClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      error: "Could not verify admin session.",
+    };
+  }
+
+  const { data: actingProfile, error: actingProfileError } = await supabase
+    .from("profiles")
+    .select("id, is_admin")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (actingProfileError || !actingProfile?.is_admin) {
+    return {
+      error: "You do not have admin access for this action.",
+    };
+  }
+
+  const adminClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+
+  const { error } = await adminClient
+    .from("profiles")
+    .update({
+      tournament_badge: normalizedBadge,
+    })
+    .eq("id", normalizedUserId);
+
+  if (error) {
+    return {
+      error: error.message,
+    };
+  }
+
+  revalidatePath("/admin");
 
   return {
     error: null,

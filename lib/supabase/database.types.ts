@@ -20,6 +20,7 @@ export type Database = {
           is_admin: boolean;
           behavior_score: number;
           mmr_status: string;
+          tournament_badge: string;
         };
         Insert: {
           id: string;
@@ -31,6 +32,7 @@ export type Database = {
           is_admin?: boolean;
           behavior_score?: number;
           mmr_status?: string;
+          tournament_badge?: string;
         };
         Update: {
           id?: string;
@@ -42,6 +44,7 @@ export type Database = {
           is_admin?: boolean;
           behavior_score?: number;
           mmr_status?: string;
+          tournament_badge?: string;
         };
         Relationships: [];
       };

@@ -16,6 +16,7 @@ import {
   resetPlayerBehaviorScore,
   resetPlayerDeviceBinding,
   toggleTeamSuspension,
+  updatePlayerBadge,
   updateMMRStatus,
   updateTournamentMatchAction,
   type AdminPlayerListItem,
@@ -106,6 +107,13 @@ const MMR_STATUS_OPTIONS = [
   { value: "pending", label: "MMR: ОЖИДАЕТ" },
   { value: "verified", label: "MMR: ПОДТВЕРЖДЕН" },
   { value: "rejected", label: "MMR: ОТКЛОНЕН" },
+] as const;
+
+const TOURNAMENT_BADGE_OPTIONS = [
+  { value: "none", label: "МЕДАЛЬ: НЕТ" },
+  { value: "gold", label: "🏆 ЗОЛОТО" },
+  { value: "silver", label: "🥈 СЕРЕБРО" },
+  { value: "bronze", label: "🥉 БРОНЗА" },
 ] as const;
 
 type AdminTabId = (typeof ADMIN_TABS)[number]["id"];
@@ -216,6 +224,27 @@ function getBehaviorScoreClassName(score: number) {
   return score >= 4 ? "text-[#CD9C3E]" : "text-red-500";
 }
 
+function getTournamentBadgeSelectClassName(
+  badge: AdminPlayerListItem["tournamentBadge"]
+) {
+  const baseClassName =
+    "w-fit appearance-none border-2 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+
+  if (badge === "gold") {
+    return `${baseClassName} border-[#CD9C3E] bg-[#CD9C3E]/10 text-[#CD9C3E]`;
+  }
+
+  if (badge === "silver") {
+    return `${baseClassName} border-gray-300 bg-gray-300/10 text-gray-300`;
+  }
+
+  if (badge === "bronze") {
+    return `${baseClassName} border-amber-600 bg-amber-600/10 text-amber-600`;
+  }
+
+  return `${baseClassName} border-gray-700 bg-transparent text-gray-500`;
+}
+
 async function getSocialTemplateStatus() {
   try {
     const supabase = getSupabaseBrowserClient();
@@ -314,6 +343,7 @@ export default function AdminPage() {
   const [isResettingBehaviorScoreUserId, setIsResettingBehaviorScoreUserId] = useState<
     string | null
   >(null);
+  const [isUpdatingBadgeUserId, setIsUpdatingBadgeUserId] = useState<string | null>(null);
   const [isDeletingTeamId, setIsDeletingTeamId] = useState<string | null>(null);
   const [isDeletingMatchId, setIsDeletingMatchId] = useState<string | null>(null);
   const [editingLogoTeamId, setEditingLogoTeamId] = useState<string | null>(null);
@@ -762,6 +792,31 @@ export default function AdminPage() {
       );
     } finally {
       setIsResettingBehaviorScoreUserId(null);
+    }
+  }
+
+  async function handleUpdatePlayerBadge(
+    userId: string,
+    badge: AdminPlayerListItem["tournamentBadge"]
+  ) {
+    setIsUpdatingBadgeUserId(userId);
+    setErrorMessage("");
+
+    try {
+      const result = await updatePlayerBadge(userId, badge);
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      await loadAdminData();
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Не удалось обновить медаль игрока."
+      );
+    } finally {
+      setIsUpdatingBadgeUserId(null);
     }
   }
 
@@ -1876,6 +1931,28 @@ export default function AdminPage() {
                                 className={getMMRStatusSelectClassName(player.mmrStatus)}
                               >
                                 {MMR_STATUS_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="block w-fit">
+                              <span className="sr-only">Турнирная медаль</span>
+                              <select
+                                value={player.tournamentBadge}
+                                onChange={(event) =>
+                                  void handleUpdatePlayerBadge(
+                                    player.id,
+                                    event.target.value as AdminPlayerListItem["tournamentBadge"]
+                                  )
+                                }
+                                disabled={isUpdatingBadgeUserId === player.id}
+                                className={getTournamentBadgeSelectClassName(
+                                  player.tournamentBadge
+                                )}
+                              >
+                                {TOURNAMENT_BADGE_OPTIONS.map((option) => (
                                   <option key={option.value} value={option.value}>
                                     {option.label}
                                   </option>
