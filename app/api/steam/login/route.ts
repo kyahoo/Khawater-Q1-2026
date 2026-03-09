@@ -4,12 +4,8 @@ export const dynamic = "force-dynamic";
 
 const STEAM_OPENID_ENDPOINT = "https://steamcommunity.com/openid/login";
 
-function getAppUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-}
-
 export async function GET(request: NextRequest) {
-  const appUrl = getAppUrl();
+  const appUrl = request.nextUrl.origin;
   const callbackUrl = `${appUrl}/api/steam/callback`;
   const steamUrl = new URL(STEAM_OPENID_ENDPOINT);
 
