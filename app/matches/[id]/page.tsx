@@ -745,6 +745,17 @@ export default function MatchRoomPage() {
 
       const uploadResult = await uploadMatchResultGameScreenshot(matchId, formData);
 
+      if (uploadResult.error || !uploadResult.publicUrl) {
+        updateResultScreenshotSlot(slotIndex, (slot) => ({
+          ...slot,
+          isUploading: false,
+          errorMessage:
+            uploadResult.error ??
+            "Не удалось загрузить скриншот игры.",
+        }));
+        return;
+      }
+
       updateResultScreenshotSlot(slotIndex, (slot) => ({
         ...slot,
         publicUrl: uploadResult.publicUrl,

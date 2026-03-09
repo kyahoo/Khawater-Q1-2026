@@ -24,8 +24,9 @@ type SaveLobbyScreenshotResult = {
 };
 
 type UploadMatchResultGameScreenshotResult = {
-  publicUrl: string;
-  slotIndex: number;
+  error: string | null;
+  publicUrl: string | null;
+  slotIndex: number | null;
 };
 
 type ConfirmMatchResultResult = {
@@ -64,6 +65,65 @@ type AuthorizedLobbyHostMatchActionContext = MatchActionContext & {
 };
 
 const CHECK_IN_WINDOW_MS = 30 * 60 * 1000;
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function getActionErrorMessage(error: unknown, fallbackMessage: string) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message.trim()
+  ) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+}
+
+function normalizeStoredResultScreenshotUrls(params: {
+  resultScreenshotUrl: string | null | undefined;
+  resultScreenshotUrls: string[] | null | undefined;
+}) {
+  if (Array.isArray(params.resultScreenshotUrls)) {
+    return params.resultScreenshotUrls.filter(isNonEmptyString);
+  }
+
+  return params.resultScreenshotUrl?.trim() ? [params.resultScreenshotUrl.trim()] : [];
+}
+
+function appendOrReplaceResultScreenshotUrl(params: {
+  existingUrls: string[];
+  slotIndex: number;
+  publicUrl: string;
+}) {
+  const nextUrls = [...params.existingUrls];
+  const targetIndex = params.slotIndex - 1;
+
+  if (targetIndex < 0) {
+    return nextUrls;
+  }
+
+  if (targetIndex <= nextUrls.length) {
+    nextUrls[targetIndex] = params.publicUrl;
+    return nextUrls.filter(isNonEmptyString);
+  }
+
+  while (nextUrls.length < targetIndex) {
+    nextUrls.push("");
+  }
+
+  nextUrls.push(params.publicUrl);
+
+  return nextUrls.filter(isNonEmptyString);
+}
 
 function generateLobbyPassword(): string {
   const useFourDigits = Math.random() >= 0.5;
@@ -911,75 +971,174 @@ export async function uploadMatchResultGameScreenshot(
   matchId: string,
   formData: FormData
 ): Promise<UploadMatchResultGameScreenshotResult> {
-  const trimmedMatchId = matchId.trim();
-  const accessTokenEntry = formData.get("accessToken");
-  const imageFileEntry = formData.get("resultScreenshot");
-  const accessToken =
-    typeof accessTokenEntry === "string" ? accessTokenEntry.trim() : "";
-  const slotIndex = parseNonNegativeInteger(
-    formData.get("slotIndex"),
-    "Не удалось определить номер игры для скриншота."
-  );
+  let slotIndex: number | null = null;
 
-  if (!trimmedMatchId) {
-    throw new Error("Матч обязателен.");
-  }
+  try {
+    const trimmedMatchId = matchId.trim();
+    const accessTokenEntry = formData.get("accessToken");
+    const imageFileEntry = formData.get("resultScreenshot");
+    const accessToken =
+      typeof accessTokenEntry === "string" ? accessTokenEntry.trim() : "";
 
-  if (slotIndex < 1) {
-    throw new Error("Не удалось определить номер игры для скриншота.");
-  }
+    slotIndex = parseNonNegativeInteger(
+      formData.get("slotIndex"),
+      "Не удалось определить номер игры для скриншота."
+    );
 
-  if (!accessToken) {
-    throw new Error("Сессия истекла. Войдите в аккаунт заново.");
-  }
+    if (!trimmedMatchId) {
+      return {
+        error: "Матч обязателен.",
+        publicUrl: null,
+        slotIndex,
+      };
+    }
 
-  if (!(imageFileEntry instanceof File) || imageFileEntry.size === 0) {
-    throw new Error("Выберите скриншот игры.");
-  }
+    if (slotIndex < 1) {
+      return {
+        error: "Не удалось определить номер игры для скриншота.",
+        publicUrl: null,
+        slotIndex,
+      };
+    }
 
-  if (!imageFileEntry.type.startsWith("image/")) {
-    throw new Error("Файл результата должен быть изображением.");
-  }
+    if (!accessToken) {
+      return {
+        error: "Сессия истекла. Войдите в аккаунт заново.",
+        publicUrl: null,
+        slotIndex,
+      };
+    }
 
-  const authResult = await getAuthorizedLobbyHostMatchActionContext(
-    trimmedMatchId,
-    accessToken
-  );
+    if (!(imageFileEntry instanceof File) || imageFileEntry.size === 0) {
+      return {
+        error: "Выберите скриншот игры.",
+        publicUrl: null,
+        slotIndex,
+      };
+    }
 
-  if (authResult.error || !authResult.context) {
-    throw new Error(authResult.error ?? "Не удалось проверить сессию.");
-  }
+    if (!imageFileEntry.type.startsWith("image/")) {
+      return {
+        error: "Файл результата должен быть изображением.",
+        publicUrl: null,
+        slotIndex,
+      };
+    }
 
-  const filePath = `${trimmedMatchId}/game-${slotIndex}/${Date.now()}-result.${getUploadFileExtension(
-    imageFileEntry
-  )}`;
-  const imageBytes = new Uint8Array(await imageFileEntry.arrayBuffer());
-  const { error: uploadError } = await authResult.context.adminClient.storage
-    .from("match-results")
-    .upload(filePath, imageBytes, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: imageFileEntry.type || undefined,
+    const authResult = await getAuthorizedLobbyHostMatchActionContext(
+      trimmedMatchId,
+      accessToken
+    );
+
+    if (authResult.error || !authResult.context) {
+      return {
+        error: authResult.error ?? "Не удалось проверить сессию.",
+        publicUrl: null,
+        slotIndex,
+      };
+    }
+
+    const filePath = `${trimmedMatchId}/game-${slotIndex}/${Date.now()}-result.${getUploadFileExtension(
+      imageFileEntry
+    )}`;
+    const imageBytes = new Uint8Array(await imageFileEntry.arrayBuffer());
+    const { error: uploadError } = await authResult.context.adminClient.storage
+      .from("match-results")
+      .upload(filePath, imageBytes, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: imageFileEntry.type || undefined,
+      });
+
+    if (uploadError) {
+      return {
+        error: uploadError.message,
+        publicUrl: null,
+        slotIndex,
+      };
+    }
+
+    const {
+      data: { publicUrl },
+    } = authResult.context.adminClient.storage
+      .from("match-results")
+      .getPublicUrl(filePath);
+
+    if (!publicUrl) {
+      return {
+        error: "Не удалось получить публичную ссылку на скриншот игры.",
+        publicUrl: null,
+        slotIndex,
+      };
+    }
+
+    const existingScreenshotUrls = normalizeStoredResultScreenshotUrls({
+      resultScreenshotUrl: authResult.context.match.result_screenshot_url,
+      resultScreenshotUrls: authResult.context.match.result_screenshot_urls,
+    });
+    const nextScreenshotUrls = appendOrReplaceResultScreenshotUrl({
+      existingUrls: existingScreenshotUrls,
+      slotIndex,
+      publicUrl,
     });
 
-  if (uploadError) {
-    throw new Error(uploadError.message);
+    let { error: updateError } = await authResult.context.adminClient
+      .from("tournament_matches")
+      .update({
+        result_screenshot_url: nextScreenshotUrls[0] ?? publicUrl,
+        result_screenshot_urls: nextScreenshotUrls,
+      })
+      .eq("id", trimmedMatchId);
+
+    if (
+      updateError?.message.includes("column tournament_matches.") &&
+      updateError.message.includes("does not exist")
+    ) {
+      console.warn(
+        "Match screenshot upload is falling back to the legacy tournament_matches schema:",
+        updateError.message
+      );
+
+      const legacyUpdateResult = await authResult.context.adminClient
+        .from("tournament_matches")
+        .update({
+          result_screenshot_url:
+            slotIndex === 1
+              ? publicUrl
+              : authResult.context.match.result_screenshot_url ?? publicUrl,
+        })
+        .eq("id", trimmedMatchId);
+
+      updateError = legacyUpdateResult.error;
+    }
+
+    if (updateError) {
+      return {
+        error: updateError.message,
+        publicUrl: null,
+        slotIndex,
+      };
+    }
+
+    revalidateMatchPaths(trimmedMatchId);
+
+    return {
+      error: null,
+      publicUrl,
+      slotIndex,
+    };
+  } catch (error) {
+    console.error("Match result screenshot upload failed:", error);
+
+    return {
+      error: getActionErrorMessage(
+        error,
+        "Не удалось загрузить скриншот результата матча."
+      ),
+      publicUrl: null,
+      slotIndex,
+    };
   }
-
-  const {
-    data: { publicUrl },
-  } = authResult.context.adminClient.storage
-    .from("match-results")
-    .getPublicUrl(filePath);
-
-  if (!publicUrl) {
-    throw new Error("Не удалось получить публичную ссылку на скриншот игры.");
-  }
-
-  return {
-    publicUrl,
-    slotIndex,
-  };
 }
 
 export async function confirmMatchResult(

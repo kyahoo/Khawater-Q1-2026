@@ -1,6 +1,8 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 import type { Database } from "@/lib/supabase/database.types";
@@ -18,6 +20,12 @@ type ProfileActionContext = {
   adminClient: SupabaseClient<Database>;
 };
 
+type PendingSteamData = {
+  steamId: string;
+  username: string;
+  avatar_url: string | null;
+};
+
 function getProfileActionEnv() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -32,6 +40,34 @@ function getProfileActionEnv() {
     supabaseAnonKey,
     serviceRoleKey,
   };
+}
+
+function parsePendingSteamData(cookieValue: string | undefined): PendingSteamData | null {
+  if (!cookieValue) {
+    return null;
+  }
+
+  try {
+    const parsedValue = JSON.parse(
+      Buffer.from(cookieValue, "base64url").toString("utf8")
+    ) as Partial<PendingSteamData>;
+
+    if (
+      typeof parsedValue.steamId !== "string" ||
+      typeof parsedValue.username !== "string" ||
+      (parsedValue.avatar_url !== null && typeof parsedValue.avatar_url !== "string")
+    ) {
+      return null;
+    }
+
+    return {
+      steamId: parsedValue.steamId,
+      username: parsedValue.username,
+      avatar_url: parsedValue.avatar_url,
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function getProfileActionContext(
@@ -79,6 +115,95 @@ async function getProfileActionContext(
       adminClient,
     },
   };
+}
+
+export async function finalizeSteamLink(): Promise<{ error: string | null }> {
+  const env = getProfileActionEnv();
+  const cookieStore = await cookies();
+  const pendingSteamData = parsePendingSteamData(
+    cookieStore.get("steam_pending_data")?.value
+  );
+
+  if (!env) {
+    cookieStore.delete("steam_pending_data");
+    return {
+      error: "Missing Supabase server environment configuration.",
+    };
+  }
+
+  if (!pendingSteamData) {
+    cookieStore.delete("steam_pending_data");
+    return {
+      error: "Steam link data is missing or invalid.",
+    };
+  }
+
+  const supabase = createServerClient<Database>(env.supabaseUrl, env.supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // Ignore cookie writes when mutation is unavailable in the current runtime.
+        }
+      },
+    },
+  });
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    cookieStore.delete("steam_pending_data");
+    return {
+      error: "Could not verify your session. Please log in again.",
+    };
+  }
+
+  const adminClient = createClient<Database>(env.supabaseUrl, env.serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+
+  try {
+    const { error: updateError } = await adminClient
+      .from("profiles")
+      .update({
+        steam_id: pendingSteamData.steamId,
+        username: pendingSteamData.username,
+        avatar_url: pendingSteamData.avatar_url,
+      })
+      .eq("id", user.id);
+
+    cookieStore.delete("steam_pending_data");
+
+    if (updateError) {
+      return {
+        error: updateError.message,
+      };
+    }
+
+    revalidatePath("/profile");
+
+    return {
+      error: null,
+    };
+  } catch (error) {
+    cookieStore.delete("steam_pending_data");
+    return {
+      error:
+        error instanceof Error ? error.message : "Steam profile update failed.",
+    };
+  }
 }
 
 export async function getProfilePasskeyRegistrationOptions(
