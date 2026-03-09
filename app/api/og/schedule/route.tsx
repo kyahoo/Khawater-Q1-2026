@@ -189,6 +189,10 @@ export async function GET(request: Request) {
 
     const supabase = getAdminClient();
     const { target, start, end } = getDayRange(requestedDay);
+    const { data: backgroundData } = supabase.storage
+      .from("social-templates")
+      .getPublicUrl("schedule-bg.png");
+    const backgroundUrl = backgroundData.publicUrl.trim() || null;
 
     const { data: activeTournament, error: activeTournamentError } = await supabase
       .from("tournaments")
@@ -213,21 +217,17 @@ export async function GET(request: Request) {
       );
     }
 
-    const [{ data: backgroundData }, { data: matches, error: matchesError }] =
-      await Promise.all([
-        supabase.storage.from("social-templates").createSignedUrl("schedule-bg.png", 60),
-        supabase
-          .from("tournament_matches")
-          .select(
-            "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at, lobby_name, lobby_password"
-          )
-          .eq("tournament_id", activeTournament.id)
-          .gte("scheduled_at", start.toISOString())
-          .lte("scheduled_at", end.toISOString())
-          .order("scheduled_at", { ascending: true })
-          .order("display_order", { ascending: true })
-          .order("created_at", { ascending: true }),
-      ]);
+    const { data: matches, error: matchesError } = await supabase
+      .from("tournament_matches")
+      .select(
+        "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at, lobby_name, lobby_password"
+      )
+      .eq("tournament_id", activeTournament.id)
+      .gte("scheduled_at", start.toISOString())
+      .lte("scheduled_at", end.toISOString())
+      .order("scheduled_at", { ascending: true })
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true });
 
     if (matchesError) {
       throw new Error(matchesError.message);
@@ -266,30 +266,35 @@ export async function GET(request: Request) {
             backgroundColor: TEAL,
           }}
         >
-          {backgroundData?.signedUrl ? (
+          {backgroundUrl ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={backgroundData.signedUrl}
+                src={backgroundUrl}
                 alt=""
-                tw="absolute inset-0 h-full w-full"
                 style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
                   objectFit: "cover",
-                }}
-              />
-              <div
-                tw="absolute inset-0 flex"
-                style={{
-                  background:
-                    "linear-gradient(180deg, rgba(6, 23, 38, 0.18) 0%, rgba(6, 23, 38, 0.58) 100%)",
                 }}
               />
             </>
           ) : null}
+          <div
+            tw="absolute inset-0 flex"
+            style={{
+              background:
+                "linear-gradient(180deg, rgba(6, 23, 38, 0.18) 0%, rgba(6, 23, 38, 0.58) 100%)",
+            }}
+          />
 
           <div
             tw="relative flex h-full w-full flex-col px-16 pt-16 pb-14"
             style={{
+              zIndex: 10,
               gap: 28,
             }}
           >

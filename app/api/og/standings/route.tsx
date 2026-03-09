@@ -411,20 +411,10 @@ export async function GET() {
       );
     }
 
-    const { data: backgroundData, error: backgroundError } = await supabase.storage
+    const { data: backgroundData } = supabase.storage
       .from("social-templates")
-      .createSignedUrl("standings-bg.png", 60);
-
-    if (backgroundError || !backgroundData?.signedUrl) {
-      return Response.json(
-        {
-          error: "Standings background template is missing.",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
+      .getPublicUrl("standings-bg.png");
+    const backgroundUrl = backgroundData.publicUrl.trim() || null;
 
     const { data: tournamentEntries, error: tournamentEntriesError } = await supabase
       .from("tournament_team_entries")
@@ -501,15 +491,23 @@ export async function GET() {
             backgroundColor: NAVY,
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={backgroundData.signedUrl}
-            alt=""
-            tw="absolute inset-0 h-full w-full"
-            style={{
-              objectFit: "cover",
-            }}
-          />
+          {backgroundUrl ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={backgroundUrl}
+                alt=""
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+              />
+            </>
+          ) : null}
           <div
             tw="absolute inset-0 flex"
             style={{
@@ -520,6 +518,7 @@ export async function GET() {
           <div
             tw="relative flex h-full w-full flex-col px-16 pt-16 pb-14"
             style={{
+              zIndex: 10,
               gap: 30,
             }}
           >
