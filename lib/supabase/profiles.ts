@@ -3,6 +3,9 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 export type Profile = {
   id: string;
   nickname: string;
+  username: string | null;
+  avatarUrl: string | null;
+  steamId: string | null;
   created_at: string;
   is_admin: boolean;
 };
@@ -19,7 +22,7 @@ export async function getProfileByUserId(userId: string) {
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, nickname, created_at, is_admin")
+    .select("id, nickname, username, avatar_url, steam_id, created_at, is_admin")
     .eq("id", userId)
     .maybeSingle();
 
@@ -27,7 +30,19 @@ export async function getProfileByUserId(userId: string) {
     throw error;
   }
 
-  return data as Profile | null;
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    nickname: data.nickname,
+    username: data.username ?? null,
+    avatarUrl: data.avatar_url ?? null,
+    steamId: data.steam_id ?? null,
+    created_at: data.created_at,
+    is_admin: data.is_admin,
+  } as Profile;
 }
 
 export async function upsertProfile(params: {

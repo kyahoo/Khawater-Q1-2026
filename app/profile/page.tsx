@@ -61,6 +61,7 @@ export default function ProfilePage() {
   const [isConfirmingParticipation, setIsConfirmingParticipation] = useState(false);
   const [isParticipationConfirmed, setIsParticipationConfirmed] = useState(false);
   const [isRegisteringDevice, setIsRegisteringDevice] = useState(false);
+  const [isLinkingSteam, setIsLinkingSteam] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [hasLoadedDeviceBinding, setHasLoadedDeviceBinding] = useState(false);
   const [isDeviceBound, setIsDeviceBound] = useState(false);
@@ -366,6 +367,32 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleLinkSteam() {
+    setIsLinkingSteam(true);
+    setErrorMessage("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        router.replace("/auth");
+        return;
+      }
+
+      window.location.href = `/api/steam/login?accessToken=${encodeURIComponent(
+        session.access_token
+      )}`;
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Не удалось привязать Steam."
+      );
+      setIsLinkingSteam(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-transparent px-6 py-10 text-zinc-900">
@@ -395,6 +422,41 @@ export default function ProfilePage() {
               <div className="mb-2 text-2xl font-bold text-white">
                 {profile?.nickname ?? "Игрок"}
               </div>
+              {!profile?.steamId ? (
+                <button
+                  type="button"
+                  onClick={() => void handleLinkSteam()}
+                  disabled={isLinkingSteam}
+                  className="flex w-full items-center justify-center gap-2 border-[3px] border-[#061726] bg-[#171A21] px-6 py-3 font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-70 md:w-auto"
+                >
+                  {isLinkingSteam ? "ПРИВЯЗКА STEAM..." : "ПРИВЯЗАТЬ STEAM"}
+                </button>
+              ) : (
+                <div className="mt-2 border-[3px] border-[#061726] bg-[#061726] p-4 shadow-[4px_4px_0px_0px_#061726]">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                    {profile.avatarUrl ? (
+                      <img
+                        src={profile.avatarUrl}
+                        alt={`Аватар Steam ${profile.username ?? profile.nickname}`}
+                        className="h-16 w-16 border-[3px] border-[#061726] object-cover"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 border-[3px] border-[#061726] bg-[#0B3A4A]" />
+                    )}
+                    <div className="space-y-2">
+                      <p className="text-lg font-black uppercase text-white">
+                        {profile.username ?? profile.nickname}
+                      </p>
+                      <p className="text-sm font-bold text-gray-300">
+                        SteamID64: {profile.steamId}
+                      </p>
+                      <span className="inline-flex w-fit border-[3px] border-[#061726] bg-green-800 px-4 py-2 text-sm font-black uppercase text-green-200 shadow-[4px_4px_0px_0px_#061726]">
+                        STEAM ПРИВЯЗАН
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <button
                   type="button"

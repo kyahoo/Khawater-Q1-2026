@@ -13,18 +13,27 @@ export type Database = {
         Row: {
           id: string;
           nickname: string;
+          username: string | null;
+          avatar_url: string | null;
+          steam_id: string | null;
           created_at: string;
           is_admin: boolean;
         };
         Insert: {
           id: string;
           nickname: string;
+          username?: string | null;
+          avatar_url?: string | null;
+          steam_id?: string | null;
           created_at?: string;
           is_admin?: boolean;
         };
         Update: {
           id?: string;
           nickname?: string;
+          username?: string | null;
+          avatar_url?: string | null;
+          steam_id?: string | null;
           created_at?: string;
           is_admin?: boolean;
         };
