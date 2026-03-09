@@ -62,10 +62,10 @@ type MatchRoomBaseRow = Pick<
 type MatchRoomQueryRow = MatchRoomBaseRow & {
   result_screenshot_urls: string[] | null;
   winner_team_id?: string | null;
-  opponent_notified?: boolean | null;
-  reminder_1h_sent?: boolean | null;
-  reminder_30m_sent?: boolean | null;
-  is_forfeit?: boolean | null;
+  opponent_notified: boolean | null;
+  reminder_1h_sent: boolean | null;
+  reminder_30m_sent: boolean | null;
+  is_forfeit: boolean | null;
 };
 
 export type UserTeamMatch = {
@@ -149,7 +149,15 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
       .eq("id", matchId)
       .maybeSingle();
 
-    matchRow = legacyResult.data;
+    matchRow = legacyResult.data
+      ? ({
+          ...legacyResult.data,
+          opponent_notified: null,
+          reminder_1h_sent: null,
+          reminder_30m_sent: null,
+          is_forfeit: null,
+        } as MatchRoomQueryRow)
+      : null;
     matchError = legacyResult.error;
   }
 
