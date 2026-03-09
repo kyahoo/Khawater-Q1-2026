@@ -146,7 +146,7 @@ export async function sendTestNotification(): Promise<SendTestNotificationResult
   for (const row of subscriptions) {
     try {
       await webpush.sendNotification(
-        row.subscription as webpush.PushSubscription,
+        (row.subscription as unknown) as webpush.PushSubscription,
         JSON.stringify({
           title: "KHAWATER СИСТЕМА",
           body: "Уведомления успешно подключены! Тест пройден.",
