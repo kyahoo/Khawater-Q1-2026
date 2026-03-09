@@ -18,6 +18,7 @@ import {
   type MatchRoomData,
 } from "@/lib/supabase/matches";
 import {
+  analyzeLobbyScreenshot,
   checkInToMatch,
   getMatchBiometricVerificationOptions,
   saveMatchLobbyScreenshot,
@@ -28,6 +29,11 @@ import { CheckInGate } from "./check-in-gate";
 import { SiteHeader } from "@/components/site-header";
 
 const TOTAL_MATCH_PLAYERS = 1;
+
+type LobbyScreenshotOcrData = {
+  lobby_host: string;
+  players_in_lobby: string[];
+};
 
 function formatAlmatyDateTime(
   dateInput: string,
@@ -158,6 +164,8 @@ export default function MatchRoomPage() {
   const [isWaitingForLobbyScreenshot, setIsWaitingForLobbyScreenshot] =
     useState(false);
   const [lobbyErrorMessage, setLobbyErrorMessage] = useState("");
+  const [ocrData, setOcrData] = useState<LobbyScreenshotOcrData | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const loadMatchRoom = useCallback(
     async (nextMatchId: string, options?: { showLoading?: boolean }) => {
@@ -452,6 +460,7 @@ export default function MatchRoomPage() {
 
     setIsUploadingLobbyScreenshot(true);
     setLobbyErrorMessage("");
+    setOcrData(null);
 
     try {
       const accessToken = await getSessionAccessToken();
@@ -505,6 +514,43 @@ export default function MatchRoomPage() {
       );
     } finally {
       setIsUploadingLobbyScreenshot(false);
+    }
+  }
+
+  async function handleAnalyze() {
+    if (!matchId) {
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setLobbyErrorMessage("");
+    setOcrData(null);
+
+    try {
+      const accessToken = await getSessionAccessToken();
+
+      if (!accessToken) {
+        setLobbyErrorMessage("Войдите в аккаунт для анализа скриншота.");
+        return;
+      }
+
+      const result = await analyzeLobbyScreenshot(matchId, accessToken);
+
+      if (result.error || !result.data) {
+        setLobbyErrorMessage(
+          result.error ?? "Не удалось проанализировать скриншот."
+        );
+        return;
+      }
+
+      setOcrData(result.data);
+    } catch (error) {
+      console.error("Lobby screenshot analysis failed:", error);
+      setLobbyErrorMessage(
+        getErrorMessage(error, "Не удалось проанализировать скриншот.")
+      );
+    } finally {
+      setIsAnalyzing(false);
     }
   }
 
@@ -784,9 +830,29 @@ export default function MatchRoomPage() {
                   </p>
 
                   {isCurrentUserLobbyConfirmed ? (
-                    <div className="mt-5 border-[3px] border-[#061726] bg-[#163f1d] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#D9F99D] shadow-[4px_4px_0px_0px_#061726]">
-                      ФОТО ЗАГРУЖЕНО
-                    </div>
+                    <>
+                      <div className="mt-5 border-[3px] border-[#061726] bg-[#163f1d] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#D9F99D] shadow-[4px_4px_0px_0px_#061726]">
+                        ФОТО ЗАГРУЖЕНО ✅
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void handleAnalyze()}
+                        disabled={isAnalyzing}
+                        className="mt-4 border-[3px] border-[#061726] bg-[#0B3A4A] px-6 py-3 text-sm font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
+                      >
+                        {isAnalyzing ? "Анализ..." : "АНАЛИЗ СЕКРЕТНЫХ ДАННЫХ"}
+                      </button>
+                      {ocrData && (
+                        <pre className="mt-4 overflow-x-auto border-[3px] border-[#061726] bg-black p-4 text-xs font-mono text-[#39FF14] shadow-[4px_4px_0px_0px_#061726]">
+                          {JSON.stringify(ocrData, null, 2)}
+                        </pre>
+                      )}
+                      {lobbyErrorMessage && (
+                        <p className="mt-3 text-sm font-bold text-[#FCA5A5]">
+                          {lobbyErrorMessage}
+                        </p>
+                      )}
+                    </>
                   ) : (
                     <>
                       <button

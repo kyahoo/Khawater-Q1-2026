@@ -23,6 +23,16 @@ type SaveLobbyScreenshotResult = {
   error: string | null;
 };
 
+type LobbyScreenshotOcrData = {
+  lobby_host: string;
+  players_in_lobby: string[];
+};
+
+type AnalyzeLobbyScreenshotResult = {
+  data: LobbyScreenshotOcrData | null;
+  error: string | null;
+};
+
 type MatchActionContext = {
   user: User;
   adminClient: SupabaseClient<Database>;
@@ -37,6 +47,8 @@ type AuthorizedMatchActionContext = MatchActionContext & {
 };
 
 const CHECK_IN_WINDOW_MS = 30 * 60 * 1000;
+const MISTRAL_LOBBY_OCR_SYSTEM_PROMPT =
+  "You are an OCR assistant analyzing a photo of a monitor displaying a Dota 2 custom lobby. Focus strictly on extracting two things: 1. The 'Lobby Host' (located in the top right of the lobby UI panel, e.g., 'Lobby Host: [Name]'). 2. The exact in-game nicknames of any players currently assigned to 'The Radiant' or 'The Dire' team slots. Return ONLY a valid JSON object in this exact format: { \"lobby_host\": \"Name\", \"players_in_lobby\": [\"Player1\", \"Player2\"] }. Do not include any markdown formatting, backticks, or conversational text.";
 
 function random4DigitPassword(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
@@ -179,6 +191,75 @@ function revalidateMatchPaths(matchId: string) {
   revalidatePath(`/matches/${matchId}`);
   revalidatePath("/matches");
   revalidatePath("/tournament");
+}
+
+function getMistralMessageText(content: unknown): string {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (
+          typeof part === "object" &&
+          part !== null &&
+          "text" in part &&
+          typeof part.text === "string"
+        ) {
+          return part.text;
+        }
+
+        return "";
+      })
+      .join("")
+      .trim();
+  }
+
+  return "";
+}
+
+function parseJsonObject(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const objectStart = text.indexOf("{");
+    const objectEnd = text.lastIndexOf("}");
+
+    if (objectStart === -1 || objectEnd === -1 || objectEnd <= objectStart) {
+      throw new Error("Mistral did not return a valid JSON object.");
+    }
+
+    return JSON.parse(text.slice(objectStart, objectEnd + 1));
+  }
+}
+
+function parseLobbyScreenshotOcrData(data: unknown): LobbyScreenshotOcrData | null {
+  if (typeof data !== "object" || data === null) {
+    return null;
+  }
+
+  const { lobby_host: lobbyHost, players_in_lobby: playersInLobby } = data as {
+    lobby_host?: unknown;
+    players_in_lobby?: unknown;
+  };
+
+  if (typeof lobbyHost !== "string" || !Array.isArray(playersInLobby)) {
+    return null;
+  }
+
+  const parsedPlayers = playersInLobby.filter(
+    (player): player is string => typeof player === "string"
+  );
+
+  if (parsedPlayers.length !== playersInLobby.length) {
+    return null;
+  }
+
+  return {
+    lobby_host: lobbyHost.trim(),
+    players_in_lobby: parsedPlayers.map((player) => player.trim()),
+  };
 }
 
 export async function checkInToMatch(
@@ -496,4 +577,186 @@ export async function saveMatchLobbyScreenshot(
   return {
     error: null,
   };
+}
+
+export async function analyzeLobbyScreenshot(
+  matchId: string
+): Promise<AnalyzeLobbyScreenshotResult>;
+export async function analyzeLobbyScreenshot(
+  matchId: string,
+  accessToken: string
+): Promise<AnalyzeLobbyScreenshotResult>;
+export async function analyzeLobbyScreenshot(
+  matchId: string,
+  accessToken = ""
+): Promise<AnalyzeLobbyScreenshotResult> {
+  const trimmedMatchId = matchId.trim();
+  const trimmedToken = accessToken.trim();
+  const mistralApiKey = process.env.MISTRAL_API_KEY;
+
+  if (!trimmedMatchId) {
+    return {
+      data: null,
+      error: "Матч обязателен.",
+    };
+  }
+
+  if (!trimmedToken) {
+    return {
+      data: null,
+      error: "Сессия обязательна.",
+    };
+  }
+
+  if (!mistralApiKey) {
+    return {
+      data: null,
+      error: "MISTRAL_API_KEY is not configured.",
+    };
+  }
+
+  const authResult = await getAuthorizedMatchActionContext(
+    trimmedMatchId,
+    trimmedToken
+  );
+
+  if (authResult.error || !authResult.context) {
+    return {
+      data: null,
+      error: authResult.error ?? "Не удалось проверить сессию.",
+    };
+  }
+
+  const lobbyScreenshotUrl = authResult.context.checkInRow?.lobby_screenshot_url?.trim();
+
+  if (!lobbyScreenshotUrl) {
+    return {
+      data: null,
+      error: "Сначала загрузите фото лобби.",
+    };
+  }
+
+  try {
+    new URL(lobbyScreenshotUrl);
+  } catch {
+    return {
+      data: null,
+      error: "URL скриншота лобби некорректен.",
+    };
+  }
+
+  try {
+    const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${mistralApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "pixtral-12b-2409",
+        response_format: {
+          type: "json_object",
+        },
+        temperature: 0,
+        messages: [
+          {
+            role: "system",
+            content: MISTRAL_LOBBY_OCR_SYSTEM_PROMPT,
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Extract the lobby host and all player nicknames currently visible in The Radiant and The Dire slots.",
+              },
+              {
+                type: "image_url",
+                image_url: lobbyScreenshotUrl,
+              },
+            ],
+          },
+        ],
+      }),
+      cache: "no-store",
+    });
+
+    const responseText = await response.text();
+    let payload:
+      | {
+          choices?: Array<{
+            message?: {
+              content?: unknown;
+            };
+          }>;
+          error?: {
+            message?: string;
+          };
+        }
+      | null = null;
+
+    if (responseText) {
+      try {
+        payload = JSON.parse(responseText) as {
+          choices?: Array<{
+            message?: {
+              content?: unknown;
+            };
+          }>;
+          error?: {
+            message?: string;
+          };
+        };
+      } catch {
+        if (!response.ok) {
+          return {
+            data: null,
+            error: responseText,
+          };
+        }
+      }
+    }
+
+    if (!response.ok) {
+      return {
+        data: null,
+        error:
+          payload?.error?.message ??
+          `Mistral OCR request failed with status ${response.status}.`,
+      };
+    }
+
+    const rawContent = getMistralMessageText(payload?.choices?.[0]?.message?.content);
+
+    if (!rawContent) {
+      return {
+        data: null,
+        error: "Mistral OCR returned an empty response.",
+      };
+    }
+
+    const parsedContent = parseJsonObject(rawContent);
+    const parsedData = parseLobbyScreenshotOcrData(parsedContent);
+
+    if (!parsedData) {
+      return {
+        data: null,
+        error: "Mistral OCR returned an invalid JSON structure.",
+      };
+    }
+
+    return {
+      data: parsedData,
+      error: null,
+    };
+  } catch (error) {
+    console.error("Lobby screenshot OCR failed:", error);
+    return {
+      data: null,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Не удалось проанализировать скриншот лобби.",
+    };
+  }
 }

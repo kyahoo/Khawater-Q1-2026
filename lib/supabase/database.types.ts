@@ -172,6 +172,7 @@ export type Database = {
           created_at: string;
           lobby_name: string | null;
           lobby_password: string | null;
+          result_screenshot_url: string | null;
         };
         Insert: {
           id?: string;
@@ -188,6 +189,7 @@ export type Database = {
           created_at?: string;
           lobby_name?: string | null;
           lobby_password?: string | null;
+          result_screenshot_url?: string | null;
         };
         Update: {
           id?: string;
@@ -204,6 +206,7 @@ export type Database = {
           created_at?: string;
           lobby_name?: string | null;
           lobby_password?: string | null;
+          result_screenshot_url?: string | null;
         };
         Relationships: [];
       };
