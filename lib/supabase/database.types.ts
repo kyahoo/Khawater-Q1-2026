@@ -240,6 +240,8 @@ export type Database = {
           lobby_password: string | null;
           result_screenshot_urls: string[] | null;
           winner_team_id: string | null;
+          reminder_1h_sent: boolean;
+          reminder_30m_sent: boolean;
         };
         Insert: {
           id?: string;
@@ -258,6 +260,8 @@ export type Database = {
           lobby_password?: string | null;
           result_screenshot_urls?: string[] | null;
           winner_team_id?: string | null;
+          reminder_1h_sent?: boolean;
+          reminder_30m_sent?: boolean;
         };
         Update: {
           id?: string;
@@ -276,6 +280,8 @@ export type Database = {
           lobby_password?: string | null;
           result_screenshot_urls?: string[] | null;
           winner_team_id?: string | null;
+          reminder_1h_sent?: boolean;
+          reminder_30m_sent?: boolean;
         };
         Relationships: [];
       };
