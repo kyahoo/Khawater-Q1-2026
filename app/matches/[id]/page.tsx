@@ -76,6 +76,20 @@ function formatAlmatyDateTime(
   }).format(new Date(dateInput));
 }
 
+function hasLobbyScreenshotUploadExpired(scheduledAt: string | null | undefined) {
+  if (!scheduledAt) {
+    return false;
+  }
+
+  const scheduledAtTime = new Date(scheduledAt).getTime();
+
+  if (!Number.isFinite(scheduledAtTime)) {
+    return false;
+  }
+
+  return Date.now() > scheduledAtTime + 30 * 60 * 1000;
+}
+
 function formatRoundLabel(roundLabel: string) {
   if (roundLabel === "Group Stage") {
     return "Групповой этап";
@@ -511,6 +525,14 @@ export default function MatchRoomPage() {
   }
 
   function openLobbyScreenshotPicker() {
+    if (hasLobbyScreenshotUploadExpired(data?.match.scheduledAt)) {
+      setLobbyErrorMessage(
+        "Время загрузки истекло. Скриншоты лобби принимаются только в течение 30 минут после старта."
+      );
+      setIsWaitingForLobbyScreenshot(false);
+      return;
+    }
+
     openFilePicker(
       screenshotInputRef,
       setLobbyErrorMessage,
@@ -594,6 +616,13 @@ export default function MatchRoomPage() {
       return;
     }
 
+    if (hasLobbyScreenshotUploadExpired(data?.match.scheduledAt)) {
+      setLobbyErrorMessage(
+        "Время загрузки истекло. Скриншоты лобби принимаются только в течение 30 минут после старта."
+      );
+      return;
+    }
+
     setIsConfirmingLobby(true);
     setLobbyErrorMessage("");
     setCheckInErrorMessage("");
@@ -632,6 +661,13 @@ export default function MatchRoomPage() {
     event.target.value = "";
 
     if (!screenshotFile || !matchId || !currentUserId) {
+      return;
+    }
+
+    if (hasLobbyScreenshotUploadExpired(data?.match.scheduledAt)) {
+      setLobbyErrorMessage(
+        "Время загрузки истекло. Скриншоты лобби принимаются только в течение 30 минут после старта."
+      );
       return;
     }
 
@@ -954,6 +990,9 @@ export default function MatchRoomPage() {
     isUploadingLobbyScreenshot ||
     isWaitingForLobbyScreenshot ||
     isCurrentUserLobbyConfirmed;
+  const isLobbyUploadExpired = hasLobbyScreenshotUploadExpired(
+    data.match.scheduledAt
+  );
   const parsedReportedTeamAScore = reportedTeamAScore
     ? Number.parseInt(reportedTeamAScore, 10)
     : 0;
@@ -1217,6 +1256,11 @@ export default function MatchRoomPage() {
                     Обязательно сделайте фото лобби. На нем должно быть видно
                     ваше имя, а также имя хоста.
                   </p>
+                  {isLobbyUploadExpired && (
+                    <p className="mt-3 text-sm font-bold text-[#FCA5A5]">
+                      Время загрузки скриншотов вышло (окно 30 минут)
+                    </p>
+                  )}
 
                   {isCurrentUserLobbyConfirmed ? (
                     <>
@@ -1274,7 +1318,11 @@ export default function MatchRoomPage() {
                       <button
                         type="button"
                         onClick={() => void handleConfirmLobby()}
-                        disabled={isLobbyActionBusy || !isCurrentUserCheckedIn}
+                        disabled={
+                          isLobbyActionBusy ||
+                          !isCurrentUserCheckedIn ||
+                          isLobbyUploadExpired
+                        }
                         className="mt-5 border-[3px] border-[#061726] bg-[#CD9C3E] px-6 py-3 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70 disabled:shadow-[4px_4px_0px_0px_#061726]"
                       >
                         {isConfirmingLobby
@@ -1291,6 +1339,7 @@ export default function MatchRoomPage() {
                       )}
 
                       {isWaitingForLobbyScreenshot &&
+                        !isLobbyUploadExpired &&
                         !isUploadingLobbyScreenshot && (
                           <button
                             type="button"

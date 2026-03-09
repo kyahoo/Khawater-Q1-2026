@@ -930,6 +930,35 @@ export async function saveMatchLobbyScreenshot(
     };
   }
 
+  const { data: matchScheduleRow, error: matchScheduleError } = await adminClient
+    .from("tournament_matches")
+    .select("scheduled_at")
+    .eq("id", trimmedMatchId)
+    .maybeSingle();
+
+  if (matchScheduleError) {
+    return {
+      error: matchScheduleError.message,
+    };
+  }
+
+  const scheduledAt = matchScheduleRow?.scheduled_at;
+
+  if (scheduledAt) {
+    const scheduledAtTime = new Date(scheduledAt).getTime();
+
+    if (Number.isFinite(scheduledAtTime)) {
+      const uploadDeadline = scheduledAtTime + 30 * 60 * 1000;
+
+      if (Date.now() > uploadDeadline) {
+        return {
+          error:
+            "Время загрузки истекло. Скриншоты лобби принимаются только в течение 30 минут после старта.",
+        };
+      }
+    }
+  }
+
   const { count, error: countError } = await adminClient
     .from("match_check_ins")
     .select("player_id", {
