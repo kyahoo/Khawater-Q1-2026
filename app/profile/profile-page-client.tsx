@@ -52,6 +52,18 @@ type ProfilePageClientProps = {
   hasPendingSteamLink: boolean;
 };
 
+function getBehaviorScoreColorClass(score: number) {
+  if (score >= 4) {
+    return "text-[#CD9C3E]";
+  }
+
+  if (score >= 2) {
+    return "text-[#F59E0B]";
+  }
+
+  return "text-red-500";
+}
+
 export function ProfilePageClient({
   hasPendingSteamLink: initialHasPendingSteamLink,
 }: ProfilePageClientProps) {
@@ -106,6 +118,10 @@ export function ProfilePageClient({
   const isDeviceOccupied =
     !hasPasskey && Boolean(localOwnerId) && Boolean(currentUserId) && localOwnerId !== currentUserId;
   const displayName = profile?.username ?? profile?.nickname ?? "Игрок";
+  const behaviorScore = profile?.behaviorScore ?? 5;
+  const behaviorScoreLabel =
+    behaviorScore >= 0 ? `${behaviorScore} / 5` : `${behaviorScore}`;
+  const behaviorScoreColorClass = getBehaviorScoreColorClass(behaviorScore);
   const isTournamentLocked = Boolean(activeTournament && isParticipationConfirmed);
 
   const loadProfile = useCallback(async () => {
@@ -685,6 +701,39 @@ export function ProfilePageClient({
               >
                 {isSigningOut ? "Выход..." : "ВЫЙТИ ИЗ АККАУНТА"}
               </button>
+            </div>
+
+            <div className="flex flex-col gap-5 border-2 border-[#CD9C3E] bg-[#0B3A4A] p-6 text-white shadow-[6px_6px_0px_0px_#000]">
+              <div className="space-y-3">
+                <h2 className="text-xl font-black uppercase tracking-wide text-[#CD9C3E]">
+                  БАЛЛ ПОВЕДЕНИЯ
+                </h2>
+                <p
+                  className={`text-5xl font-black uppercase leading-none md:text-6xl ${behaviorScoreColorClass} [text-shadow:3px_3px_0_#000]`}
+                >
+                  {behaviorScoreLabel}
+                </p>
+              </div>
+
+              <div className="border-t border-white/20 pt-5">
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-white/75">
+                  Как сохранить баллы:
+                </p>
+                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm font-medium leading-6 text-white/90 md:text-base">
+                  <li>Не опаздывайте на чек-ин матчей.</li>
+                  <li>
+                    Загружайте результаты и скриншоты лобби в течение 12 часов
+                    после старта.
+                  </li>
+                </ul>
+              </div>
+
+              <div className="border-t border-white/20 pt-5">
+                <p className="text-sm font-black leading-6 text-red-500">
+                  ⚠️ ВНИМАНИЕ: Низкий балл поведения может привести к запрету на
+                  участие в будущих турнирах Khawater.
+                </p>
+              </div>
             </div>
 
             <div className={cardClassName}>

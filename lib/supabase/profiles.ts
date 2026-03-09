@@ -8,6 +8,7 @@ export type Profile = {
   steamId: string | null;
   created_at: string;
   is_admin: boolean;
+  behaviorScore: number;
 };
 
 export type AdminProfileListItem = {
@@ -22,7 +23,9 @@ export async function getProfileByUserId(userId: string) {
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, nickname, username, avatar_url, steam_id, created_at, is_admin")
+    .select(
+      "id, nickname, username, avatar_url, steam_id, created_at, is_admin, behavior_score"
+    )
     .eq("id", userId)
     .maybeSingle();
 
@@ -42,6 +45,7 @@ export async function getProfileByUserId(userId: string) {
     steamId: data.steam_id ?? null,
     created_at: data.created_at,
     is_admin: data.is_admin,
+    behaviorScore: data.behavior_score,
   } as Profile;
 }
 
