@@ -21,6 +21,20 @@ type ResultScreenshotSlotState = {
   errorMessage: string;
 };
 
+function getScoreSelectionOptions(seriesLength: number | null) {
+  const maxGames = Math.max(seriesLength ?? 3, 1);
+  const options: string[] = [];
+
+  for (let totalGames = maxGames; totalGames >= 1; totalGames -= 1) {
+    for (let teamAScore = totalGames; teamAScore >= 0; teamAScore -= 1) {
+      const teamBScore = totalGames - teamAScore;
+      options.push(`${teamAScore}-${teamBScore}`);
+    }
+  }
+
+  return Array.from(new Set(options));
+}
+
 type MatchTabsProps = {
   match: MatchRoomData["match"];
   teamA: MatchRoomData["teamA"];
@@ -62,6 +76,7 @@ type MatchTabsProps = {
   };
   results: {
     isCurrentUserLobbyHost: boolean;
+    isCurrentUserNonHostCaptain: boolean;
     hasReportedMatchResult: boolean;
     reportedWinnerName: string | null;
     safeResultScreenshotUrls: string[];
@@ -82,9 +97,17 @@ type MatchTabsProps = {
     matchResultErrorMessage: string;
     isResultSubmitDisabled: boolean;
     isSubmittingMatchResult: boolean;
+    nonHostLobbyScore: string;
+    nonHostLobbyExpectedPhotoCount: number;
+    nonHostLobbyUploadedPhotoNames: string[];
+    isUploadingNonHostLobbyGallery: boolean;
     onMatchResultSubmit: (event: FormEvent<HTMLFormElement>) => void;
     onReportedTeamAScoreChange: (value: string) => void;
     onReportedTeamBScoreChange: (value: string) => void;
+    onNonHostLobbyScoreChange: (value: string) => void;
+    onNonHostLobbyGalleryChange: (
+      event: ChangeEvent<HTMLInputElement>
+    ) => void;
     onSetResultScreenshotInputRef: (
       index: number,
       node: HTMLInputElement | null
@@ -206,6 +229,7 @@ export function MatchTabs({
     isCurrentUserHostCaptain && currentTeamId
   );
   const normalizedMatchId = String(match.id ?? "").trim();
+  const nonHostScoreSelectionOptions = getScoreSelectionOptions(results.seriesLength);
 
   return (
     <>
@@ -442,9 +466,6 @@ export function MatchTabs({
                       ФОТО ЛОББИ
                     </h3>
                     <div className="mt-4 border-[3px] border-[#CD9C3E] bg-[#061726] p-4 shadow-[4px_4px_0px_0px_#061726]">
-                      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
-                        Капитан хоста
-                      </p>
                       <p className="mt-3 max-w-2xl text-sm font-bold text-white/90">
                         Подтвердите устройство, затем загрузите фото лобби. На
                         скриншоте должно быть видно ваше имя и состав в лобби.
@@ -922,17 +943,8 @@ export function MatchTabs({
             </form>
           )}
         </section>
-      ) : isCurrentUserNonHostCaptain ? (
+      ) : results.isCurrentUserNonHostCaptain ? (
         <section className="mt-6 border-[4px] border-[#CD9C3E] bg-[#061726] p-5 shadow-[6px_6px_0px_0px_#CD9C3E] md:p-6">
-          <input
-            ref={screenshotInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(event) => void onLobbyScreenshotChange(event)}
-          />
-
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
@@ -945,10 +957,6 @@ export function MatchTabs({
                 Второй капитан загружает подтверждающее фото лобби здесь. Скриншот
                 должен показывать всех игроков, ваше имя и имя хоста.
               </p>
-            </div>
-
-            <div className="w-fit border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-white shadow-[4px_4px_0px_0px_#061726]">
-              КАПИТАН СОПЕРНИКА
             </div>
           </div>
 
@@ -1006,16 +1014,74 @@ export function MatchTabs({
             </>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={onOpenLobbyScreenshotPicker}
-                disabled={
-                  isUploadingLobbyScreenshot || !isCurrentUserCheckedIn
-                }
-                className="mt-5 border-[3px] border-[#061726] bg-[#CD9C3E] px-6 py-3 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70 disabled:shadow-[4px_4px_0px_0px_#061726]"
-              >
-                {isUploadingLobbyScreenshot ? "Загрузка..." : "ЗАГРУЗИТЬ ФОТО ЛОББИ"}
-              </button>
+              <div className="mt-5 border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
+                <label className="block">
+                  <span className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
+                    ИТОГОВЫЙ СЧЕТ СЕРИИ
+                  </span>
+                  <select
+                    value={results.nonHostLobbyScore}
+                    onChange={(event) =>
+                      results.onNonHostLobbyScoreChange(event.target.value)
+                    }
+                    className="mt-3 w-full border-[3px] border-[#061726] bg-[#123C4D] px-4 py-3 text-sm font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] outline-none"
+                  >
+                    <option value="">Выберите счет</option>
+                    {nonHostScoreSelectionOptions.map((scoreOption) => (
+                      <option key={scoreOption} value={scoreOption}>
+                        {scoreOption}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="mt-5 block">
+                  <span className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
+                    ФОТО ИЗ ГАЛЕРЕИ
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(event) => void results.onNonHostLobbyGalleryChange(event)}
+                    disabled={
+                      results.isUploadingNonHostLobbyGallery || !isCurrentUserCheckedIn
+                    }
+                    className="mt-3 block w-full border-[3px] border-[#061726] bg-white px-4 py-3 text-sm font-bold text-[#061726] shadow-[4px_4px_0px_0px_#061726] file:mr-4 file:border-0 file:bg-[#CD9C3E] file:px-4 file:py-2 file:text-xs file:font-black file:uppercase file:text-[#061726] disabled:opacity-60"
+                  />
+                </label>
+
+                {results.nonHostLobbyExpectedPhotoCount > 0 && (
+                  <p className="mt-4 text-sm font-bold text-white/80">
+                    Требуется фото: {results.nonHostLobbyExpectedPhotoCount}
+                  </p>
+                )}
+
+                {results.nonHostLobbyUploadedPhotoNames.length > 0 && (
+                  <p className="mt-3 text-sm font-bold text-white/80">
+                    Выбрано: {results.nonHostLobbyUploadedPhotoNames.length}
+                  </p>
+                )}
+
+                {results.nonHostLobbyUploadedPhotoNames.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {results.nonHostLobbyUploadedPhotoNames.map((fileName) => (
+                      <p
+                        key={fileName}
+                        className="text-xs font-bold uppercase tracking-[0.14em] text-white/70"
+                      >
+                        Файл: {fileName}
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {results.isUploadingNonHostLobbyGallery && (
+                  <p className="mt-4 text-sm font-bold text-[#CD9C3E]">
+                    Загружаем фото лобби...
+                  </p>
+                )}
+              </div>
 
               {!isCurrentUserCheckedIn && (
                 <p className="mt-3 text-sm text-white/80">

@@ -1614,6 +1614,7 @@ export async function notifyOpponentLobbyReady(
   matchId: string,
   currentTeamId: string
 ): Promise<NotifyOpponentLobbyReadyResult> {
+  console.log("SERVER ACTION RECEIVED ID:", matchId);
   const trimmedMatchId = String(matchId ?? "").trim();
   const trimmedCurrentTeamId = String(currentTeamId ?? "").trim();
   const env = getMatchActionEnv();
@@ -1670,6 +1671,11 @@ export async function notifyOpponentLobbyReady(
       .maybeSingle();
 
     if (matchError || !matchRow) {
+      console.error("Notify opponent match lookup failed:", {
+        matchId: trimmedMatchId,
+        currentTeamId: trimmedCurrentTeamId,
+        matchError,
+      });
       return {
         error: "Матч не найден.",
       };

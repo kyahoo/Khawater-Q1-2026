@@ -163,6 +163,32 @@ function getSeriesMaxWins(format: string) {
   return seriesLength ? Math.floor(seriesLength / 2) + 1 : null;
 }
 
+function parseSelectedSeriesScore(value: string) {
+  const match = value.trim().match(/^(\d+)-(\d+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const teamAScore = Number.parseInt(match[1], 10);
+  const teamBScore = Number.parseInt(match[2], 10);
+
+  if (
+    !Number.isInteger(teamAScore) ||
+    !Number.isInteger(teamBScore) ||
+    teamAScore < 0 ||
+    teamBScore < 0
+  ) {
+    return null;
+  }
+
+  return {
+    teamAScore,
+    teamBScore,
+    totalGames: teamAScore + teamBScore,
+  };
+}
+
 function normalizeScoreInput(value: string, maxWins: number | null) {
   const digitsOnly = value.replace(/[^\d]/g, "");
 
@@ -215,6 +241,11 @@ export default function MatchRoomPage() {
   >([]);
   const [isSubmittingMatchResult, setIsSubmittingMatchResult] = useState(false);
   const [matchResultErrorMessage, setMatchResultErrorMessage] = useState("");
+  const [nonHostLobbyScore, setNonHostLobbyScore] = useState("");
+  const [nonHostLobbyUploadedPhotoNames, setNonHostLobbyUploadedPhotoNames] =
+    useState<string[]>([]);
+  const [isUploadingNonHostLobbyGallery, setIsUploadingNonHostLobbyGallery] =
+    useState(false);
 
   const loadMatchRoom = useCallback(
     async (nextMatchId: string, options?: { showLoading?: boolean }) => {
@@ -339,6 +370,12 @@ export default function MatchRoomPage() {
         })
       )
     );
+    setNonHostLobbyScore(
+      data.match.teamAScore !== null && data.match.teamBScore !== null
+        ? `${data.match.teamAScore}-${data.match.teamBScore}`
+        : ""
+    );
+    setNonHostLobbyUploadedPhotoNames([]);
     setMatchResultErrorMessage("");
   }, [data]);
 
@@ -661,6 +698,111 @@ export default function MatchRoomPage() {
     }
   }
 
+  async function handleNonHostLobbyGalleryChange(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const selectedFiles = Array.from(event.target.files ?? []);
+    event.target.value = "";
+
+    if (!matchId || !currentUserId) {
+      return;
+    }
+
+    const parsedScore = parseSelectedSeriesScore(nonHostLobbyScore);
+
+    if (!parsedScore || parsedScore.totalGames <= 0) {
+      setLobbyErrorMessage("Сначала выберите итоговый счет серии.");
+      setNonHostLobbyUploadedPhotoNames([]);
+      return;
+    }
+
+    if (selectedFiles.length !== parsedScore.totalGames) {
+      setLobbyErrorMessage(
+        `Нужно загрузить ровно ${parsedScore.totalGames} фото(й) по выбранному счету.`
+      );
+      setNonHostLobbyUploadedPhotoNames([]);
+      return;
+    }
+
+    if (selectedFiles.some((file) => !file.type.startsWith("image/"))) {
+      setLobbyErrorMessage("Загрузите изображения из галереи.");
+      setNonHostLobbyUploadedPhotoNames([]);
+      return;
+    }
+
+    setIsUploadingNonHostLobbyGallery(true);
+    setIsUploadingLobbyScreenshot(true);
+    setLobbyErrorMessage("");
+    setOcrData(null);
+    setNonHostLobbyUploadedPhotoNames(selectedFiles.map((file) => file.name));
+
+    try {
+      const accessToken = await getSessionAccessToken();
+
+      if (!accessToken) {
+        setLobbyErrorMessage("Войдите в аккаунт для загрузки фото лобби.");
+        return;
+      }
+
+      const supabase = getSupabaseBrowserClient();
+      const publicUrls: string[] = [];
+
+      for (const [index, screenshotFile] of selectedFiles.entries()) {
+        const filePath = `${currentUserId}/${matchId}/${Date.now()}-${index}-${crypto.randomUUID()}.${getFileExtension(
+          screenshotFile
+        )}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("match-screenshots")
+          .upload(filePath, screenshotFile, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: screenshotFile.type,
+          });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("match-screenshots").getPublicUrl(filePath);
+
+        if (!publicUrl) {
+          throw new Error("Не удалось получить ссылку на фото лобби.");
+        }
+
+        publicUrls.push(publicUrl);
+      }
+
+      const canonicalLobbyPhotoUrl = publicUrls[0];
+
+      if (!canonicalLobbyPhotoUrl) {
+        throw new Error("Не удалось сохранить фото лобби.");
+      }
+
+      const saveResult = await saveMatchLobbyScreenshot(
+        matchId,
+        accessToken,
+        canonicalLobbyPhotoUrl
+      );
+
+      if (saveResult.error) {
+        throw new Error(saveResult.error);
+      }
+
+      await refreshMatchRoom();
+    } catch (error) {
+      console.error("Non-host lobby gallery upload failed:", error);
+      setLobbyErrorMessage(
+        getErrorMessage(error, "Не удалось загрузить фото лобби.")
+      );
+    } finally {
+      setIsUploadingNonHostLobbyGallery(false);
+      setIsUploadingLobbyScreenshot(false);
+    }
+  }
+
   async function handleResultScreenshotSelection(
     slotIndex: number,
     event: React.ChangeEvent<HTMLInputElement>
@@ -956,6 +1098,8 @@ export default function MatchRoomPage() {
     : 0;
   const seriesLength = getSeriesLength(data.match.format);
   const seriesMaxWins = getSeriesMaxWins(data.match.format);
+  const parsedNonHostLobbyScore = parseSelectedSeriesScore(nonHostLobbyScore);
+  const nonHostLobbyExpectedPhotoCount = parsedNonHostLobbyScore?.totalGames ?? 0;
   const safeResultScreenshotUrls = normalizeResultScreenshotUrls(
     data.match?.resultScreenshotUrls ?? []
   );
@@ -1078,6 +1222,7 @@ export default function MatchRoomPage() {
             }}
             results={{
               isCurrentUserLobbyHost,
+              isCurrentUserNonHostCaptain,
               hasReportedMatchResult,
               reportedWinnerName,
               safeResultScreenshotUrls,
@@ -1095,11 +1240,17 @@ export default function MatchRoomPage() {
               matchResultErrorMessage,
               isResultSubmitDisabled,
               isSubmittingMatchResult,
+              nonHostLobbyScore,
+              nonHostLobbyExpectedPhotoCount,
+              nonHostLobbyUploadedPhotoNames,
+              isUploadingNonHostLobbyGallery,
               onMatchResultSubmit: handleMatchResultSubmit,
               onReportedTeamAScoreChange: (value) =>
                 setReportedTeamAScore(normalizeScoreInput(value, seriesMaxWins)),
               onReportedTeamBScoreChange: (value) =>
                 setReportedTeamBScore(normalizeScoreInput(value, seriesMaxWins)),
+              onNonHostLobbyScoreChange: setNonHostLobbyScore,
+              onNonHostLobbyGalleryChange: handleNonHostLobbyGalleryChange,
               onSetResultScreenshotInputRef: (index, node) => {
                 resultScreenshotInputRefs.current[index] = node;
               },
