@@ -29,7 +29,7 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} bg-[url('/esports-bg.png')] bg-cover bg-fixed bg-center bg-no-repeat text-slate-900 antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} bg-[url('/esports-bg.png')] bg-cover bg-fixed bg-[position:75%_center] bg-no-repeat text-slate-900 antialiased md:bg-center`}
       >
         <div className="relative z-0">{children}</div>
       </body>
