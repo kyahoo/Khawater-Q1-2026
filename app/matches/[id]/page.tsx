@@ -634,10 +634,10 @@ export default function MatchRoomPage() {
 
             <div className="w-fit border-[3px] border-[#061726] bg-[#061726] px-4 py-3 shadow-[4px_4px_0px_0px_#CD9C3E]">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
-                Лобби
+                Статус лобби
               </p>
               <p className="mt-1 text-lg font-black uppercase text-white">
-                {allCheckedIn ? "Открыто" : "Закрыто"}
+                {allCheckedIn ? "Хост должен создать" : "Ждем чек-ин игроков"}
               </p>
             </div>
           </div>
