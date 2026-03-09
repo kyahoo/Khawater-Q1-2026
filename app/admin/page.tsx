@@ -91,6 +91,8 @@ const PLAYOFF_FORMAT_OPTIONS = [
 ] as const;
 
 const ALMATY_TIME_ZONE = "Asia/Almaty";
+const STANDINGS_BACKGROUND_FILE_NAME = "standings-bg.png";
+const SCHEDULE_BACKGROUND_FILE_NAME = "schedule-bg.png";
 
 const ADMIN_TABS = [
   { id: "players", label: "Игроки" },
@@ -162,6 +164,30 @@ function getTimeZoneDateStamp(dayOffset = 0, timeZone = ALMATY_TIME_ZONE) {
   const day = String(date.getUTCDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+}
+
+function renderTemplateStatusBadge(hasBackground: boolean | null) {
+  if (hasBackground === true) {
+    return (
+      <div className="inline-flex w-fit border-2 border-[#061726] bg-[#061726] px-2 py-1 text-xs font-bold uppercase tracking-wide text-[#39FF14]">
+        🟢 Фон загружен
+      </div>
+    );
+  }
+
+  if (hasBackground === false) {
+    return (
+      <div className="inline-flex w-fit border-2 border-[#061726] bg-zinc-100 px-2 py-1 text-xs font-bold uppercase tracking-wide text-zinc-500">
+        🔴 Фон отсутствует
+      </div>
+    );
+  }
+
+  return (
+    <div className="inline-flex w-fit border-2 border-[#061726] bg-zinc-100 px-2 py-1 text-xs font-bold uppercase tracking-wide text-zinc-500">
+      ⚪ Проверка...
+    </div>
+  );
 }
 
 export default function AdminPage() {
@@ -249,6 +275,10 @@ export default function AdminPage() {
   const [selectedScheduleBackgroundFile, setSelectedScheduleBackgroundFile] =
     useState<File | null>(null);
   const [scheduleBackgroundInputKey, setScheduleBackgroundInputKey] = useState(0);
+  const [hasStandingsBackground, setHasStandingsBackground] = useState<boolean | null>(
+    null
+  );
+  const [hasScheduleBackground, setHasScheduleBackground] = useState<boolean | null>(null);
   const [socialErrorMessage, setSocialErrorMessage] = useState("");
   const [socialSuccessMessage, setSocialSuccessMessage] = useState("");
   const [isUploadingStandingsBackground, setIsUploadingStandingsBackground] =
@@ -386,6 +416,27 @@ export default function AdminPage() {
     }
   });
 
+  const loadSocialTemplateStatus = useEffectEvent(async () => {
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data: files, error } = await supabase.storage
+        .from("social-templates")
+        .list("", {
+          limit: 100,
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      const fileNames = new Set((files ?? []).map((file) => file.name));
+      setHasStandingsBackground(fileNames.has(STANDINGS_BACKGROUND_FILE_NAME));
+      setHasScheduleBackground(fileNames.has(SCHEDULE_BACKGROUND_FILE_NAME));
+    } catch (error) {
+      console.error("Social template status failed:", error);
+    }
+  });
+
   useEffect(() => {
     void loadAdminPage();
   }, [router]);
@@ -413,6 +464,14 @@ export default function AdminPage() {
 
     void loadSelectedTeamMembers(selectedTeamId);
   }, [selectedTeamId]);
+
+  useEffect(() => {
+    if (!hasAdminAccess) {
+      return;
+    }
+
+    void loadSocialTemplateStatus();
+  }, [hasAdminAccess]);
 
   useEffect(() => {
     const availableMatchIds = new Set(matches.map((match) => match.id));
@@ -956,7 +1015,7 @@ export default function AdminPage() {
       const supabase = getSupabaseBrowserClient();
       const { error: uploadError } = await supabase.storage
         .from("social-templates")
-        .upload("standings-bg.png", selectedStandingsBackgroundFile, {
+        .upload(STANDINGS_BACKGROUND_FILE_NAME, selectedStandingsBackgroundFile, {
           cacheControl: "3600",
           upsert: true,
           contentType: "image/png",
@@ -966,9 +1025,11 @@ export default function AdminPage() {
         throw uploadError;
       }
 
+      setHasStandingsBackground(true);
       setSelectedStandingsBackgroundFile(null);
       setStandingsBackgroundInputKey((current) => current + 1);
       setSocialSuccessMessage("Фон таблицы успешно загружен.");
+      void loadSocialTemplateStatus();
     } catch (error) {
       setSocialErrorMessage(
         getSupabaseLikeErrorMessage(error, "Не удалось загрузить фон таблицы.")
@@ -999,7 +1060,7 @@ export default function AdminPage() {
       const supabase = getSupabaseBrowserClient();
       const { error: uploadError } = await supabase.storage
         .from("social-templates")
-        .upload("schedule-bg.png", selectedScheduleBackgroundFile, {
+        .upload(SCHEDULE_BACKGROUND_FILE_NAME, selectedScheduleBackgroundFile, {
           cacheControl: "3600",
           upsert: true,
           contentType: "image/png",
@@ -1009,9 +1070,11 @@ export default function AdminPage() {
         throw uploadError;
       }
 
+      setHasScheduleBackground(true);
       setSelectedScheduleBackgroundFile(null);
       setScheduleBackgroundInputKey((current) => current + 1);
       setSocialSuccessMessage("Фон расписания успешно загружен.");
+      void loadSocialTemplateStatus();
     } catch (error) {
       setSocialErrorMessage(
         getSupabaseLikeErrorMessage(error, "Не удалось загрузить фон расписания.")
@@ -2815,20 +2878,23 @@ export default function AdminPage() {
                     </div>
                     <div className="mt-4 flex flex-col gap-4">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                        <label className="flex-1 text-sm font-medium text-zinc-700">
-                          Фон таблицы (`standings-bg.png`)
-                          <input
-                            key={standingsBackgroundInputKey}
-                            type="file"
-                            accept="image/png"
-                            onChange={(event) =>
-                              setSelectedStandingsBackgroundFile(
-                                event.target.files?.[0] ?? null
-                              )
-                            }
-                            className="mt-2 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                          />
-                        </label>
+                        <div className="flex-1">
+                          {renderTemplateStatusBadge(hasStandingsBackground)}
+                          <label className="mt-3 block text-sm font-medium text-zinc-700">
+                            Фон таблицы (`standings-bg.png`)
+                            <input
+                              key={standingsBackgroundInputKey}
+                              type="file"
+                              accept="image/png"
+                              onChange={(event) =>
+                                setSelectedStandingsBackgroundFile(
+                                  event.target.files?.[0] ?? null
+                                )
+                              }
+                              className="mt-2 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                            />
+                          </label>
+                        </div>
                         <button
                           type="button"
                           onClick={() => void handleUploadStandingsBackground()}
@@ -2845,20 +2911,23 @@ export default function AdminPage() {
                       </div>
 
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                        <label className="flex-1 text-sm font-medium text-zinc-700">
-                          Фон расписания (`schedule-bg.png`)
-                          <input
-                            key={scheduleBackgroundInputKey}
-                            type="file"
-                            accept="image/png"
-                            onChange={(event) =>
-                              setSelectedScheduleBackgroundFile(
-                                event.target.files?.[0] ?? null
-                              )
-                            }
-                            className="mt-2 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                          />
-                        </label>
+                        <div className="flex-1">
+                          {renderTemplateStatusBadge(hasScheduleBackground)}
+                          <label className="mt-3 block text-sm font-medium text-zinc-700">
+                            Фон расписания (`schedule-bg.png`)
+                            <input
+                              key={scheduleBackgroundInputKey}
+                              type="file"
+                              accept="image/png"
+                              onChange={(event) =>
+                                setSelectedScheduleBackgroundFile(
+                                  event.target.files?.[0] ?? null
+                                )
+                              }
+                              className="mt-2 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                            />
+                          </label>
+                        </div>
                         <button
                           type="button"
                           onClick={() => void handleUploadScheduleBackground()}

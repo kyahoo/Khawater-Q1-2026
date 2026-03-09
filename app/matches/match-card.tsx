@@ -134,7 +134,7 @@ export function MatchCard({ match, currentTimeMs, hasMounted }: MatchCardProps) 
       href={`/matches/${match.id}`}
       className={`block rounded-none border-[3px] p-4 transition-all md:p-5 ${
         isActive
-          ? "border-[#39FF14] shadow-[0_0_10px_#39FF14]"
+          ? "border-[#39FF14] bg-[#0B3A4A] shadow-[0_0_10px_#39FF14]"
           : isFinished
             ? "border-[#061726] bg-[#061726]/95 shadow-[4px_4px_0px_0px_#061726] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
             : "border-[#061726] bg-[#0B3A4A] shadow-[4px_4px_0px_0px_#061726] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
