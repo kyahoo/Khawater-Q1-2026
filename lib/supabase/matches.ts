@@ -42,8 +42,10 @@ export type UserTeamMatch = {
   format: string;
   scheduledAt: string | null;
   status: string;
+  teamAScore: number | null;
   teamAName: string;
   teamALogoUrl: string | null;
+  teamBScore: number | null;
   teamBName: string;
   teamBLogoUrl: string | null;
   teamAId: string;
@@ -207,7 +209,7 @@ export async function getMatchesForUserTeam(userId: string): Promise<UserTeamMat
   const { data: matches, error: matchesError } = await supabase
     .from("tournament_matches")
     .select(
-      "id, team_a_id, team_b_id, round_label, scheduled_at, status, format, created_at"
+      "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, created_at"
     )
     .eq("tournament_id", tournamentId)
     .or(`team_a_id.eq.${teamId},team_b_id.eq.${teamId}`)
@@ -249,6 +251,8 @@ export async function getMatchesForUserTeam(userId: string): Promise<UserTeamMat
     round_label: string;
     scheduled_at: string | null;
     status: string;
+    team_a_score: number | null;
+    team_b_score: number | null;
     format: string;
   }>).map((m) => ({
     id: m.id,
@@ -256,8 +260,10 @@ export async function getMatchesForUserTeam(userId: string): Promise<UserTeamMat
     format: m.format,
     scheduledAt: m.scheduled_at,
     status: m.status,
+    teamAScore: m.team_a_score,
     teamAName: teamNameById.get(m.team_a_id)?.name ?? "Team A",
     teamALogoUrl: teamNameById.get(m.team_a_id)?.logoUrl ?? null,
+    teamBScore: m.team_b_score,
     teamBName: teamNameById.get(m.team_b_id)?.name ?? "Team B",
     teamBLogoUrl: teamNameById.get(m.team_b_id)?.logoUrl ?? null,
     teamAId: m.team_a_id,
