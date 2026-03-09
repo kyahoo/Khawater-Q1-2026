@@ -19,6 +19,7 @@ export type Database = {
           created_at: string;
           is_admin: boolean;
           behavior_score: number;
+          mmr_status: string;
         };
         Insert: {
           id: string;
@@ -29,6 +30,7 @@ export type Database = {
           created_at?: string;
           is_admin?: boolean;
           behavior_score?: number;
+          mmr_status?: string;
         };
         Update: {
           id?: string;
@@ -39,6 +41,7 @@ export type Database = {
           created_at?: string;
           is_admin?: boolean;
           behavior_score?: number;
+          mmr_status?: string;
         };
         Relationships: [];
       };

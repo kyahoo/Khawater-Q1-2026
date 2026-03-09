@@ -15,6 +15,7 @@ import {
   listAdminPlayers,
   resetPlayerDeviceBinding,
   toggleTeamSuspension,
+  updateMMRStatus,
   updateTournamentMatchAction,
   type AdminPlayerListItem,
 } from "./actions";
@@ -98,6 +99,12 @@ const ADMIN_TABS = [
   { id: "teams", label: "Команды" },
   { id: "tournaments", label: "Турниры" },
   { id: "social", label: "Социальные сети" },
+] as const;
+
+const MMR_STATUS_OPTIONS = [
+  { value: "pending", label: "MMR: ОЖИДАЕТ" },
+  { value: "verified", label: "MMR: ПОДТВЕРЖДЕН" },
+  { value: "rejected", label: "MMR: ОТКЛОНЕН" },
 ] as const;
 
 type AdminTabId = (typeof ADMIN_TABS)[number]["id"];
@@ -187,6 +194,21 @@ function renderTemplateStatusBadge(hasBackground: boolean | null) {
       ⚪ Проверка...
     </div>
   );
+}
+
+function getMMRStatusSelectClassName(status: AdminPlayerListItem["mmrStatus"]) {
+  const baseClassName =
+    "w-fit appearance-none border-2 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+
+  if (status === "verified") {
+    return `${baseClassName} border-green-500 bg-green-500/10 text-green-500`;
+  }
+
+  if (status === "rejected") {
+    return `${baseClassName} border-red-500 bg-red-500/10 text-red-500`;
+  }
+
+  return `${baseClassName} border-[#CD9C3E] bg-[#CD9C3E]/10 text-[#CD9C3E]`;
 }
 
 async function getSocialTemplateStatus() {
@@ -279,6 +301,9 @@ export default function AdminPage() {
     string | null
   >(null);
   const [isResettingDeviceUserId, setIsResettingDeviceUserId] = useState<
+    string | null
+  >(null);
+  const [isUpdatingMMRStatusUserId, setIsUpdatingMMRStatusUserId] = useState<
     string | null
   >(null);
   const [isDeletingTeamId, setIsDeletingTeamId] = useState<string | null>(null);
@@ -682,6 +707,31 @@ export default function AdminPage() {
       window.alert(`Ошибка: ${message}`);
     } finally {
       setIsResettingDeviceUserId(null);
+    }
+  }
+
+  async function handleUpdateMMRStatus(
+    userId: string,
+    newStatus: AdminPlayerListItem["mmrStatus"]
+  ) {
+    setIsUpdatingMMRStatusUserId(userId);
+    setErrorMessage("");
+
+    try {
+      const result = await updateMMRStatus(userId, newStatus);
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      await loadAdminData();
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Не удалось обновить статус MMR."
+      );
+    } finally {
+      setIsUpdatingMMRStatusUserId(null);
     }
   }
 
@@ -1776,6 +1826,28 @@ export default function AdminPage() {
                         <div>
                           <div className="font-medium">{player.nickname}</div>
                           <div className="mt-1 text-sm text-zinc-500">{player.email}</div>
+                          <div className="mt-3">
+                            <label className="block w-fit">
+                              <span className="sr-only">Статус подтверждения MMR</span>
+                              <select
+                                value={player.mmrStatus}
+                                onChange={(event) =>
+                                  void handleUpdateMMRStatus(
+                                    player.id,
+                                    event.target.value as AdminPlayerListItem["mmrStatus"]
+                                  )
+                                }
+                                disabled={isUpdatingMMRStatusUserId === player.id}
+                                className={getMMRStatusSelectClassName(player.mmrStatus)}
+                              >
+                                {MMR_STATUS_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
                         </div>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                           <div

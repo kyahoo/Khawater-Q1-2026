@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getActiveTaskCountsForUsers } from "@/lib/supabase/tasks";
 
 type CreateAdminPlayerInput = {
@@ -21,6 +22,7 @@ export type AdminPlayerListItem = {
   nickname: string;
   email: string;
   openTaskCount: number;
+  mmrStatus: "pending" | "verified" | "rejected";
 };
 
 type ListAdminPlayersResult =
@@ -38,6 +40,10 @@ type DeletePlayerResult = {
 };
 
 type ResetPlayerDeviceBindingResult = {
+  error: string | null;
+};
+
+type UpdateMMRStatusResult = {
   error: string | null;
 };
 
@@ -228,12 +234,13 @@ export async function listAdminPlayers(
   const users = usersData.users;
   const userIds = users.map((user) => user.id);
   let nicknameByUserId = new Map<string, string>();
+  let mmrStatusByUserId = new Map<string, "pending" | "verified" | "rejected">();
   let openTaskCountByUserId = {} as Record<string, number>;
 
   if (userIds.length > 0) {
     const { data: profiles, error: profilesError } = await adminClient
       .from("profiles")
-      .select("id, nickname")
+      .select("id, nickname, mmr_status")
       .in("id", userIds);
 
     if (profilesError) {
@@ -250,6 +257,15 @@ export async function listAdminPlayers(
       ])
     );
 
+    mmrStatusByUserId = new Map(
+      (
+        (profiles ?? []) as Array<{
+          id: string;
+          mmr_status: "pending" | "verified" | "rejected" | null;
+        }>
+      ).map((profile) => [profile.id, profile.mmr_status ?? "pending"])
+    );
+
     openTaskCountByUserId = await getActiveTaskCountsForUsers(adminClient, userIds);
   }
 
@@ -259,12 +275,96 @@ export async function listAdminPlayers(
       nickname: nicknameByUserId.get(user.id) ?? user.user_metadata?.nickname ?? "Unknown",
       email: user.email ?? "No email",
       openTaskCount: openTaskCountByUserId[user.id] ?? 0,
+      mmrStatus: mmrStatusByUserId.get(user.id) ?? "pending",
     }))
     .sort((playerA, playerB) => playerA.nickname.localeCompare(playerB.nickname));
 
   return {
     error: null,
     players,
+  };
+}
+
+export async function updateMMRStatus(
+  userId: string,
+  newStatus: string
+): Promise<UpdateMMRStatusResult> {
+  const normalizedUserId = userId.trim();
+  const normalizedStatus = newStatus.trim();
+
+  if (!normalizedUserId) {
+    return {
+      error: "Player ID is required.",
+    };
+  }
+
+  if (!["pending", "verified", "rejected"].includes(normalizedStatus)) {
+    return {
+      error: "Invalid MMR status.",
+    };
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return {
+      error: "Missing Supabase server environment configuration.",
+    };
+  }
+
+  const supabase = await getSupabaseServerClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      error: "Could not verify admin session.",
+    };
+  }
+
+  const { data: actingProfile, error: actingProfileError } = await supabase
+    .from("profiles")
+    .select("id, is_admin")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (actingProfileError || !actingProfile?.is_admin) {
+    return {
+      error: "You do not have admin access for this action.",
+    };
+  }
+
+  const adminClient = createClient<Database>(
+    supabaseUrl,
+    serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+
+  const { error } = await adminClient
+    .from("profiles")
+    .update({
+      mmr_status: normalizedStatus,
+    })
+    .eq("id", normalizedUserId);
+
+  if (error) {
+    return {
+      error: error.message,
+    };
+  }
+
+  revalidatePath("/admin");
+
+  return {
+    error: null,
   };
 }
 
