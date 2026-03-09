@@ -107,12 +107,10 @@ function PlayerRow({
   nickname,
   isCaptain,
   isCheckedIn,
-  isBiometricVerified,
 }: {
   nickname: string;
   isCaptain: boolean;
   isCheckedIn: boolean;
-  isBiometricVerified: boolean;
 }) {
   return (
     <div className="flex items-center justify-between border-t-[3px] border-[#061726] bg-[#061726]/35 px-4 py-3">
@@ -134,11 +132,6 @@ function PlayerRow({
         ) : (
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">
             Ожидание
-          </span>
-        )}
-        {isBiometricVerified && (
-          <span className="border-[2px] border-[#061726] bg-[#14323E] px-2 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
-            Био
           </span>
         )}
       </div>
@@ -678,9 +671,6 @@ export default function MatchRoomPage() {
                   nickname={player.nickname}
                   isCaptain={player.isCaptain}
                   isCheckedIn={data.checkedInUserIds.includes(player.userId)}
-                  isBiometricVerified={data.biometricVerifiedUserIds.includes(
-                    player.userId
-                  )}
                 />
               ))}
               {data.teamA.roster.length === 0 && (
@@ -702,9 +692,6 @@ export default function MatchRoomPage() {
                   nickname={player.nickname}
                   isCaptain={player.isCaptain}
                   isCheckedIn={data.checkedInUserIds.includes(player.userId)}
-                  isBiometricVerified={data.biometricVerifiedUserIds.includes(
-                    player.userId
-                  )}
                 />
               ))}
               {data.teamB.roster.length === 0 && (

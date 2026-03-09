@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
 export const runtime = "nodejs";
@@ -45,29 +45,6 @@ function getAdminClient() {
       persistSession: false,
     },
   });
-}
-
-async function getStorageImageDataUri(
-  supabase: SupabaseClient<Database>,
-  path: string
-) {
-  try {
-    const { data: fileBlob, error } = await supabase.storage
-      .from("social-templates")
-      .download(path);
-
-    if (error || !fileBlob) {
-      return null;
-    }
-
-    const contentType = fileBlob.type || "image/png";
-    const base64 = Buffer.from(await fileBlob.arrayBuffer()).toString("base64");
-
-    return `data:${contentType};base64,${base64}`;
-  } catch (error) {
-    console.error(`Could not load storage image ${path}:`, error);
-    return null;
-  }
 }
 
 function getTimeZoneParts(date: Date, timeZone: string): TimeZoneParts {
@@ -210,12 +187,12 @@ export async function GET(request: Request) {
       );
     }
 
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabase = getAdminClient();
     const { target, start, end } = getDayRange(requestedDay);
-    const backgroundUrl = await getStorageImageDataUri(
-      supabase,
-      "schedule-bg.png"
-    );
+    const backgroundUrl = supabaseUrl
+      ? `${supabaseUrl}/storage/v1/object/public/social-templates/schedule-bg.png?t=${Date.now()}`
+      : null;
 
     const { data: activeTournament, error: activeTournamentError } = await supabase
       .from("tournaments")
@@ -283,183 +260,171 @@ export async function GET(request: Request) {
 
     return new ImageResponse(
       (
-        <div
-          tw="relative flex h-full w-full"
-          style={{
-            backgroundColor: TEAL,
-          }}
-        >
+        <div tw="flex w-full h-full relative bg-[#0B3A4A]">
           {backgroundUrl ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={backgroundUrl}
-                alt=""
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
-              />
-            </>
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={backgroundUrl}
+              alt=""
+              tw="absolute top-0 left-0 w-full h-full"
+              style={{
+                objectFit: "cover",
+              }}
+            />
           ) : null}
           <div
-            tw="absolute inset-0 flex"
+            tw="flex flex-col relative w-full h-full"
             style={{
               background:
                 "linear-gradient(180deg, rgba(6, 23, 38, 0.18) 0%, rgba(6, 23, 38, 0.58) 100%)",
             }}
-          />
-
-          <div
-            tw="relative flex h-full w-full flex-col px-16 pt-16 pb-14"
-            style={{
-              zIndex: 10,
-              gap: 28,
-            }}
           >
-            <div tw="flex w-full flex-col items-center justify-center">
-              <div
-                tw="flex items-center justify-center border-4 px-10 py-5"
-                style={{
-                  borderColor: NAVY,
-                  backgroundColor: "rgba(6, 23, 38, 0.88)",
-                  boxShadow: `12px 12px 0 ${NAVY}`,
-                }}
-              >
-                <span
+            <div
+              tw="flex flex-col relative w-full h-full px-16 pt-16 pb-14"
+              style={{
+                gap: 28,
+              }}
+            >
+              <div tw="flex w-full flex-col items-center justify-center">
+                <div
+                  tw="flex items-center justify-center border-4 px-10 py-5"
                   style={{
-                    color: GOLD,
-                    fontSize: 60,
-                    fontWeight: 900,
-                    letterSpacing: 4,
-                    textAlign: "center",
+                    borderColor: NAVY,
+                    backgroundColor: "rgba(6, 23, 38, 0.88)",
+                    boxShadow: `12px 12px 0 ${NAVY}`,
                   }}
                 >
-                  {TITLE}
-                </span>
-              </div>
+                  <span
+                    style={{
+                      color: GOLD,
+                      fontSize: 60,
+                      fontWeight: 900,
+                      letterSpacing: 4,
+                      textAlign: "center",
+                    }}
+                  >
+                    {TITLE}
+                  </span>
+                </div>
 
-              <span
-                style={{
-                  marginTop: 18,
-                  color: "#FFFFFF",
-                  fontSize: 28,
-                  fontWeight: 800,
-                  letterSpacing: 2,
-                  textAlign: "center",
-                }}
-              >
-                {formatRussianDate(target)}
-              </span>
-            </div>
-
-            {visibleMatches.length === 0 ? (
-              <div
-                tw="flex flex-1 items-center justify-center border-4 px-12 py-10"
-                style={{
-                  borderColor: NAVY,
-                  backgroundColor: "rgba(11, 58, 74, 0.92)",
-                  boxShadow: `12px 12px 0 ${NAVY}`,
-                }}
-              >
                 <span
                   style={{
+                    marginTop: 18,
                     color: "#FFFFFF",
-                    fontSize: 42,
-                    fontWeight: 900,
+                    fontSize: 28,
+                    fontWeight: 800,
                     letterSpacing: 2,
                     textAlign: "center",
                   }}
                 >
-                  {EMPTY_STATE}
+                  {formatRussianDate(target)}
                 </span>
               </div>
-            ) : (
-              <div
-                tw="flex flex-1 flex-col"
-                style={{
-                  gap: 18,
-                }}
-              >
-                {visibleMatches.map((match) => (
-                  <div
-                    key={match.id}
-                    tw="flex items-center justify-between border-[3px] px-8 py-6"
+
+              {visibleMatches.length === 0 ? (
+                <div
+                  tw="flex flex-1 items-center justify-center border-4 px-12 py-10"
+                  style={{
+                    borderColor: NAVY,
+                    backgroundColor: "rgba(11, 58, 74, 0.92)",
+                    boxShadow: `12px 12px 0 ${NAVY}`,
+                  }}
+                >
+                  <span
                     style={{
-                      minHeight: 120,
-                      borderColor: NAVY,
-                      backgroundColor: TEAL,
-                      boxShadow: `8px 8px 0 ${NAVY}`,
+                      color: "#FFFFFF",
+                      fontSize: 42,
+                      fontWeight: 900,
+                      letterSpacing: 2,
+                      textAlign: "center",
                     }}
                   >
+                    {EMPTY_STATE}
+                  </span>
+                </div>
+              ) : (
+                <div
+                  tw="flex flex-1 flex-col"
+                  style={{
+                    gap: 18,
+                  }}
+                >
+                  {visibleMatches.map((match) => (
                     <div
-                      tw="flex flex-1 items-center justify-start"
+                      key={match.id}
+                      tw="flex items-center justify-between border-[3px] px-8 py-6"
                       style={{
-                        paddingRight: 20,
+                        minHeight: 120,
+                        borderColor: NAVY,
+                        backgroundColor: TEAL,
+                        boxShadow: `8px 8px 0 ${NAVY}`,
                       }}
                     >
-                      <span
+                      <div
+                        tw="flex flex-1 items-center justify-start"
                         style={{
-                          color: "#FFFFFF",
-                          fontSize: 28,
-                          fontWeight: 800,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
+                          paddingRight: 20,
                         }}
                       >
-                        {match.teamAName}
-                      </span>
-                    </div>
+                        <span
+                          style={{
+                            color: "#FFFFFF",
+                            fontSize: 28,
+                            fontWeight: 800,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {match.teamAName}
+                        </span>
+                      </div>
 
-                    <div
-                      tw="flex items-center justify-center"
-                      style={{
-                        width: 180,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <span
+                      <div
+                        tw="flex items-center justify-center"
                         style={{
-                          color: GOLD,
-                          fontSize: 32,
-                          fontWeight: 900,
-                          letterSpacing: 1,
-                          textAlign: "center",
+                          width: 180,
+                          flexShrink: 0,
                         }}
                       >
-                        {match.timeLabel}
-                      </span>
-                    </div>
+                        <span
+                          style={{
+                            color: GOLD,
+                            fontSize: 32,
+                            fontWeight: 900,
+                            letterSpacing: 1,
+                            textAlign: "center",
+                          }}
+                        >
+                          {match.timeLabel}
+                        </span>
+                      </div>
 
-                    <div
-                      tw="flex flex-1 items-center justify-end"
-                      style={{
-                        paddingLeft: 20,
-                      }}
-                    >
-                      <span
+                      <div
+                        tw="flex flex-1 items-center justify-end"
                         style={{
-                          color: "#FFFFFF",
-                          fontSize: 28,
-                          fontWeight: 800,
-                          textAlign: "right",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
+                          paddingLeft: 20,
                         }}
                       >
-                        {match.teamBName}
-                      </span>
+                        <span
+                          style={{
+                            color: "#FFFFFF",
+                            fontSize: 28,
+                            fontWeight: 800,
+                            textAlign: "right",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {match.teamBName}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ),

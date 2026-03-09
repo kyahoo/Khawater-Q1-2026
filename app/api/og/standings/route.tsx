@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
 export const runtime = "nodejs";
@@ -13,7 +13,6 @@ export const size = {
 
 const TITLE = "ТАБЛИЦА ГРУППОВОГО ЭТАПА";
 const GOLD = "#CD9C3E";
-const NAVY = "#061726";
 const PANEL_BACKGROUND = "rgba(11, 58, 74, 0.9)";
 const PANEL_BORDER = "#061726";
 const LABEL_TEXT = "#BFD6DC";
@@ -57,29 +56,6 @@ function getAdminClient() {
       persistSession: false,
     },
   });
-}
-
-async function getStorageImageDataUri(
-  supabase: SupabaseClient<Database>,
-  path: string
-) {
-  try {
-    const { data: fileBlob, error } = await supabase.storage
-      .from("social-templates")
-      .download(path);
-
-    if (error || !fileBlob) {
-      return null;
-    }
-
-    const contentType = fileBlob.type || "image/png";
-    const base64 = Buffer.from(await fileBlob.arrayBuffer()).toString("base64");
-
-    return `data:${contentType};base64,${base64}`;
-  } catch (error) {
-    console.error(`Could not load storage image ${path}:`, error);
-    return null;
-  }
 }
 
 function getFallbackGroupCount(teamCount: number, preferredCount: number) {
@@ -409,6 +385,7 @@ function calculateGroupStandings(params: {
 
 export async function GET() {
   try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabase = getAdminClient();
 
     const { data: activeTournament, error: activeTournamentError } = await supabase
@@ -434,10 +411,9 @@ export async function GET() {
       );
     }
 
-    const backgroundUrl = await getStorageImageDataUri(
-      supabase,
-      "standings-bg.png"
-    );
+    const backgroundUrl = supabaseUrl
+      ? `${supabaseUrl}/storage/v1/object/public/social-templates/standings-bg.png?t=${Date.now()}`
+      : null;
 
     const { data: tournamentEntries, error: tournamentEntriesError } = await supabase
       .from("tournament_team_entries")
@@ -508,239 +484,228 @@ export async function GET() {
 
     return new ImageResponse(
       (
-        <div
-          tw="relative flex h-full w-full"
-          style={{
-            backgroundColor: NAVY,
-          }}
-        >
+        <div tw="flex w-full h-full relative bg-[#0B3A4A]">
           {backgroundUrl ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={backgroundUrl}
-                alt=""
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                }}
-              />
-            </>
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={backgroundUrl}
+              alt=""
+              tw="absolute top-0 left-0 w-full h-full"
+              style={{
+                objectFit: "cover",
+              }}
+            />
           ) : null}
           <div
-            tw="absolute inset-0 flex"
+            tw="flex flex-col relative w-full h-full"
             style={{
               background:
                 "linear-gradient(180deg, rgba(6, 23, 38, 0.18) 0%, rgba(6, 23, 38, 0.55) 100%)",
             }}
-          />
-          <div
-            tw="relative flex h-full w-full flex-col px-16 pt-16 pb-14"
-            style={{
-              zIndex: 10,
-              gap: 30,
-            }}
           >
-            <div tw="flex w-full flex-col items-center justify-center">
-              <div
-                tw="flex items-center justify-center border-4 px-10 py-5"
-                style={{
-                  borderColor: PANEL_BORDER,
-                  backgroundColor: "rgba(6, 23, 38, 0.86)",
-                  boxShadow: `12px 12px 0 ${PANEL_BORDER}`,
-                }}
-              >
-                <span
-                  style={{
-                    color: GOLD,
-                    fontSize: 58,
-                    fontWeight: 900,
-                    letterSpacing: 4,
-                    textAlign: "center",
-                  }}
-                >
-                  {TITLE}
-                </span>
-              </div>
-              <span
-                style={{
-                  marginTop: 20,
-                  color: "#FFFFFF",
-                  fontSize: 28,
-                  fontWeight: 700,
-                  textAlign: "center",
-                }}
-              >
-                {activeTournament.name}
-              </span>
-            </div>
-
             <div
-              tw="flex flex-1 flex-wrap content-start justify-center"
+              tw="flex flex-col relative w-full h-full px-16 pt-16 pb-14"
               style={{
-                gap: 24,
+                gap: 30,
               }}
             >
-              {groups.map((group) => (
+              <div tw="flex w-full flex-col items-center justify-center">
                 <div
-                  key={group.key}
-                  tw="flex flex-col border-4 px-7 py-6"
+                  tw="flex items-center justify-center border-4 px-10 py-5"
                   style={{
-                    width: panelWidth,
-                    minHeight: groups.length === 1 ? 1020 : 0,
                     borderColor: PANEL_BORDER,
-                    backgroundColor: PANEL_BACKGROUND,
+                    backgroundColor: "rgba(6, 23, 38, 0.86)",
                     boxShadow: `12px 12px 0 ${PANEL_BORDER}`,
                   }}
                 >
-                  <div tw="flex items-center justify-between">
-                    <span
-                      style={{
-                        color: GOLD,
-                        fontSize: 34,
-                        fontWeight: 900,
-                        letterSpacing: 2,
-                      }}
-                    >
-                      {group.label}
-                    </span>
-                    <span
-                      style={{
-                        color: "#FFFFFF",
-                        fontSize: 18,
-                        fontWeight: 700,
-                      }}
-                    >
-                      {group.standings.length} команд
-                    </span>
-                  </div>
-
-                  <div
-                    tw="flex items-center justify-between"
+                  <span
                     style={{
-                      marginTop: 20,
-                      paddingBottom: 12,
-                      borderBottom: "2px solid rgba(205, 156, 62, 0.35)",
+                      color: GOLD,
+                      fontSize: 58,
+                      fontWeight: 900,
+                      letterSpacing: 4,
+                      textAlign: "center",
                     }}
                   >
-                    <span
-                      style={{
-                        width: 42,
-                        color: LABEL_TEXT,
-                        fontSize: 18,
-                        fontWeight: 700,
-                      }}
-                    >
-                      #
-                    </span>
-                    <span
-                      style={{
-                        flex: 1,
-                        color: LABEL_TEXT,
-                        fontSize: 18,
-                        fontWeight: 700,
-                      }}
-                    >
-                      Команда
-                    </span>
-                    <span
-                      style={{
-                        width: 112,
-                        color: LABEL_TEXT,
-                        fontSize: 18,
-                        fontWeight: 700,
-                        textAlign: "center",
-                      }}
-                    >
-                      W-L
-                    </span>
-                    <span
-                      style={{
-                        width: 86,
-                        color: LABEL_TEXT,
-                        fontSize: 18,
-                        fontWeight: 700,
-                        textAlign: "right",
-                      }}
-                    >
-                      Очки
-                    </span>
-                  </div>
+                    {TITLE}
+                  </span>
+                </div>
+                <span
+                  style={{
+                    marginTop: 20,
+                    color: "#FFFFFF",
+                    fontSize: 28,
+                    fontWeight: 700,
+                    textAlign: "center",
+                  }}
+                >
+                  {activeTournament.name}
+                </span>
+              </div>
 
+              <div
+                tw="flex flex-1 flex-wrap content-start justify-center"
+                style={{
+                  gap: 24,
+                }}
+              >
+                {groups.map((group) => (
                   <div
-                    tw="flex flex-col"
+                    key={group.key}
+                    tw="flex flex-col border-4 px-7 py-6"
                     style={{
-                      marginTop: 8,
+                      width: panelWidth,
+                      minHeight: groups.length === 1 ? 1020 : 0,
+                      borderColor: PANEL_BORDER,
+                      backgroundColor: PANEL_BACKGROUND,
+                      boxShadow: `12px 12px 0 ${PANEL_BORDER}`,
                     }}
                   >
-                    {group.standings.map((team, index) => (
-                      <div
-                        key={team.teamId}
-                        tw="flex items-center justify-between"
+                    <div tw="flex items-center justify-between">
+                      <span
                         style={{
-                          minHeight: 68,
-                          paddingTop: 10,
-                          paddingBottom: 10,
-                          borderTop:
-                            index === 0
-                              ? "0px solid transparent"
-                              : "1px solid rgba(255, 255, 255, 0.12)",
+                          color: GOLD,
+                          fontSize: 34,
+                          fontWeight: 900,
+                          letterSpacing: 2,
                         }}
                       >
-                        <span
+                        {group.label}
+                      </span>
+                      <span
+                        style={{
+                          color: "#FFFFFF",
+                          fontSize: 18,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {group.standings.length} команд
+                      </span>
+                    </div>
+
+                    <div
+                      tw="flex items-center justify-between"
+                      style={{
+                        marginTop: 20,
+                        paddingBottom: 12,
+                        borderBottom: "2px solid rgba(205, 156, 62, 0.35)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 42,
+                          color: LABEL_TEXT,
+                          fontSize: 18,
+                          fontWeight: 700,
+                        }}
+                      >
+                        #
+                      </span>
+                      <span
+                        style={{
+                          flex: 1,
+                          color: LABEL_TEXT,
+                          fontSize: 18,
+                          fontWeight: 700,
+                        }}
+                      >
+                        Команда
+                      </span>
+                      <span
+                        style={{
+                          width: 112,
+                          color: LABEL_TEXT,
+                          fontSize: 18,
+                          fontWeight: 700,
+                          textAlign: "center",
+                        }}
+                      >
+                        W-L
+                      </span>
+                      <span
+                        style={{
+                          width: 86,
+                          color: LABEL_TEXT,
+                          fontSize: 18,
+                          fontWeight: 700,
+                          textAlign: "right",
+                        }}
+                      >
+                        Очки
+                      </span>
+                    </div>
+
+                    <div
+                      tw="flex flex-col"
+                      style={{
+                        marginTop: 8,
+                      }}
+                    >
+                      {group.standings.map((team, index) => (
+                        <div
+                          key={team.teamId}
+                          tw="flex items-center justify-between"
                           style={{
-                            width: 42,
-                            color: index === 0 ? GOLD : "#FFFFFF",
-                            fontSize: 24,
-                            fontWeight: 900,
+                            minHeight: 68,
+                            paddingTop: 10,
+                            paddingBottom: 10,
+                            borderTop:
+                              index === 0
+                                ? "0px solid transparent"
+                                : "1px solid rgba(255, 255, 255, 0.12)",
                           }}
                         >
-                          {index + 1}
-                        </span>
-                        <span
-                          style={{
-                            flex: 1,
-                            color: "#FFFFFF",
-                            fontSize: 24,
-                            fontWeight: index === 0 ? 800 : 700,
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                        >
-                          {team.teamName}
-                        </span>
-                        <span
-                          style={{
-                            width: 112,
-                            color: "#FFFFFF",
-                            fontSize: 22,
-                            fontWeight: 700,
-                            textAlign: "center",
-                          }}
-                        >
-                          {team.wins}-{team.losses}
-                        </span>
-                        <span
-                          style={{
-                            width: 86,
-                            color: GOLD,
-                            fontSize: 28,
-                            fontWeight: 900,
-                            textAlign: "right",
-                          }}
-                        >
-                          {team.points}
-                        </span>
-                      </div>
-                    ))}
+                          <span
+                            style={{
+                              width: 42,
+                              color: index === 0 ? GOLD : "#FFFFFF",
+                              fontSize: 24,
+                              fontWeight: 900,
+                            }}
+                          >
+                            {index + 1}
+                          </span>
+                          <span
+                            style={{
+                              flex: 1,
+                              color: "#FFFFFF",
+                              fontSize: 24,
+                              fontWeight: index === 0 ? 800 : 700,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {team.teamName}
+                          </span>
+                          <span
+                            style={{
+                              width: 112,
+                              color: "#FFFFFF",
+                              fontSize: 22,
+                              fontWeight: 700,
+                              textAlign: "center",
+                            }}
+                          >
+                            {team.wins}-{team.losses}
+                          </span>
+                          <span
+                            style={{
+                              width: 86,
+                              color: GOLD,
+                              fontSize: 28,
+                              fontWeight: 900,
+                              textAlign: "right",
+                            }}
+                          >
+                            {team.points}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
