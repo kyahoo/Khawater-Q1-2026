@@ -190,6 +190,31 @@ function renderTemplateStatusBadge(hasBackground: boolean | null) {
   );
 }
 
+async function getSocialTemplateStatus() {
+  try {
+    const supabase = getSupabaseBrowserClient();
+    const { data: files, error } = await supabase.storage
+      .from("social-templates")
+      .list("", {
+        limit: 100,
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    const fileNames = new Set((files ?? []).map((file) => file.name));
+
+    return {
+      hasStandingsBackground: fileNames.has(STANDINGS_BACKGROUND_FILE_NAME),
+      hasScheduleBackground: fileNames.has(SCHEDULE_BACKGROUND_FILE_NAME),
+    };
+  } catch (error) {
+    console.error("Social template status failed:", error);
+    return null;
+  }
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -417,24 +442,14 @@ export default function AdminPage() {
   });
 
   const loadSocialTemplateStatus = useEffectEvent(async () => {
-    try {
-      const supabase = getSupabaseBrowserClient();
-      const { data: files, error } = await supabase.storage
-        .from("social-templates")
-        .list("", {
-          limit: 100,
-        });
+    const status = await getSocialTemplateStatus();
 
-      if (error) {
-        throw error;
-      }
-
-      const fileNames = new Set((files ?? []).map((file) => file.name));
-      setHasStandingsBackground(fileNames.has(STANDINGS_BACKGROUND_FILE_NAME));
-      setHasScheduleBackground(fileNames.has(SCHEDULE_BACKGROUND_FILE_NAME));
-    } catch (error) {
-      console.error("Social template status failed:", error);
+    if (!status) {
+      return;
     }
+
+    setHasStandingsBackground(status.hasStandingsBackground);
+    setHasScheduleBackground(status.hasScheduleBackground);
   });
 
   useEffect(() => {
@@ -1029,7 +1044,16 @@ export default function AdminPage() {
       setSelectedStandingsBackgroundFile(null);
       setStandingsBackgroundInputKey((current) => current + 1);
       setSocialSuccessMessage("Фон таблицы успешно загружен.");
-      void loadSocialTemplateStatus();
+      void (async () => {
+        const status = await getSocialTemplateStatus();
+
+        if (!status) {
+          return;
+        }
+
+        setHasStandingsBackground(status.hasStandingsBackground);
+        setHasScheduleBackground(status.hasScheduleBackground);
+      })();
     } catch (error) {
       setSocialErrorMessage(
         getSupabaseLikeErrorMessage(error, "Не удалось загрузить фон таблицы.")
@@ -1074,7 +1098,16 @@ export default function AdminPage() {
       setSelectedScheduleBackgroundFile(null);
       setScheduleBackgroundInputKey((current) => current + 1);
       setSocialSuccessMessage("Фон расписания успешно загружен.");
-      void loadSocialTemplateStatus();
+      void (async () => {
+        const status = await getSocialTemplateStatus();
+
+        if (!status) {
+          return;
+        }
+
+        setHasStandingsBackground(status.hasStandingsBackground);
+        setHasScheduleBackground(status.hasScheduleBackground);
+      })();
     } catch (error) {
       setSocialErrorMessage(
         getSupabaseLikeErrorMessage(error, "Не удалось загрузить фон расписания.")
