@@ -6,6 +6,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { browserSupportsWebAuthn, startRegistration } from "@simplewebauthn/browser";
 import { OnboardingChecklist } from "@/components/profile/OnboardingChecklist";
+import { PushTestButton } from "@/components/profile/PushTestButton";
+import { PushToggleButton } from "@/components/profile/PushToggleButton";
 import { getProfileByUserId, type Profile } from "@/lib/supabase/profiles";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
@@ -706,6 +708,10 @@ export function ProfilePageClient({
                 {deviceMessage && (
                   <p className="text-sm text-white/80">{deviceMessage}</p>
                 )}
+              </div>
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
+                <PushToggleButton />
+                <PushTestButton />
               </div>
               <button
                 type="button"
