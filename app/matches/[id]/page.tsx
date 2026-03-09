@@ -27,7 +27,7 @@ import {
 import { CheckInGate } from "./check-in-gate";
 import { SiteHeader } from "@/components/site-header";
 
-const TOTAL_MATCH_PLAYERS = 10;
+const TOTAL_MATCH_PLAYERS = 1;
 
 function formatAlmatyDateTime(
   dateInput: string,

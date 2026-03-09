@@ -250,7 +250,7 @@ export async function checkInToMatch(
     .eq("match_id", trimmedMatchId)
     .eq("is_checked_in", true);
 
-  if (countError || (count ?? 0) < 10) {
+  if (countError || (count ?? 0) < 1) {
     revalidateMatchPaths(trimmedMatchId);
     return { error: null };
   }
