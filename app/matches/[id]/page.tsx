@@ -788,7 +788,7 @@ export default function MatchRoomPage() {
                     Этап 2
                   </p>
                   <h3 className="mt-2 text-2xl font-black uppercase text-white">
-                    Подтвердите лобби
+                    Подтвердите девайс
                   </h3>
                   <p className="mt-3 max-w-2xl text-sm text-white/80">
                     Сначала пройдите биометрию повторно, затем загрузите
@@ -798,7 +798,7 @@ export default function MatchRoomPage() {
 
                   {isCurrentUserLobbyConfirmed ? (
                     <div className="mt-5 border-[3px] border-[#061726] bg-[#163f1d] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#D9F99D] shadow-[4px_4px_0px_0px_#061726]">
-                      Скриншот загружен
+                      ФОТО ЗАГРУЖЕНО
                     </div>
                   ) : (
                     <>
@@ -812,7 +812,7 @@ export default function MatchRoomPage() {
                           ? "Проверка..."
                           : isUploadingLobbyScreenshot
                             ? "Загрузка..."
-                            : "ПОДТВЕРДИТЕ ЛОББИ"}
+                            : "ПОДТВЕРДИТЕ ДЕВАЙС"}
                       </button>
 
                       {!isCurrentUserCheckedIn && (
@@ -828,7 +828,7 @@ export default function MatchRoomPage() {
                             onClick={openScreenshotPicker}
                             className="mt-3 block border-[3px] border-[#061726] bg-white px-5 py-2 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
                           >
-                            Выбрать скриншот
+                            СДЕЛАТЬ ФОТО ЛОББИ
                           </button>
                         )}
 
