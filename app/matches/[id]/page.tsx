@@ -886,6 +886,18 @@ export default function MatchRoomPage() {
       (data.teamA.roster.some((player) => player.userId === currentUserId) ||
         data.teamB.roster.some((player) => player.userId === currentUserId))
   );
+  const currentUserTeam =
+    currentUserId && data.teamA.roster.some((player) => player.userId === currentUserId)
+      ? data.teamA
+      : currentUserId && data.teamB.roster.some((player) => player.userId === currentUserId)
+        ? data.teamB
+        : null;
+  const isCurrentUserCaptain = Boolean(
+    currentUserId &&
+      currentUserTeam?.roster.some(
+        (player) => player.userId === currentUserId && player.isCaptain
+      )
+  );
   const isCurrentUserCheckedIn = Boolean(
     currentUserId && data.checkedInUserIds.includes(currentUserId)
   );
@@ -1014,7 +1026,9 @@ export default function MatchRoomPage() {
             lobbyStatusLabel={lobbyStatusLabel}
             lobby={{
               isCurrentUserParticipant,
+              isCurrentUserCaptain,
               isCurrentUserCheckedIn,
+              currentTeamId: currentUserTeam?.id ?? null,
               isCurrentUserLobbyConfirmed,
               isLobbyActionBusy,
               isWaitingForLobbyScreenshot,
@@ -1033,6 +1047,7 @@ export default function MatchRoomPage() {
               onLobbyScreenshotChange: handleLobbyScreenshotChange,
               onAnalyze: handleAnalyze,
               isCheckingIn,
+              opponentNotified: data.match.opponentNotified,
             }}
             results={{
               isCurrentUserLobbyHost,

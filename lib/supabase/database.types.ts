@@ -242,6 +242,7 @@ export type Database = {
           winner_team_id: string | null;
           reminder_1h_sent: boolean;
           reminder_30m_sent: boolean;
+          opponent_notified: boolean;
         };
         Insert: {
           id?: string;
@@ -262,6 +263,7 @@ export type Database = {
           winner_team_id?: string | null;
           reminder_1h_sent?: boolean;
           reminder_30m_sent?: boolean;
+          opponent_notified?: boolean;
         };
         Update: {
           id?: string;
@@ -282,6 +284,7 @@ export type Database = {
           winner_team_id?: string | null;
           reminder_1h_sent?: boolean;
           reminder_30m_sent?: boolean;
+          opponent_notified?: boolean;
         };
         Relationships: [];
       };

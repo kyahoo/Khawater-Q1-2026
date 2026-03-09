@@ -6,8 +6,10 @@ import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
 } from "@simplewebauthn/server";
+import webpush from "web-push";
 import { logBehaviorPenalty } from "@/lib/supabase/behavior";
 import type { Database } from "@/lib/supabase/database.types";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
   beginMatchBiometricVerification,
   completeMatchBiometricAuthentication,
@@ -43,6 +45,10 @@ type LobbyScreenshotVerificationData = {
 
 type AnalyzeLobbyScreenshotResult = {
   data: LobbyScreenshotVerificationData | null;
+  error: string | null;
+};
+
+type NotifyOpponentLobbyReadyResult = {
   error: string | null;
 };
 
@@ -241,6 +247,19 @@ function getMatchActionEnv() {
     supabaseAnonKey,
     serviceRoleKey,
   };
+}
+
+function getWebPushStatusCode(error: unknown) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "statusCode" in error &&
+    typeof error.statusCode === "number"
+  ) {
+    return error.statusCode;
+  }
+
+  return null;
 }
 
 async function getMatchActionContext(
@@ -1594,6 +1613,186 @@ export async function analyzeLobbyScreenshot(
         error instanceof Error
           ? error.message
           : "Не удалось проанализировать скриншот лобби.",
+    };
+  }
+}
+
+export async function notifyOpponentLobbyReady(
+  matchId: string,
+  currentTeamId: string
+): Promise<NotifyOpponentLobbyReadyResult> {
+  const trimmedMatchId = matchId.trim();
+  const trimmedCurrentTeamId = currentTeamId.trim();
+  const env = getMatchActionEnv();
+
+  if (!trimmedMatchId || !trimmedCurrentTeamId) {
+    return {
+      error: "Матч и команда обязательны.",
+    };
+  }
+
+  if (!env) {
+    return {
+      error: "Missing Supabase server environment configuration.",
+    };
+  }
+
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    return {
+      error: "Push-уведомления не настроены на сервере.",
+    };
+  }
+
+  try {
+    const supabase = await getSupabaseServerClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return {
+        error: userError?.message ?? "Не удалось проверить текущую сессию.",
+      };
+    }
+
+    const adminClient = createClient<Database>(env.supabaseUrl, env.serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    const { data: membership, error: membershipError } = await adminClient
+      .from("team_members")
+      .select("team_id, is_captain")
+      .eq("user_id", user.id)
+      .eq("team_id", trimmedCurrentTeamId)
+      .maybeSingle();
+
+    if (membershipError || !membership?.is_captain) {
+      return {
+        error: "Только капитан команды может отправить это уведомление.",
+      };
+    }
+
+    const { data: matchRow, error: matchError } = await adminClient
+      .from("tournament_matches")
+      .select("id, team_a_id, team_b_id, opponent_notified")
+      .eq("id", trimmedMatchId)
+      .maybeSingle();
+
+    if (matchError || !matchRow) {
+      return {
+        error: "Матч не найден.",
+      };
+    }
+
+    if (matchRow.opponent_notified) {
+      return {
+        error: "Уведомление уже было отправлено.",
+      };
+    }
+
+    if (
+      trimmedCurrentTeamId !== matchRow.team_a_id &&
+      trimmedCurrentTeamId !== matchRow.team_b_id
+    ) {
+      return {
+        error: "Ваша команда не участвует в этом матче.",
+      };
+    }
+
+    const opponentTeamId =
+      trimmedCurrentTeamId === matchRow.team_a_id ? matchRow.team_b_id : matchRow.team_a_id;
+
+    const { data: opponentMemberships, error: opponentMembershipsError } = await adminClient
+      .from("team_members")
+      .select("user_id")
+      .eq("team_id", opponentTeamId);
+
+    if (opponentMembershipsError) {
+      return {
+        error: opponentMembershipsError.message,
+      };
+    }
+
+    const opponentUserIds = Array.from(
+      new Set((opponentMemberships ?? []).map((row) => row.user_id))
+    );
+
+    if (opponentUserIds.length > 0) {
+      const { data: subscriptions, error: subscriptionsError } = await adminClient
+        .from("push_subscriptions")
+        .select("id, subscription")
+        .in("user_id", opponentUserIds);
+
+      if (subscriptionsError) {
+        return {
+          error: subscriptionsError.message,
+        };
+      }
+
+      webpush.setVapidDetails(
+        "mailto:admin@airbafresh.com",
+        vapidPublicKey,
+        vapidPrivateKey
+      );
+
+      for (const subscriptionRow of subscriptions ?? []) {
+        try {
+          await webpush.sendNotification(
+            (subscriptionRow.subscription as unknown) as webpush.PushSubscription,
+            JSON.stringify({
+              title: "ЛОББИ ГОТОВО!",
+              body: "Капитан противника создал лобби. Заходите в игру!",
+            })
+          );
+        } catch (error) {
+          if (getWebPushStatusCode(error) === 410) {
+            await adminClient.from("push_subscriptions").delete().eq("id", subscriptionRow.id);
+            continue;
+          }
+
+          return {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Не удалось отправить push-уведомление сопернику.",
+          };
+        }
+      }
+    }
+
+    const { error: updateError } = await adminClient
+      .from("tournament_matches")
+      .update({
+        opponent_notified: true,
+      })
+      .eq("id", trimmedMatchId)
+      .eq("opponent_notified", false);
+
+    if (updateError) {
+      return {
+        error: updateError.message,
+      };
+    }
+
+    revalidatePath(`/matches/${trimmedMatchId}`);
+    revalidatePath("/tournament");
+
+    return {
+      error: null,
+    };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Не удалось уведомить соперника о готовности лобби.",
     };
   }
 }

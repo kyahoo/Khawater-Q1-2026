@@ -4,6 +4,7 @@ import type { ChangeEvent, FormEvent, RefObject } from "react";
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { NotifyButton } from "@/components/matches/NotifyButton";
 import type { MatchRoomData } from "@/lib/supabase/matches";
 import { CheckInGate } from "./check-in-gate";
 
@@ -31,7 +32,9 @@ type MatchTabsProps = {
   lobbyStatusLabel: string;
   lobby: {
     isCurrentUserParticipant: boolean;
+    isCurrentUserCaptain: boolean;
     isCurrentUserCheckedIn: boolean;
+    currentTeamId: string | null;
     isCurrentUserLobbyConfirmed: boolean;
     isLobbyActionBusy: boolean;
     isWaitingForLobbyScreenshot: boolean;
@@ -50,6 +53,7 @@ type MatchTabsProps = {
     onLobbyScreenshotChange: (event: ChangeEvent<HTMLInputElement>) => void;
     onAnalyze: () => void;
     isCheckingIn: boolean;
+    opponentNotified: boolean;
   };
   results: {
     isCurrentUserLobbyHost: boolean;
@@ -338,6 +342,26 @@ export function MatchTabs({
                     </p>
                   </div>
                 </div>
+
+                {lobby.isCurrentUserCaptain && lobby.currentTeamId && (
+                  <div className="border-[4px] border-[#061726] bg-[#123C4D] p-5 shadow-[6px_6px_0px_0px_#061726]">
+                    <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
+                      Этап 2
+                    </p>
+                    <h3 className="mt-2 text-2xl font-black uppercase text-white">
+                      УВЕДОМЛЕНИЕ СОПЕРНИКУ
+                    </h3>
+                    <p className="mt-3 max-w-2xl text-sm text-white/80">
+                      Отправьте одноразовое push-уведомление противоположной
+                      команде, когда лобби полностью готово.
+                    </p>
+                    <NotifyButton
+                      matchId={match.id}
+                      currentTeamId={lobby.currentTeamId}
+                      initialIsNotified={lobby.opponentNotified}
+                    />
+                  </div>
+                )}
 
                 {lobby.isCurrentUserParticipant && (
                   <div className="border-[4px] border-[#061726] bg-[#123C4D] p-5 shadow-[6px_6px_0px_0px_#061726]">
