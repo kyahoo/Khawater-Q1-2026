@@ -517,24 +517,28 @@ export default function MatchRoomPage() {
 
   if (!matchId) {
     return (
-      <div className="min-h-screen bg-[linear-gradient(180deg,#071826_0%,#0B3A4A_48%,#061726_100%)] text-white">
-        <SiteHeader />
-        <main className="mx-auto max-w-6xl px-6 py-8">
-          <p className="text-sm text-white/75">Invalid match.</p>
-        </main>
+      <div className="min-h-screen text-white">
+        <div className="min-h-screen bg-[#061726]/80 backdrop-blur-sm">
+          <SiteHeader />
+          <main className="mx-auto max-w-6xl px-6 py-8">
+            <p className="text-sm text-white/75">Invalid match.</p>
+          </main>
+        </div>
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[linear-gradient(180deg,#071826_0%,#0B3A4A_48%,#061726_100%)] text-white">
-        <SiteHeader />
-        <main className="mx-auto max-w-6xl px-6 py-8">
-          <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
-            Загрузка матча...
-          </div>
-        </main>
+      <div className="min-h-screen text-white">
+        <div className="min-h-screen bg-[#061726]/80 backdrop-blur-sm">
+          <SiteHeader />
+          <main className="mx-auto max-w-6xl px-6 py-8">
+            <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
+              Загрузка матча...
+            </div>
+          </main>
+        </div>
       </div>
     );
   }
@@ -545,19 +549,21 @@ export default function MatchRoomPage() {
     }
 
     return (
-      <div className="min-h-screen bg-[linear-gradient(180deg,#071826_0%,#0B3A4A_48%,#061726_100%)] text-white">
-        <SiteHeader />
-        <main className="mx-auto max-w-6xl px-6 py-8">
-          <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
-            <p className="text-sm text-white/80">{errorMessage}</p>
-            <Link
-              href="/tournament"
-              className="mt-4 inline-block text-sm font-black uppercase tracking-[0.18em] text-[#CD9C3E]"
-            >
-              ← Назад к турниру
-            </Link>
-          </div>
-        </main>
+      <div className="min-h-screen text-white">
+        <div className="min-h-screen bg-[#061726]/80 backdrop-blur-sm">
+          <SiteHeader />
+          <main className="mx-auto max-w-6xl px-6 py-8">
+            <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
+              <p className="text-sm text-white/80">{errorMessage}</p>
+              <Link
+                href="/tournament"
+                className="mt-4 inline-block text-sm font-black uppercase tracking-[0.18em] text-[#CD9C3E]"
+              >
+                ← Назад к турниру
+              </Link>
+            </div>
+          </main>
+        </div>
       </div>
     );
   }
@@ -592,18 +598,19 @@ export default function MatchRoomPage() {
     isCurrentUserLobbyConfirmed;
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(205,156,62,0.18),_transparent_30%),linear-gradient(180deg,#071826_0%,#0B3A4A_52%,#061726_100%)] text-white">
-      <SiteHeader />
+    <div className="min-h-screen text-white">
+      <div className="min-h-screen bg-[#061726]/80 backdrop-blur-sm">
+        <SiteHeader />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
-        <Link
-          href="/tournament"
-          className="mb-5 inline-block text-sm font-black uppercase tracking-[0.2em] text-[#CD9C3E]"
-        >
-          ← Назад к турниру
-        </Link>
+        <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+          <Link
+            href="/tournament"
+            className="mb-5 inline-block text-sm font-black uppercase tracking-[0.2em] text-[#CD9C3E]"
+          >
+            ← Назад к турниру
+          </Link>
 
-        <section className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726] md:p-6">
+          <section className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726] md:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
@@ -835,8 +842,9 @@ export default function MatchRoomPage() {
               )}
             </div>
           )}
-        </section>
-      </main>
+          </section>
+        </main>
+      </div>
     </div>
   );
 }
