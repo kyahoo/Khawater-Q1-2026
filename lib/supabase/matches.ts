@@ -36,6 +36,18 @@ export type MatchRoomFetchResult = {
   error: unknown | null;
 };
 
+export type UserTeamMatch = {
+  id: string;
+  roundLabel: string;
+  format: string;
+  scheduledAt: string | null;
+  status: string;
+  teamAName: string;
+  teamBName: string;
+  teamAId: string;
+  teamBId: string;
+};
+
 async function getMatchRoomTeam(params: {
   teamId: string;
   fallbackName: string;
@@ -163,19 +175,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
   };
 }
 
-export async function getMatchesForUserTeam(userId: string): Promise<
-  Array<{
-    id: string;
-    roundLabel: string;
-    format: string;
-    scheduledAt: string | null;
-    status: string;
-    teamAName: string;
-    teamBName: string;
-    teamAId: string;
-    teamBId: string;
-  }>
-> {
+export async function getMatchesForUserTeam(userId: string): Promise<UserTeamMatch[]> {
   const supabase = getSupabaseBrowserClient();
 
   const { data: membership, error: membershipError } = await supabase
