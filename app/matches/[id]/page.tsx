@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -32,17 +34,6 @@ import { CheckInGate } from "./check-in-gate";
 import { SiteHeader } from "@/components/site-header";
 
 const TOTAL_MATCH_PLAYERS = 1;
-const MATCH_ROOM_OPEN_WINDOW_MS = 30 * 60 * 1000;
-const almatyWallClockFormatter = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Asia/Almaty",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: false,
-});
 
 type LobbyScreenshotVerificationData = {
   is_host_found: boolean;
@@ -128,53 +119,6 @@ function getFileExtension(file: File) {
     file.name.split(".").pop()?.toLowerCase() ??
     "png"
   );
-}
-
-function getAlmatyWallClockTimeMs(dateInput: string | Date) {
-  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  const parts = almatyWallClockFormatter.formatToParts(date);
-  const values = Object.fromEntries(
-    parts
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, part.value])
-  );
-
-  const year = Number(values.year);
-  const month = Number(values.month);
-  const day = Number(values.day);
-  const hour = Number(values.hour);
-  const minute = Number(values.minute);
-  const second = Number(values.second);
-
-  if ([year, month, day, hour, minute, second].some((value) => Number.isNaN(value))) {
-    return null;
-  }
-
-  return Date.UTC(year, month - 1, day, hour, minute, second);
-}
-
-function isMatchRoomAccessible(match: MatchRoomData["match"]) {
-  if (match.status === "live" || match.status === "finished" || match.status === "completed") {
-    return true;
-  }
-
-  if (!match.scheduledAt) {
-    return true;
-  }
-
-  const scheduledTimeMs = getAlmatyWallClockTimeMs(match.scheduledAt);
-  const currentTimeMs = getAlmatyWallClockTimeMs(new Date());
-
-  if (scheduledTimeMs === null || currentTimeMs === null) {
-    return true;
-  }
-
-  return currentTimeMs >= scheduledTimeMs - MATCH_ROOM_OPEN_WINDOW_MS;
 }
 
 function getSeriesLength(format: string) {
@@ -302,13 +246,6 @@ export default function MatchRoomPage() {
 
         if (!result.data) {
           setFetchError(result.error);
-          setErrorMessage("Матч не найден.");
-          return;
-        }
-
-        if (!isMatchRoomAccessible(result.data.match)) {
-          setData(null);
-          setFetchError(new Error("Match room is not open yet."));
           setErrorMessage("Матч не найден.");
           return;
         }
