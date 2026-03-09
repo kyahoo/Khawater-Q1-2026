@@ -39,6 +39,28 @@ export type MatchRoomFetchResult = {
   error: unknown | null;
 };
 
+type MatchRoomBaseRow = Pick<
+  Database["public"]["Tables"]["tournament_matches"]["Row"],
+  | "id"
+  | "tournament_id"
+  | "team_a_id"
+  | "team_b_id"
+  | "round_label"
+  | "scheduled_at"
+  | "status"
+  | "team_a_score"
+  | "team_b_score"
+  | "format"
+  | "lobby_name"
+  | "lobby_password"
+  | "result_screenshot_url"
+>;
+
+type MatchRoomQueryRow = MatchRoomBaseRow & {
+  result_screenshot_urls?: string[] | null;
+  winner_team_id?: string | null;
+};
+
 export type UserTeamMatch = {
   id: string;
   roundLabel: string;
@@ -93,13 +115,36 @@ async function getMatchRoomTeam(params: {
 export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchResult> {
   const supabase = getSupabaseBrowserClient();
 
-  const { data: matchRow, error: matchError } = await supabase
+  const initialMatchResult = await supabase
     .from("tournament_matches")
     .select(
       "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_url, result_screenshot_urls, winner_team_id"
     )
     .eq("id", matchId)
     .maybeSingle();
+  let matchRow = initialMatchResult.data as MatchRoomQueryRow | null;
+  let matchError = initialMatchResult.error;
+
+  if (
+    matchError?.message.includes("column tournament_matches.") &&
+    matchError.message.includes("does not exist")
+  ) {
+    console.warn(
+      "Match fetch is falling back to the legacy tournament_matches schema:",
+      matchError.message
+    );
+
+    const legacyResult = await supabase
+      .from("tournament_matches")
+      .select(
+        "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_url"
+      )
+      .eq("id", matchId)
+      .maybeSingle();
+
+    matchRow = legacyResult.data;
+    matchError = legacyResult.error;
+  }
 
   if (matchError) {
     console.error("Match fetch failed:", matchError);
@@ -118,7 +163,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
     };
   }
 
-  const typedMatch = matchRow as Database["public"]["Tables"]["tournament_matches"]["Row"];
+  const typedMatch = matchRow as MatchRoomQueryRow;
 
   const { data: checkIns, error: checkInsError } = await supabase
     .from("match_check_ins")
@@ -181,7 +226,10 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
         resultScreenshotUrl:
           resultScreenshotUrls[0] ?? typedMatch.result_screenshot_url ?? null,
         resultScreenshotUrls,
-        winnerTeamId: typedMatch.winner_team_id ?? null,
+        winnerTeamId:
+          typeof typedMatch.winner_team_id === "string"
+            ? typedMatch.winner_team_id
+            : null,
       },
       teamA,
       teamB,

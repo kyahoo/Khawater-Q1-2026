@@ -38,8 +38,11 @@ type TournamentMatchTaskRow = Pick<
   | "lobby_name"
   | "lobby_password"
   | "result_screenshot_url"
-  | "result_screenshot_urls"
 >;
+
+type TournamentMatchTaskQueryRow = TournamentMatchTaskRow & {
+  result_screenshot_urls?: string[] | null;
+};
 
 type TeamTaskRow = Pick<Database["public"]["Tables"]["teams"]["Row"], "id" | "name">;
 type TeamMemberTaskRow = Pick<
@@ -66,7 +69,7 @@ function formatRoundLabel(roundLabel: string) {
   return roundLabel;
 }
 
-function normalizeResultScreenshotUrls(match: TournamentMatchTaskRow) {
+function normalizeResultScreenshotUrls(match: TournamentMatchTaskQueryRow) {
   const arrayUrls = Array.isArray(match.result_screenshot_urls)
     ? match.result_screenshot_urls.filter(
         (url): url is string => typeof url === "string" && url.trim().length > 0
@@ -139,18 +142,35 @@ export async function listActiveTasksForUsers(
     return tasksByUserId;
   }
 
-  const { data: matches, error: matchesError } = await supabase
+  const initialMatchesResult = await supabase
     .from("tournament_matches")
     .select(
       "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_url, result_screenshot_urls"
     )
     .eq("tournament_id", activeTournament.id);
+  let matches = initialMatchesResult.data as TournamentMatchTaskQueryRow[] | null;
+  let matchesError = initialMatchesResult.error;
+
+  if (
+    matchesError?.message.includes("column tournament_matches.") &&
+    matchesError.message.includes("does not exist")
+  ) {
+    const legacyResult = await supabase
+      .from("tournament_matches")
+      .select(
+        "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_url"
+      )
+      .eq("tournament_id", activeTournament.id);
+
+    matches = legacyResult.data;
+    matchesError = legacyResult.error;
+  }
 
   if (matchesError || !matches?.length) {
     return tasksByUserId;
   }
 
-  const matchRows = matches as TournamentMatchTaskRow[];
+  const matchRows = matches as TournamentMatchTaskQueryRow[];
   const teamIds = Array.from(
     new Set(matchRows.flatMap((match) => [match.team_a_id, match.team_b_id]))
   );

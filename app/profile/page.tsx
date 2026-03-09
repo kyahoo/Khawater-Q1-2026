@@ -372,19 +372,7 @@ export default function ProfilePage() {
     setErrorMessage("");
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session?.access_token) {
-        router.replace("/auth");
-        return;
-      }
-
-      window.location.href = `/api/steam/login?accessToken=${encodeURIComponent(
-        session.access_token
-      )}`;
+      window.location.href = "/api/steam/login";
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Не удалось привязать Steam."

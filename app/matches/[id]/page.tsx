@@ -105,6 +105,14 @@ function getErrorMessage(error: unknown, fallbackMessage: string) {
   return fallbackMessage;
 }
 
+function getMatchRoomLoadErrorMessage(error: unknown) {
+  const message = getErrorMessage(error, "Не удалось загрузить данные матча.");
+
+  return message.startsWith("No tournament match found")
+    ? "Матч не найден."
+    : message;
+}
+
 function getFileExtension(file: File) {
   const extensionByType: Record<string, string> = {
     "image/png": "png",
@@ -246,7 +254,7 @@ export default function MatchRoomPage() {
 
         if (!result.data) {
           setFetchError(result.error);
-          setErrorMessage("Матч не найден.");
+          setErrorMessage(getMatchRoomLoadErrorMessage(result.error));
           return;
         }
 

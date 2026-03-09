@@ -1074,7 +1074,7 @@ export async function confirmMatchResult(
       ? authResult.context.match.team_a_id
       : authResult.context.match.team_b_id;
 
-  const { error: updateError } = await authResult.context.adminClient
+  let { error: updateError } = await authResult.context.adminClient
     .from("tournament_matches")
     .update({
       status: "finished",
@@ -1085,6 +1085,28 @@ export async function confirmMatchResult(
       result_screenshot_urls: screenshotUrls,
     })
     .eq("id", trimmedMatchId);
+
+  if (
+    updateError?.message.includes("column tournament_matches.") &&
+    updateError.message.includes("does not exist")
+  ) {
+    console.warn(
+      "Match result update is falling back to the legacy tournament_matches schema:",
+      updateError.message
+    );
+
+    const legacyUpdateResult = await authResult.context.adminClient
+      .from("tournament_matches")
+      .update({
+        status: "finished",
+        team_a_score: teamAScore,
+        team_b_score: teamBScore,
+        result_screenshot_url: screenshotUrls[0] ?? null,
+      })
+      .eq("id", trimmedMatchId);
+
+    updateError = legacyUpdateResult.error;
+  }
 
   if (updateError) {
     throw new Error(updateError.message);
