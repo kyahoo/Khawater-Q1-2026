@@ -132,7 +132,7 @@ export function MatchesClient() {
   return (
     <div>
       <section>
-        <h2 className="mb-4 text-base font-black uppercase tracking-[0.2em] text-[#CD9C3E] md:text-lg">
+        <h2 className="mb-4 inline-block border-[3px] border-[#061726] bg-[#0B3A4A] px-4 py-2 text-[#CD9C3E] font-black uppercase tracking-widest shadow-[4px_4px_0px_0px_#061726]">
           ПРЕДСТОЯЩИЕ МАТЧИ
         </h2>
         <div className="space-y-4">
@@ -152,7 +152,7 @@ export function MatchesClient() {
       </section>
 
       <section className="mt-12">
-        <h2 className="mb-4 text-base font-black uppercase tracking-[0.2em] text-gray-400 md:text-lg">
+        <h2 className="mb-4 inline-block border-[3px] border-[#061726] bg-[#0B3A4A] px-4 py-2 text-[#CD9C3E] font-black uppercase tracking-widest shadow-[4px_4px_0px_0px_#061726]">
           ПРОШЕДШИЕ МАТЧИ
         </h2>
         <div className="space-y-4">
