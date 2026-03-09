@@ -4,6 +4,7 @@ import type { ChangeEvent, FormEvent, RefObject } from "react";
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { ForfeitClaimButton } from "@/components/matches/ForfeitClaimButton";
 import { NotifyButton } from "@/components/matches/NotifyButton";
 import type { MatchRoomData } from "@/lib/supabase/matches";
 import { CheckInGate } from "./check-in-gate";
@@ -35,6 +36,7 @@ type MatchTabsProps = {
     isCurrentUserCaptain: boolean;
     isCurrentUserCheckedIn: boolean;
     currentTeamId: string | null;
+    opponentTeamId: string | null;
     isCurrentUserLobbyConfirmed: boolean;
     isLobbyActionBusy: boolean;
     isWaitingForLobbyScreenshot: boolean;
@@ -54,6 +56,7 @@ type MatchTabsProps = {
     onAnalyze: () => void;
     isCheckingIn: boolean;
     opponentNotified: boolean;
+    isLateCheckInLockout: boolean;
   };
   results: {
     isCurrentUserLobbyHost: boolean;
@@ -226,15 +229,30 @@ export function MatchTabs({
 
       {activeTab === "lobby" ? (
         <>
-          <CheckInGate
-            scheduledAt={match.scheduledAt}
-            isEligible={lobby.isCurrentUserParticipant}
-            isCheckedIn={lobby.isCurrentUserCheckedIn}
-            isCheckingIn={lobby.isCheckingIn}
-            checkedInCount={lobby.checkInCount}
-            totalPlayers={totalPlayers}
-            onCheckIn={lobby.onCheckIn}
-          />
+          {lobby.isLateCheckInLockout ? (
+            <div className="mt-6 border-[4px] border-[#7F1D1D] bg-[#450A0A] p-5 shadow-[6px_6px_0px_0px_#061726]">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-[#FCA5A5]">
+                Пре-матч
+              </p>
+              <h2 className="mt-2 text-2xl font-black uppercase text-white">
+                ВРЕМЯ ИСТЕКЛО (15 мин)
+              </h2>
+              <p className="mt-4 text-sm font-bold leading-7 text-white/90">
+                ВРЕМЯ ИСТЕКЛО (15 мин). Регистрация закрыта. Для переноса матча
+                свяжитесь с администратором.
+              </p>
+            </div>
+          ) : (
+            <CheckInGate
+              scheduledAt={match.scheduledAt}
+              isEligible={lobby.isCurrentUserParticipant}
+              isCheckedIn={lobby.isCurrentUserCheckedIn}
+              isCheckingIn={lobby.isCheckingIn}
+              checkedInCount={lobby.checkInCount}
+              totalPlayers={totalPlayers}
+              onCheckIn={lobby.onCheckIn}
+            />
+          )}
 
           {lobby.checkInErrorMessage && (
             <p className="mt-3 text-sm font-bold text-[#FCA5A5]">
@@ -286,8 +304,50 @@ export function MatchTabs({
             </section>
           </div>
 
+          {lobby.isCurrentUserCaptain &&
+            lobby.currentTeamId &&
+            lobby.opponentTeamId && (
+              <section className="mt-6 border-[4px] border-[#7F1D1D] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726] md:p-6">
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-[#FCA5A5]">
+                  Капитан
+                </p>
+                <h2 className="mt-2 text-2xl font-black uppercase text-white">
+                  Техническая победа
+                </h2>
+                <p className="mt-3 max-w-3xl text-sm text-white/80">
+                  Используйте этот запрос только если соперник не выходит на
+                  матч. Кнопка доступна всегда и не зависит от таймера чек-ина.
+                </p>
+                <div className="mt-5">
+                  <ForfeitClaimButton
+                    matchId={match.id}
+                    claimingTeamId={lobby.currentTeamId}
+                    opponentTeamId={lobby.opponentTeamId}
+                    isMatchFinished={match.status === "finished"}
+                    isForfeit={match.isForfeit}
+                  />
+                </div>
+              </section>
+            )}
+
           <section className="mt-6 border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726] md:p-6">
-            {!lobby.allCheckedIn ? (
+            {lobby.isLateCheckInLockout ? (
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-[#FCA5A5]">
+                  Этап 2
+                </p>
+                <h2 className="mt-2 text-2xl font-black uppercase text-white">
+                  Регистрация закрыта
+                </h2>
+                <p className="mt-4 text-sm font-bold uppercase tracking-[0.18em] text-[#FCA5A5]">
+                  КОМАНДЫ НЕ ПРОШЛИ ЧЕК-ИН
+                </p>
+                <p className="mt-3 max-w-2xl text-sm text-white/80">
+                  ВРЕМЯ ИСТЕКЛО (15 мин). Регистрация закрыта. Для переноса матча
+                  свяжитесь с администратором.
+                </p>
+              </div>
+            ) : !lobby.allCheckedIn ? (
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
                   Этап 2

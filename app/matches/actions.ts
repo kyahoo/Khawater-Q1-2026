@@ -52,6 +52,10 @@ type NotifyOpponentLobbyReadyResult = {
   error: string | null;
 };
 
+type ClaimDefaultWinResult = {
+  error: string | null;
+};
+
 type MatchActionContext = {
   user: User;
   adminClient: SupabaseClient<Database>;
@@ -87,6 +91,8 @@ const INVALID_LOBBY_SCREENSHOT_REASON =
   "Отсутствие или недействительный скриншот лобби";
 const MISSING_MATCH_RESULT_SCREENSHOTS_REASON =
   "Отсутствие скриншотов с результатами матча";
+const FORFEIT_BEHAVIOR_PENALTY = -1;
+const FORFEIT_BEHAVIOR_REASON = "Техническое поражение в матче";
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -1793,6 +1799,148 @@ export async function notifyOpponentLobbyReady(
         error instanceof Error
           ? error.message
           : "Не удалось уведомить соперника о готовности лобби.",
+    };
+  }
+}
+
+export async function claimDefaultWin(
+  matchId: string,
+  claimingTeamId: string,
+  opponentTeamId: string
+): Promise<ClaimDefaultWinResult> {
+  const trimmedMatchId = matchId.trim();
+  const trimmedClaimingTeamId = claimingTeamId.trim();
+  const trimmedOpponentTeamId = opponentTeamId.trim();
+  const env = getMatchActionEnv();
+
+  if (!trimmedMatchId || !trimmedClaimingTeamId || !trimmedOpponentTeamId) {
+    return {
+      error: "Матч и команды обязательны.",
+    };
+  }
+
+  if (!env) {
+    return {
+      error: "Missing Supabase server environment configuration.",
+    };
+  }
+
+  try {
+    const supabase = await getSupabaseServerClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return {
+        error: userError?.message ?? "Не удалось проверить текущую сессию.",
+      };
+    }
+
+    const adminClient = createClient<Database>(env.supabaseUrl, env.serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    const { data: claimingMembership, error: claimingMembershipError } = await adminClient
+      .from("team_members")
+      .select("team_id, is_captain")
+      .eq("user_id", user.id)
+      .eq("team_id", trimmedClaimingTeamId)
+      .maybeSingle();
+
+    if (claimingMembershipError || !claimingMembership?.is_captain) {
+      return {
+        error: "Только капитан команды может запросить техническую победу.",
+      };
+    }
+
+    const { data: matchRow, error: matchError } = await adminClient
+      .from("tournament_matches")
+      .select("id, status, team_a_id, team_b_id, is_forfeit, winner_team_id")
+      .eq("id", trimmedMatchId)
+      .maybeSingle();
+
+    if (matchError || !matchRow) {
+      return {
+        error: "Матч не найден.",
+      };
+    }
+
+    if (matchRow.status === "finished" || matchRow.is_forfeit) {
+      return {
+        error: "Матч уже завершен.",
+      };
+    }
+
+    if (
+      trimmedClaimingTeamId !== matchRow.team_a_id &&
+      trimmedClaimingTeamId !== matchRow.team_b_id
+    ) {
+      return {
+        error: "Ваша команда не участвует в этом матче.",
+      };
+    }
+
+    const actualOpponentTeamId =
+      trimmedClaimingTeamId === matchRow.team_a_id ? matchRow.team_b_id : matchRow.team_a_id;
+
+    if (trimmedOpponentTeamId !== actualOpponentTeamId) {
+      return {
+        error: "Команда соперника указана неверно.",
+      };
+    }
+
+    const { data: opponentMembers, error: opponentMembersError } = await adminClient
+      .from("team_members")
+      .select("user_id")
+      .eq("team_id", actualOpponentTeamId);
+
+    if (opponentMembersError) {
+      return {
+        error: opponentMembersError.message,
+      };
+    }
+
+    const { error: updateError } = await adminClient
+      .from("tournament_matches")
+      .update({
+        is_forfeit: true,
+        winner_team_id: trimmedClaimingTeamId,
+        status: "finished",
+      })
+      .eq("id", trimmedMatchId);
+
+    if (updateError) {
+      return {
+        error: updateError.message,
+      };
+    }
+
+    for (const opponentMember of opponentMembers ?? []) {
+      await applyBehaviorPenalty({
+        adminClient,
+        userId: opponentMember.user_id,
+        matchId: trimmedMatchId,
+        penalty: FORFEIT_BEHAVIOR_PENALTY,
+        reason: FORFEIT_BEHAVIOR_REASON,
+      });
+    }
+
+    revalidateMatchPaths(trimmedMatchId);
+
+    return {
+      error: null,
+    };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Не удалось запросить техническую победу.",
     };
   }
 }

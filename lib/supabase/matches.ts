@@ -26,6 +26,9 @@ export type MatchRoomData = {
     resultScreenshotUrls: string[];
     winnerTeamId: string | null;
     opponentNotified: boolean;
+    reminder1hSent: boolean;
+    reminder30mSent: boolean;
+    isForfeit: boolean;
   };
   teamA: MatchRoomTeam;
   teamB: MatchRoomTeam;
@@ -54,12 +57,15 @@ type MatchRoomBaseRow = Pick<
   | "lobby_name"
   | "lobby_password"
   | "result_screenshot_urls"
-  | "opponent_notified"
 >;
 
 type MatchRoomQueryRow = MatchRoomBaseRow & {
   result_screenshot_urls: string[] | null;
   winner_team_id?: string | null;
+  opponent_notified?: boolean | null;
+  reminder_1h_sent?: boolean | null;
+  reminder_30m_sent?: boolean | null;
+  is_forfeit?: boolean | null;
 };
 
 export type UserTeamMatch = {
@@ -119,7 +125,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
   const initialMatchResult = await supabase
     .from("tournament_matches")
     .select(
-      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls, winner_team_id, opponent_notified"
+      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls, winner_team_id, opponent_notified, reminder_1h_sent, reminder_30m_sent, is_forfeit"
     )
     .eq("id", matchId)
     .maybeSingle();
@@ -228,6 +234,9 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
             ? typedMatch.winner_team_id
             : null,
         opponentNotified: typedMatch.opponent_notified ?? false,
+        reminder1hSent: typedMatch.reminder_1h_sent ?? false,
+        reminder30mSent: typedMatch.reminder_30m_sent ?? false,
+        isForfeit: typedMatch.is_forfeit ?? false,
       },
       teamA,
       teamB,

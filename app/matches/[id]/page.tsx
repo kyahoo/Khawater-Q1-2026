@@ -892,6 +892,12 @@ export default function MatchRoomPage() {
       : currentUserId && data.teamB.roster.some((player) => player.userId === currentUserId)
         ? data.teamB
         : null;
+  const opponentTeam =
+    currentUserTeam?.id === data.teamA.id
+      ? data.teamB
+      : currentUserTeam?.id === data.teamB.id
+        ? data.teamA
+        : null;
   const isCurrentUserCaptain = Boolean(
     currentUserId &&
       currentUserTeam?.roster.some(
@@ -920,6 +926,20 @@ export default function MatchRoomPage() {
   const isCurrentUserLobbyHost = Boolean(
     currentUserId && hostCaptainUserId === currentUserId
   );
+  const teamAHasCheckedIn = data.teamA.roster.some((player) =>
+    data.checkedInUserIds.includes(player.userId)
+  );
+  const teamBHasCheckedIn = data.teamB.roster.some((player) =>
+    data.checkedInUserIds.includes(player.userId)
+  );
+  const scheduledTimeMs = data.match.scheduledAt
+    ? new Date(data.match.scheduledAt).getTime()
+    : Number.NaN;
+  const isLateCheckInLockout =
+    Number.isFinite(scheduledTimeMs) &&
+    Date.now() > scheduledTimeMs + 15 * 60 * 1000 &&
+    !teamAHasCheckedIn &&
+    !teamBHasCheckedIn;
   const isLobbyActionBusy =
     isConfirmingLobby ||
     isUploadingLobbyScreenshot ||
@@ -1029,6 +1049,7 @@ export default function MatchRoomPage() {
               isCurrentUserCaptain,
               isCurrentUserCheckedIn,
               currentTeamId: currentUserTeam?.id ?? null,
+              opponentTeamId: opponentTeam?.id ?? null,
               isCurrentUserLobbyConfirmed,
               isLobbyActionBusy,
               isWaitingForLobbyScreenshot,
@@ -1048,6 +1069,7 @@ export default function MatchRoomPage() {
               onAnalyze: handleAnalyze,
               isCheckingIn,
               opponentNotified: data.match.opponentNotified,
+              isLateCheckInLockout,
             }}
             results={{
               isCurrentUserLobbyHost,
