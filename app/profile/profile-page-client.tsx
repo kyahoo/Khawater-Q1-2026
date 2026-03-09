@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { browserSupportsWebAuthn, startRegistration } from "@simplewebauthn/browser";
+import { OnboardingChecklist } from "@/components/profile/OnboardingChecklist";
 import { getProfileByUserId, type Profile } from "@/lib/supabase/profiles";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
@@ -122,6 +123,11 @@ export function ProfilePageClient({
   const behaviorScoreLabel =
     behaviorScore >= 0 ? `${behaviorScore} / 5` : `${behaviorScore}`;
   const behaviorScoreColorClass = getBehaviorScoreColorClass(behaviorScore);
+  const hasName = Boolean(profile?.nickname?.trim());
+  const hasSteam = Boolean(profile?.steamId?.trim());
+  const hasDevice = hasPasskey;
+  const hasTeam = Boolean(teamData?.team.id);
+  const isConfirmed = Boolean(teamData && activeTournament && isParticipationConfirmed);
   const isTournamentLocked = Boolean(activeTournament && isParticipationConfirmed);
 
   const loadProfile = useCallback(async () => {
@@ -535,6 +541,14 @@ export function ProfilePageClient({
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <section className="space-y-6">
+            <OnboardingChecklist
+              hasName={hasName}
+              hasSteam={hasSteam}
+              hasDevice={hasDevice}
+              hasTeam={hasTeam}
+              isConfirmed={isConfirmed}
+            />
+
             <div className={cardClassName}>
               <div className="mb-2">
                 {isEditingName ? (
