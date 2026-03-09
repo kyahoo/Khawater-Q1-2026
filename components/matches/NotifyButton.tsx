@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { notifyOpponentLobbyReady } from "@/app/matches/actions";
 
@@ -19,6 +19,10 @@ export function NotifyButton({
   const [isNotified, setIsNotified] = useState(initialIsNotified);
   const [errorMessage, setErrorMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setIsNotified(initialIsNotified);
+  }, [initialIsNotified]);
 
   function handleNotifyOpponent() {
     if (isNotified || isPending) {

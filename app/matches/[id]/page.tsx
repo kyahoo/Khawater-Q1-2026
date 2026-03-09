@@ -913,18 +913,21 @@ export default function MatchRoomPage() {
   const checkInCount = Math.min(data.checkedInUserIds.length, TOTAL_MATCH_PLAYERS);
   const allCheckedIn = checkInCount >= TOTAL_MATCH_PLAYERS;
 
-  const teamAName = data.teamA.name;
-  const teamBName = data.teamB.name;
-  const hostTeamName =
-    teamAName.localeCompare(teamBName) <= 0 ? teamAName : teamBName;
-  const hostTeam = data.teamA.name === hostTeamName ? data.teamA : data.teamB;
+  const hostTeam = data.teamA;
   const hostCaptain = hostTeam.roster.find((player) => player.isCaptain);
   const hostCaptainUserId = hostCaptain?.userId ?? null;
+  const hostTeamId = hostTeam.id;
   const hostLabel = hostCaptain
-    ? `${hostCaptain.nickname} (${hostTeamName})`
-    : hostTeamName;
+    ? `${hostCaptain.nickname} (${hostTeam.name})`
+    : hostTeam.name;
   const isCurrentUserLobbyHost = Boolean(
     currentUserId && hostCaptainUserId === currentUserId
+  );
+  const isCurrentUserHostCaptain = Boolean(
+    isCurrentUserCaptain && currentUserTeam?.id === hostTeamId
+  );
+  const isCurrentUserNonHostCaptain = Boolean(
+    isCurrentUserCaptain && currentUserTeam?.id && currentUserTeam.id !== hostTeamId
   );
   const teamAHasCheckedIn = data.teamA.roster.some((player) =>
     data.checkedInUserIds.includes(player.userId)
@@ -1047,6 +1050,8 @@ export default function MatchRoomPage() {
             lobby={{
               isCurrentUserParticipant,
               isCurrentUserCaptain,
+              isCurrentUserHostCaptain,
+              isCurrentUserNonHostCaptain,
               isCurrentUserCheckedIn,
               currentTeamId: currentUserTeam?.id ?? null,
               opponentTeamId: opponentTeam?.id ?? null,

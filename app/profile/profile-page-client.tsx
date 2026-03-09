@@ -735,7 +735,10 @@ export function ProfilePageClient({
                   </li>
                 </ul>
                 <div className="mt-4">
-                  <PushToggleButton />
+                  <PushToggleButton
+                    initialHasPushSubscription={hasPushSubscription}
+                    onSubscribed={() => setHasPushSubscription(true)}
+                  />
                 </div>
               </div>
               <button

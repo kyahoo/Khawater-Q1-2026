@@ -1690,6 +1690,12 @@ export async function notifyOpponentLobbyReady(
       };
     }
 
+    if (trimmedCurrentTeamId !== matchRow.team_a_id) {
+      return {
+        error: "Уведомление о готовности лобби может отправить только капитан команды-хоста.",
+      };
+    }
+
     const opponentTeamId =
       trimmedCurrentTeamId === matchRow.team_a_id ? matchRow.team_b_id : matchRow.team_a_id;
 

@@ -10,10 +10,25 @@ import {
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
-export function PushToggleButton() {
+type PushToggleButtonProps = {
+  initialHasPushSubscription?: boolean;
+  onSubscribed?: () => void;
+};
+
+export function PushToggleButton({
+  initialHasPushSubscription = false,
+  onSubscribed,
+}: PushToggleButtonProps) {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasPushSubscription, setHasPushSubscription] = useState(
+    initialHasPushSubscription
+  );
+
+  useEffect(() => {
+    setHasPushSubscription(initialHasPushSubscription);
+  }, [initialHasPushSubscription]);
 
   useEffect(() => {
     if (!successMessage) {
@@ -30,6 +45,10 @@ export function PushToggleButton() {
   }, [successMessage]);
 
   async function handleEnablePush() {
+    if (hasPushSubscription) {
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage("");
     setSuccessMessage("");
@@ -69,6 +88,8 @@ export function PushToggleButton() {
         throw new Error(result.error);
       }
 
+      setHasPushSubscription(true);
+      onSubscribed?.();
       setSuccessMessage("Push-подписка успешно сохранена.");
     } catch (error) {
       setErrorMessage(
@@ -84,10 +105,18 @@ export function PushToggleButton() {
       <button
         type="button"
         onClick={() => void handleEnablePush()}
-        disabled={isSubmitting}
-        className="border-2 border-[#CD9C3E] bg-[#0B3A4A] px-4 py-2 font-bold uppercase text-[#CD9C3E] transition-colors hover:bg-[#CD9C3E]/10 disabled:cursor-not-allowed disabled:opacity-70"
+        disabled={isSubmitting || hasPushSubscription}
+        className={
+          hasPushSubscription
+            ? "border-2 border-[#061726] bg-[#CD9C3E] px-4 py-2 font-bold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] disabled:cursor-not-allowed disabled:opacity-100"
+            : "border-2 border-[#CD9C3E] bg-[#0B3A4A] px-4 py-2 font-bold uppercase text-[#CD9C3E] transition-colors hover:bg-[#CD9C3E]/10 disabled:cursor-not-allowed disabled:opacity-70"
+        }
       >
-        {isSubmitting ? "ПОДКЛЮЧЕНИЕ..." : "ВКЛЮЧИТЬ PUSH"}
+        {isSubmitting
+          ? "ПОДКЛЮЧЕНИЕ..."
+          : hasPushSubscription
+            ? "PUSH ВКЛЮЧЕН ✓"
+            : "ВКЛЮЧИТЬ PUSH"}
       </button>
 
       {errorMessage && <p className="mt-2 text-sm font-medium text-red-500">{errorMessage}</p>}
