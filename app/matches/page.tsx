@@ -4,7 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 export default function MyMatchesPage() {
   return (
     <div className="min-h-screen text-white">
-      <div className="min-h-screen bg-[#061726]/80 backdrop-blur-[2px]">
+      <div className="min-h-screen">
         <SiteHeader />
 
         <main className="mx-auto max-w-6xl px-4 py-8 md:px-6 md:py-10">
