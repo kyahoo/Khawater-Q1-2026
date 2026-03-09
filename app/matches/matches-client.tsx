@@ -124,6 +124,11 @@ export function MatchesClient() {
 
   const isCompletedMatch = (match: UserTeamMatch) =>
     match.status === "finished" || match.status === "completed";
+
+  if (matches.length === 0) {
+    return <EmptyStateBlock message="У вас пока нет матчей" />;
+  }
+
   const upcomingMatches = matches.filter(
     (match) => !isCompletedMatch(match)
   );
