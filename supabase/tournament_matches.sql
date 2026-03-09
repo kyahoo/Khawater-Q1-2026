@@ -15,3 +15,18 @@ create table if not exists public.tournament_matches (
 
 alter table public.tournament_matches
 add column if not exists format text not null default 'BO3';
+
+alter table public.tournament_matches
+add column if not exists lobby_name text null;
+
+alter table public.tournament_matches
+add column if not exists lobby_password text null;
+
+alter table public.tournament_matches
+add column if not exists result_screenshot_url text null;
+
+alter table public.tournament_matches
+add column if not exists result_screenshot_urls text[] not null default '{}'::text[];
+
+alter table public.tournament_matches
+add column if not exists winner_team_id uuid null references public.teams (id);

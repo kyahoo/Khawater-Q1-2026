@@ -24,6 +24,8 @@ export type MatchRoomData = {
     lobbyName: string | null;
     lobbyPassword: string | null;
     resultScreenshotUrl: string | null;
+    resultScreenshotUrls: string[];
+    winnerTeamId: string | null;
   };
   teamA: MatchRoomTeam;
   teamB: MatchRoomTeam;
@@ -94,7 +96,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
   const { data: matchRow, error: matchError } = await supabase
     .from("tournament_matches")
     .select(
-      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_url"
+      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_url, result_screenshot_urls, winner_team_id"
     )
     .eq("id", matchId)
     .maybeSingle();
@@ -145,6 +147,13 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
 
   const teamAId = typedMatch.team_a_id;
   const teamBId = typedMatch.team_b_id;
+  const resultScreenshotUrls = Array.isArray(typedMatch.result_screenshot_urls)
+    ? typedMatch.result_screenshot_urls.filter(
+        (url): url is string => typeof url === "string" && url.trim().length > 0
+      )
+    : typedMatch.result_screenshot_url
+      ? [typedMatch.result_screenshot_url]
+      : [];
 
   const [teamA, teamB] = await Promise.all([
     getMatchRoomTeam({
@@ -169,7 +178,10 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
         teamBScore: typedMatch.team_b_score,
         lobbyName: typedMatch.lobby_name ?? null,
         lobbyPassword: typedMatch.lobby_password ?? null,
-        resultScreenshotUrl: typedMatch.result_screenshot_url ?? null,
+        resultScreenshotUrl:
+          resultScreenshotUrls[0] ?? typedMatch.result_screenshot_url ?? null,
+        resultScreenshotUrls,
+        winnerTeamId: typedMatch.winner_team_id ?? null,
       },
       teamA,
       teamB,

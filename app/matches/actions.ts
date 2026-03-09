@@ -23,17 +23,24 @@ type SaveLobbyScreenshotResult = {
   error: string | null;
 };
 
-type UploadMatchResultScreenshotResult = {
+type UploadMatchResultGameScreenshotResult = {
   publicUrl: string;
+  slotIndex: number;
 };
 
-type LobbyScreenshotOcrData = {
-  lobby_host: string;
-  players_in_lobby: string[];
+type ConfirmMatchResultResult = {
+  screenshotUrls: string[];
+  status: string;
+  winnerTeamId: string;
+};
+
+type LobbyScreenshotVerificationData = {
+  is_host_found: boolean;
+  is_uploader_found: boolean;
 };
 
 type AnalyzeLobbyScreenshotResult = {
-  data: LobbyScreenshotOcrData | null;
+  data: LobbyScreenshotVerificationData | null;
   error: string | null;
 };
 
@@ -50,9 +57,13 @@ type AuthorizedMatchActionContext = MatchActionContext & {
   checkInRow: MatchCheckInRow | null;
 };
 
+type AuthorizedLobbyHostMatchActionContext = MatchActionContext & {
+  match: MatchActionMatchRow;
+  hostTeamId: string;
+  hostCaptainUserId: string;
+};
+
 const CHECK_IN_WINDOW_MS = 30 * 60 * 1000;
-const MISTRAL_LOBBY_OCR_SYSTEM_PROMPT =
-  "You are an OCR assistant analyzing a photo of a monitor displaying a Dota 2 custom lobby. Focus strictly on extracting two things: 1. The 'Lobby Host' (located in the top right of the lobby UI panel, e.g., 'Lobby Host: [Name]'). 2. The exact in-game nicknames of any players currently assigned to 'The Radiant' or 'The Dire' team slots. Return ONLY a valid JSON object in this exact format: { \"lobby_host\": \"Name\", \"players_in_lobby\": [\"Player1\", \"Player2\"] }. Do not include any markdown formatting, backticks, or conversational text.";
 
 function generateLobbyPassword(): string {
   const useFourDigits = Math.random() >= 0.5;
@@ -104,6 +115,41 @@ function getUploadFileExtension(file: File) {
     "jpg";
 
   return extension || "jpg";
+}
+
+function getSeriesLength(format: string | null | undefined) {
+  const normalizedFormat = format?.trim().toUpperCase() ?? "";
+  const match = normalizedFormat.match(/^BO(\d+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const parsedLength = Number(match[1]);
+  return Number.isInteger(parsedLength) && parsedLength > 0 ? parsedLength : null;
+}
+
+function getSeriesMaxWins(format: string | null | undefined) {
+  const seriesLength = getSeriesLength(format);
+
+  return seriesLength ? Math.floor(seriesLength / 2) + 1 : null;
+}
+
+function parseNonNegativeInteger(
+  value: FormDataEntryValue | null,
+  fallbackMessage: string
+) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(fallbackMessage);
+  }
+
+  const parsedValue = Number.parseInt(value, 10);
+
+  if (!Number.isInteger(parsedValue) || parsedValue < 0) {
+    throw new Error(fallbackMessage);
+  }
+
+  return parsedValue;
 }
 
 function getMatchActionEnv() {
@@ -239,6 +285,72 @@ async function getAuthorizedMatchActionContext(
   };
 }
 
+async function getAuthorizedLobbyHostMatchActionContext(
+  matchId: string,
+  accessToken: string
+): Promise<{
+  error: string | null;
+  context: AuthorizedLobbyHostMatchActionContext | null;
+}> {
+  const authResult = await getMatchActionContext(accessToken);
+
+  if (authResult.error || !authResult.context) {
+    return {
+      error: authResult.error,
+      context: null,
+    };
+  }
+
+  const { adminClient, user } = authResult.context;
+  const { data: matchRow, error: matchError } = await adminClient
+    .from("tournament_matches")
+    .select("*")
+    .eq("id", matchId)
+    .maybeSingle();
+
+  if (matchError || !matchRow) {
+    return {
+      error: "Матч не найден.",
+      context: null,
+    };
+  }
+
+  const typedMatch = matchRow as MatchActionMatchRow;
+  const lobbyHostResult = await getLobbyHostForMatch({
+    adminClient,
+    match: typedMatch,
+  });
+
+  if (
+    lobbyHostResult.error ||
+    !lobbyHostResult.hostCaptainUserId ||
+    !lobbyHostResult.hostTeamId
+  ) {
+    return {
+      error: lobbyHostResult.error ?? "Не удалось определить хоста лобби.",
+      context: null,
+    };
+  }
+
+  if (lobbyHostResult.hostCaptainUserId !== user.id) {
+    return {
+      error: "Только хост лобби может отправлять результат матча.",
+      context: null,
+    };
+  }
+
+  return {
+    error: null,
+    context: {
+      user,
+      adminClient,
+      match: typedMatch,
+      hostTeamId: lobbyHostResult.hostTeamId,
+      hostCaptainUserId: lobbyHostResult.hostCaptainUserId,
+    },
+  };
+}
+
 function revalidateMatchPaths(matchId: string) {
   revalidatePath(`/matches/${matchId}`);
   revalidatePath("/matches");
@@ -286,31 +398,179 @@ function parseJsonObject(text: string): unknown {
   }
 }
 
-function parseLobbyScreenshotOcrData(data: unknown): LobbyScreenshotOcrData | null {
+function parseLobbyScreenshotVerificationData(
+  data: unknown
+): LobbyScreenshotVerificationData | null {
   if (typeof data !== "object" || data === null) {
     return null;
   }
 
-  const { lobby_host: lobbyHost, players_in_lobby: playersInLobby } = data as {
-    lobby_host?: unknown;
-    players_in_lobby?: unknown;
+  const { is_host_found: isHostFound, is_uploader_found: isUploaderFound } = data as {
+    is_host_found?: unknown;
+    is_uploader_found?: unknown;
   };
 
-  if (typeof lobbyHost !== "string" || !Array.isArray(playersInLobby)) {
-    return null;
-  }
-
-  const parsedPlayers = playersInLobby.filter(
-    (player): player is string => typeof player === "string"
-  );
-
-  if (parsedPlayers.length !== playersInLobby.length) {
+  if (
+    typeof isHostFound !== "boolean" ||
+    typeof isUploaderFound !== "boolean"
+  ) {
     return null;
   }
 
   return {
-    lobby_host: lobbyHost.trim(),
-    players_in_lobby: parsedPlayers.map((player) => player.trim()),
+    is_host_found: isHostFound,
+    is_uploader_found: isUploaderFound,
+  };
+}
+
+function buildLobbyVerificationPrompt(
+  expectedHostName: string,
+  expectedPlayerName: string
+) {
+  return `You are an OCR assistant for a Dota 2 tournament. Look at the provided screenshot of the lobby.
+Your only job is to find two specific names:
+1. The host name: '${expectedHostName}'
+2. The player name: '${expectedPlayerName}'
+Respond ONLY with a JSON object containing two boolean values indicating if you found them.
+
+Return this exact JSON structure:
+{
+  "is_host_found": boolean,
+  "is_uploader_found": boolean
+}`;
+}
+
+async function getLobbyHostForMatch(params: {
+  adminClient: SupabaseClient<Database>;
+  match: MatchActionMatchRow;
+}) {
+  const { adminClient, match } = params;
+  const teamIds = [match.team_a_id, match.team_b_id];
+
+  const { data: teams, error: teamsError } = await adminClient
+    .from("teams")
+    .select("id, name")
+    .in("id", teamIds);
+
+  if (teamsError) {
+    return {
+      error: "Не удалось определить команду-хоста.",
+      hostCaptainUserId: null,
+      hostTeamId: null,
+    };
+  }
+
+  const teamNameById = new Map(
+    ((teams ?? []) as Array<{ id: string; name: string | null }>).map((team) => [
+      team.id,
+      team.name?.trim() ?? "",
+    ])
+  );
+
+  const teamAName = teamNameById.get(match.team_a_id) ?? "";
+  const teamBName = teamNameById.get(match.team_b_id) ?? "";
+  const hostTeamId =
+    !teamBName || teamAName.localeCompare(teamBName) <= 0
+      ? match.team_a_id
+      : match.team_b_id;
+
+  const { data: memberships, error: membershipsError } = await adminClient
+    .from("team_members")
+    .select("team_id, user_id, is_captain")
+    .in("team_id", teamIds);
+
+  if (membershipsError) {
+    return {
+      error: "Не удалось определить капитана команды-хоста.",
+      hostCaptainUserId: null,
+      hostTeamId: null,
+    };
+  }
+
+  const hostCaptainUserId =
+    (
+      (memberships ?? []) as Array<{
+        team_id: string;
+        user_id: string;
+        is_captain: boolean;
+      }>
+    ).find(
+      (membership) =>
+        membership.team_id === hostTeamId && membership.is_captain
+    )?.user_id ?? null;
+
+  if (!hostCaptainUserId) {
+    return {
+      error: "Не удалось определить ожидаемого хоста лобби.",
+      hostCaptainUserId: null,
+      hostTeamId: null,
+    };
+  }
+
+  return {
+    error: null,
+    hostCaptainUserId,
+    hostTeamId,
+  };
+}
+
+async function getExpectedLobbyVerificationNames(params: {
+  adminClient: SupabaseClient<Database>;
+  match: MatchActionMatchRow;
+  userId: string;
+}) {
+  const { adminClient, match, userId } = params;
+  const lobbyHostResult = await getLobbyHostForMatch({
+    adminClient,
+    match,
+  });
+
+  if (lobbyHostResult.error || !lobbyHostResult.hostCaptainUserId) {
+    return {
+      error: lobbyHostResult.error ?? "Не удалось определить ожидаемого хоста лобби.",
+      expectedHostName: null,
+      expectedPlayerName: null,
+    };
+  }
+
+  const profileIds = Array.from(
+    new Set([lobbyHostResult.hostCaptainUserId, userId])
+  );
+  const { data: profiles, error: profilesError } = await adminClient
+    .from("profiles")
+    .select("id, nickname")
+    .in("id", profileIds);
+
+  if (profilesError) {
+    return {
+      error: "Не удалось загрузить ожидаемые никнеймы для проверки.",
+      expectedHostName: null,
+      expectedPlayerName: null,
+    };
+  }
+
+  const nicknameById = new Map(
+    ((profiles ?? []) as Array<{ id: string; nickname: string | null }>).map(
+      (profile) => [profile.id, profile.nickname?.trim() ?? ""]
+    )
+  );
+
+  const expectedHostName =
+    nicknameById.get(lobbyHostResult.hostCaptainUserId) ?? "";
+  const expectedPlayerName = nicknameById.get(userId) ?? "";
+
+  if (!expectedHostName || !expectedPlayerName) {
+    return {
+      error: "Не удалось определить ожидаемые имена для OCR-проверки.",
+      expectedHostName: null,
+      expectedPlayerName: null,
+    };
+  }
+
+  return {
+    error: null,
+    expectedHostName,
+    expectedPlayerName,
   };
 }
 
@@ -647,18 +907,26 @@ export async function saveMatchLobbyScreenshot(
   };
 }
 
-export async function uploadMatchResultScreenshot(
+export async function uploadMatchResultGameScreenshot(
   matchId: string,
   formData: FormData
-): Promise<UploadMatchResultScreenshotResult> {
+): Promise<UploadMatchResultGameScreenshotResult> {
   const trimmedMatchId = matchId.trim();
   const accessTokenEntry = formData.get("accessToken");
   const imageFileEntry = formData.get("resultScreenshot");
   const accessToken =
     typeof accessTokenEntry === "string" ? accessTokenEntry.trim() : "";
+  const slotIndex = parseNonNegativeInteger(
+    formData.get("slotIndex"),
+    "Не удалось определить номер игры для скриншота."
+  );
 
   if (!trimmedMatchId) {
     throw new Error("Матч обязателен.");
+  }
+
+  if (slotIndex < 1) {
+    throw new Error("Не удалось определить номер игры для скриншота.");
   }
 
   if (!accessToken) {
@@ -666,53 +934,27 @@ export async function uploadMatchResultScreenshot(
   }
 
   if (!(imageFileEntry instanceof File) || imageFileEntry.size === 0) {
-    throw new Error("Выберите скриншот финального результата.");
+    throw new Error("Выберите скриншот игры.");
   }
 
   if (!imageFileEntry.type.startsWith("image/")) {
     throw new Error("Файл результата должен быть изображением.");
   }
 
-  const authResult = await getMatchActionContext(accessToken);
+  const authResult = await getAuthorizedLobbyHostMatchActionContext(
+    trimmedMatchId,
+    accessToken
+  );
 
   if (authResult.error || !authResult.context) {
     throw new Error(authResult.error ?? "Не удалось проверить сессию.");
   }
 
-  const { adminClient, user } = authResult.context;
-  const { data: matchRow, error: matchError } = await adminClient
-    .from("tournament_matches")
-    .select("id, team_a_id, team_b_id")
-    .eq("id", trimmedMatchId)
-    .maybeSingle();
-
-  if (matchError || !matchRow) {
-    throw new Error("Матч не найден.");
-  }
-
-  const typedMatch = matchRow as Pick<
-    MatchActionMatchRow,
-    "id" | "team_a_id" | "team_b_id"
-  >;
-  const { data: captainMembership, error: captainError } = await adminClient
-    .from("team_members")
-    .select("team_id")
-    .eq("user_id", user.id)
-    .eq("is_captain", true)
-    .in("team_id", [typedMatch.team_a_id, typedMatch.team_b_id])
-    .maybeSingle();
-
-  if (captainError || !captainMembership) {
-    throw new Error(
-      "Только капитан одной из команд этого матча может загрузить итоговый скриншот."
-    );
-  }
-
-  const filePath = `${trimmedMatchId}/${Date.now()}-result.${getUploadFileExtension(
+  const filePath = `${trimmedMatchId}/game-${slotIndex}/${Date.now()}-result.${getUploadFileExtension(
     imageFileEntry
   )}`;
   const imageBytes = new Uint8Array(await imageFileEntry.arrayBuffer());
-  const { error: uploadError } = await adminClient.storage
+  const { error: uploadError } = await authResult.context.adminClient.storage
     .from("match-results")
     .upload(filePath, imageBytes, {
       cacheControl: "3600",
@@ -726,28 +968,134 @@ export async function uploadMatchResultScreenshot(
 
   const {
     data: { publicUrl },
-  } = adminClient.storage.from("match-results").getPublicUrl(filePath);
+  } = authResult.context.adminClient.storage
+    .from("match-results")
+    .getPublicUrl(filePath);
 
   if (!publicUrl) {
-    throw new Error("Не удалось получить публичную ссылку на результат матча.");
+    throw new Error("Не удалось получить публичную ссылку на скриншот игры.");
   }
 
-  const { error: updateError } = await adminClient
+  return {
+    publicUrl,
+    slotIndex,
+  };
+}
+
+export async function confirmMatchResult(
+  matchId: string,
+  formData: FormData
+): Promise<ConfirmMatchResultResult> {
+  const trimmedMatchId = matchId.trim();
+  const accessTokenEntry = formData.get("accessToken");
+  const accessToken =
+    typeof accessTokenEntry === "string" ? accessTokenEntry.trim() : "";
+
+  if (!trimmedMatchId) {
+    throw new Error("Матч обязателен.");
+  }
+
+  if (!accessToken) {
+    throw new Error("Сессия истекла. Войдите в аккаунт заново.");
+  }
+
+  const authResult = await getAuthorizedLobbyHostMatchActionContext(
+    trimmedMatchId,
+    accessToken
+  );
+
+  if (authResult.error || !authResult.context) {
+    throw new Error(authResult.error ?? "Не удалось проверить сессию.");
+  }
+
+  const teamAScore = parseNonNegativeInteger(
+    formData.get("teamAScore"),
+    "Укажите корректный счет команды A."
+  );
+  const teamBScore = parseNonNegativeInteger(
+    formData.get("teamBScore"),
+    "Укажите корректный счет команды B."
+  );
+
+  if (teamAScore === teamBScore) {
+    throw new Error("Итоговый счет серии не может быть ничейным.");
+  }
+
+  const totalGames = teamAScore + teamBScore;
+
+  if (totalGames <= 0) {
+    throw new Error("Укажите итоговый счет серии.");
+  }
+
+  const seriesLength = getSeriesLength(authResult.context.match.format);
+  const seriesMaxWins = getSeriesMaxWins(authResult.context.match.format);
+
+  if (
+    seriesLength !== null &&
+    (totalGames > seriesLength ||
+      teamAScore > seriesLength ||
+      teamBScore > seriesLength)
+  ) {
+    throw new Error(
+      `Счет не может превышать лимит серии ${authResult.context.match.format}.`
+    );
+  }
+
+  if (
+    seriesMaxWins !== null &&
+    (teamAScore > seriesMaxWins ||
+      teamBScore > seriesMaxWins ||
+      Math.max(teamAScore, teamBScore) !== seriesMaxWins)
+  ) {
+    throw new Error(
+      `Победитель должен набрать ${seriesMaxWins} карт(ы) в формате ${authResult.context.match.format}.`
+    );
+  }
+
+  const screenshotUrls = formData
+    .getAll("screenshotUrls")
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter((value): value is string => Boolean(value));
+
+  if (screenshotUrls.length !== totalGames) {
+    throw new Error("Количество скриншотов должно совпадать с числом сыгранных карт.");
+  }
+
+  for (const screenshotUrl of screenshotUrls) {
+    try {
+      new URL(screenshotUrl);
+    } catch {
+      throw new Error("Один из URL скриншотов результата некорректен.");
+    }
+  }
+
+  const winnerTeamId =
+    teamAScore > teamBScore
+      ? authResult.context.match.team_a_id
+      : authResult.context.match.team_b_id;
+
+  const { error: updateError } = await authResult.context.adminClient
     .from("tournament_matches")
     .update({
-      result_screenshot_url: publicUrl,
+      status: "finished",
+      team_a_score: teamAScore,
+      team_b_score: teamBScore,
+      winner_team_id: winnerTeamId,
+      result_screenshot_url: screenshotUrls[0] ?? null,
+      result_screenshot_urls: screenshotUrls,
     })
     .eq("id", trimmedMatchId);
 
   if (updateError) {
-    await adminClient.storage.from("match-results").remove([filePath]);
     throw new Error(updateError.message);
   }
 
   revalidateMatchPaths(trimmedMatchId);
 
   return {
-    publicUrl,
+    screenshotUrls,
+    status: "finished",
+    winnerTeamId,
   };
 }
 
@@ -799,7 +1147,25 @@ export async function analyzeLobbyScreenshot(
     };
   }
 
-  const lobbyScreenshotUrl = authResult.context.checkInRow?.lobby_screenshot_url?.trim();
+  const expectedNamesResult = await getExpectedLobbyVerificationNames({
+    adminClient: authResult.context.adminClient,
+    match: authResult.context.match,
+    userId: authResult.context.user.id,
+  });
+
+  if (
+    expectedNamesResult.error ||
+    !expectedNamesResult.expectedHostName ||
+    !expectedNamesResult.expectedPlayerName
+  ) {
+    return {
+      data: null,
+      error: expectedNamesResult.error ?? "Не удалось подготовить OCR-проверку.",
+    };
+  }
+
+  const lobbyScreenshotUrl =
+    authResult.context.checkInRow?.lobby_screenshot_url?.trim();
 
   if (!lobbyScreenshotUrl) {
     return {
@@ -833,14 +1199,17 @@ export async function analyzeLobbyScreenshot(
         messages: [
           {
             role: "system",
-            content: MISTRAL_LOBBY_OCR_SYSTEM_PROMPT,
+            content: buildLobbyVerificationPrompt(
+              expectedNamesResult.expectedHostName,
+              expectedNamesResult.expectedPlayerName
+            ),
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Extract the lobby host and all player nicknames currently visible in The Radiant and The Dire slots.",
+                text: "Check whether the expected host and uploader names are visible anywhere in the screenshot.",
               },
               {
                 type: "image_url",
@@ -908,7 +1277,7 @@ export async function analyzeLobbyScreenshot(
     }
 
     const parsedContent = parseJsonObject(rawContent);
-    const parsedData = parseLobbyScreenshotOcrData(parsedContent);
+    const parsedData = parseLobbyScreenshotVerificationData(parsedContent);
 
     if (!parsedData) {
       return {

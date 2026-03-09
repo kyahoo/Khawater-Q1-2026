@@ -1672,17 +1672,6 @@ export default function AdminPage() {
     <div className="min-h-screen bg-transparent text-zinc-900">
       <SiteHeader />
 
-      <div className="border-b border-zinc-300 bg-zinc-200 px-6 py-3">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-4 text-sm">
-            <span className="font-semibold">Admin</span>
-          </div>
-          <div className="text-sm text-zinc-600">
-            Guard: profiles.is_admin must be true
-          </div>
-        </div>
-      </div>
-
       <main className="mx-auto max-w-5xl px-6 py-8">
         {pageErrorMessage && (
           <p className="mb-6 text-sm leading-7 text-red-600">{pageErrorMessage}</p>

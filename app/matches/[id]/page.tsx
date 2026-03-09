@@ -21,9 +21,10 @@ import {
 import {
   analyzeLobbyScreenshot,
   checkInToMatch,
+  confirmMatchResult,
   getMatchBiometricVerificationOptions,
   saveMatchLobbyScreenshot,
-  uploadMatchResultScreenshot,
+  uploadMatchResultGameScreenshot,
   verifyMatchBiometricAuthentication,
   verifyMatchBiometricRegistration,
 } from "@/app/matches/actions";
@@ -32,9 +33,16 @@ import { SiteHeader } from "@/components/site-header";
 
 const TOTAL_MATCH_PLAYERS = 1;
 
-type LobbyScreenshotOcrData = {
-  lobby_host: string;
-  players_in_lobby: string[];
+type LobbyScreenshotVerificationData = {
+  is_host_found: boolean;
+  is_uploader_found: boolean;
+};
+
+type ResultScreenshotSlotState = {
+  publicUrl: string | null;
+  fileName: string;
+  isUploading: boolean;
+  errorMessage: string;
 };
 
 function formatAlmatyDateTime(
@@ -111,6 +119,43 @@ function getFileExtension(file: File) {
   );
 }
 
+function getSeriesLength(format: string) {
+  const match = format.trim().toUpperCase().match(/^BO(\d+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const parsedLength = Number(match[1]);
+  return Number.isInteger(parsedLength) && parsedLength > 0 ? parsedLength : null;
+}
+
+function getSeriesMaxWins(format: string) {
+  const seriesLength = getSeriesLength(format);
+
+  return seriesLength ? Math.floor(seriesLength / 2) + 1 : null;
+}
+
+function normalizeScoreInput(value: string, maxWins: number | null) {
+  const digitsOnly = value.replace(/[^\d]/g, "");
+
+  if (!digitsOnly) {
+    return "";
+  }
+
+  const parsedValue = Number.parseInt(digitsOnly, 10);
+
+  if (!Number.isInteger(parsedValue) || parsedValue < 0) {
+    return "";
+  }
+
+  if (maxWins !== null) {
+    return String(Math.min(parsedValue, maxWins));
+  }
+
+  return String(parsedValue);
+}
+
 function PlayerRow({
   nickname,
   isCaptain,
@@ -152,7 +197,8 @@ export default function MatchRoomPage() {
   const router = useRouter();
   const matchId = typeof params.id === "string" ? params.id : null;
   const screenshotInputRef = useRef<HTMLInputElement | null>(null);
-  const resultScreenshotInputRef = useRef<HTMLInputElement | null>(null);
+  const resultScreenshotInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const initializedResultDraftMatchIdRef = useRef<string | null>(null);
 
   const [data, setData] = useState<MatchRoomData | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -167,14 +213,17 @@ export default function MatchRoomPage() {
   const [isWaitingForLobbyScreenshot, setIsWaitingForLobbyScreenshot] =
     useState(false);
   const [lobbyErrorMessage, setLobbyErrorMessage] = useState("");
-  const [ocrData, setOcrData] = useState<LobbyScreenshotOcrData | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [resultScreenshotFile, setResultScreenshotFile] = useState<File | null>(
+  const [ocrData, setOcrData] = useState<LobbyScreenshotVerificationData | null>(
     null
   );
-  const [isUploadingResultScreenshot, setIsUploadingResultScreenshot] =
-    useState(false);
-  const [resultUploadErrorMessage, setResultUploadErrorMessage] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [reportedTeamAScore, setReportedTeamAScore] = useState("");
+  const [reportedTeamBScore, setReportedTeamBScore] = useState("");
+  const [resultScreenshotSlots, setResultScreenshotSlots] = useState<
+    ResultScreenshotSlotState[]
+  >([]);
+  const [isSubmittingMatchResult, setIsSubmittingMatchResult] = useState(false);
+  const [matchResultErrorMessage, setMatchResultErrorMessage] = useState("");
 
   const loadMatchRoom = useCallback(
     async (nextMatchId: string, options?: { showLoading?: boolean }) => {
@@ -271,6 +320,65 @@ export default function MatchRoomPage() {
       void supabase.removeChannel(channel);
     };
   }, [matchId, loadMatchRoom]);
+
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+
+    if (initializedResultDraftMatchIdRef.current === data.match.id) {
+      return;
+    }
+
+    initializedResultDraftMatchIdRef.current = data.match.id;
+    setReportedTeamAScore(
+      data.match.teamAScore !== null ? String(data.match.teamAScore) : ""
+    );
+    setReportedTeamBScore(
+      data.match.teamBScore !== null ? String(data.match.teamBScore) : ""
+    );
+    setResultScreenshotSlots(
+      data.match.resultScreenshotUrls.map((publicUrl, index) => ({
+        publicUrl,
+        fileName: `Скриншот Игры ${index + 1}`,
+        isUploading: false,
+        errorMessage: "",
+      }))
+    );
+    setMatchResultErrorMessage("");
+  }, [data]);
+
+  useEffect(() => {
+    const totalGames =
+      (reportedTeamAScore ? Number(reportedTeamAScore) : 0) +
+      (reportedTeamBScore ? Number(reportedTeamBScore) : 0);
+
+    setResultScreenshotSlots((currentSlots) => {
+      if (totalGames <= 0) {
+        return [];
+      }
+
+      return Array.from({ length: totalGames }, (_, index) => {
+        const currentSlot = currentSlots[index];
+
+        if (currentSlot) {
+          return currentSlot;
+        }
+
+        return {
+          publicUrl: null,
+          fileName: "",
+          isUploading: false,
+          errorMessage: "",
+        };
+      });
+    });
+
+    resultScreenshotInputRefs.current = resultScreenshotInputRefs.current.slice(
+      0,
+      Math.max(totalGames, 0)
+    );
+  }, [reportedTeamAScore, reportedTeamBScore]);
 
   async function getSessionAccessToken() {
     const supabase = getSupabaseBrowserClient();
@@ -383,11 +491,29 @@ export default function MatchRoomPage() {
     );
   }
 
-  function openResultScreenshotPicker() {
+  function updateResultScreenshotSlot(
+    slotIndex: number,
+    updater: (slot: ResultScreenshotSlotState) => ResultScreenshotSlotState
+  ) {
+    setResultScreenshotSlots((currentSlots) =>
+      currentSlots.map((slot, currentIndex) =>
+        currentIndex === slotIndex ? updater(slot) : slot
+      )
+    );
+  }
+
+  function openResultScreenshotPicker(slotIndex: number) {
     openFilePicker(
-      resultScreenshotInputRef,
-      setResultUploadErrorMessage,
-      "Выберите скриншот результата вручную."
+      {
+        current: resultScreenshotInputRefs.current[slotIndex] ?? null,
+      },
+      (message) => {
+        updateResultScreenshotSlot(slotIndex, (slot) => ({
+          ...slot,
+          errorMessage: message,
+        }));
+      },
+      "Выберите скриншот игры вручную."
     );
   }
 
@@ -544,27 +670,73 @@ export default function MatchRoomPage() {
     }
   }
 
-  function handleResultScreenshotSelection(
+  async function handleResultScreenshotSelection(
+    slotIndex: number,
     event: React.ChangeEvent<HTMLInputElement>
   ) {
     const nextFile = event.target.files?.[0] ?? null;
     event.target.value = "";
-    setResultUploadErrorMessage("");
+    setMatchResultErrorMessage("");
 
     if (!nextFile) {
       return;
     }
 
     if (!nextFile.type.startsWith("image/")) {
-      setResultScreenshotFile(null);
-      setResultUploadErrorMessage("Загрузите изображение финального результата.");
+      updateResultScreenshotSlot(slotIndex, (slot) => ({
+        ...slot,
+        errorMessage: "Загрузите изображение скриншота игры.",
+      }));
       return;
     }
 
-    setResultScreenshotFile(nextFile);
+    updateResultScreenshotSlot(slotIndex, (slot) => ({
+      ...slot,
+      fileName: nextFile.name,
+      isUploading: true,
+      errorMessage: "",
+    }));
+
+    try {
+      const accessToken = await getSessionAccessToken();
+
+      if (!accessToken || !matchId) {
+        updateResultScreenshotSlot(slotIndex, (slot) => ({
+          ...slot,
+          isUploading: false,
+          errorMessage: "Войдите в аккаунт для загрузки скриншота игры.",
+        }));
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("accessToken", accessToken);
+      formData.append("slotIndex", String(slotIndex + 1));
+      formData.append("resultScreenshot", nextFile);
+
+      const uploadResult = await uploadMatchResultGameScreenshot(matchId, formData);
+
+      updateResultScreenshotSlot(slotIndex, (slot) => ({
+        ...slot,
+        publicUrl: uploadResult.publicUrl,
+        fileName: nextFile.name,
+        isUploading: false,
+        errorMessage: "",
+      }));
+    } catch (error) {
+      console.error("Game result screenshot upload failed:", error);
+      updateResultScreenshotSlot(slotIndex, (slot) => ({
+        ...slot,
+        isUploading: false,
+        errorMessage: getErrorMessage(
+          error,
+          "Не удалось загрузить скриншот игры."
+        ),
+      }));
+    }
   }
 
-  async function handleMatchResultUpload(
+  async function handleMatchResultSubmit(
     event: React.FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
@@ -573,38 +745,50 @@ export default function MatchRoomPage() {
       return;
     }
 
-    if (!resultScreenshotFile) {
-      setResultUploadErrorMessage("Сначала выберите скриншот результата.");
+    if (resultScreenshotSlots.some((slot) => slot.isUploading)) {
+      setMatchResultErrorMessage("Дождитесь завершения загрузки всех скриншотов.");
       return;
     }
 
-    setIsUploadingResultScreenshot(true);
-    setResultUploadErrorMessage("");
+    const screenshotUrls = resultScreenshotSlots
+      .map((slot) => slot.publicUrl)
+      .filter((publicUrl): publicUrl is string => Boolean(publicUrl));
+
+    if (screenshotUrls.length !== totalGames) {
+      setMatchResultErrorMessage(
+        "Загрузите скриншоты всех сыгранных карт перед подтверждением результата."
+      );
+      return;
+    }
+
+    setIsSubmittingMatchResult(true);
+    setMatchResultErrorMessage("");
 
     try {
       const accessToken = await getSessionAccessToken();
 
       if (!accessToken) {
-        setResultUploadErrorMessage(
-          "Войдите в аккаунт для загрузки результата матча."
+        setMatchResultErrorMessage(
+          "Войдите в аккаунт для подтверждения результата матча."
         );
         return;
       }
 
       const formData = new FormData();
       formData.append("accessToken", accessToken);
-      formData.append("resultScreenshot", resultScreenshotFile);
+      formData.append("teamAScore", String(parsedReportedTeamAScore));
+      formData.append("teamBScore", String(parsedReportedTeamBScore));
+      screenshotUrls.forEach((url) => formData.append("screenshotUrls", url));
 
-      await uploadMatchResultScreenshot(matchId, formData);
-      setResultScreenshotFile(null);
+      await confirmMatchResult(matchId, formData);
       await refreshMatchRoom();
     } catch (error) {
-      console.error("Match result screenshot upload failed:", error);
-      setResultUploadErrorMessage(
-        getErrorMessage(error, "Не удалось загрузить скриншот результата.")
+      console.error("Match result confirmation failed:", error);
+      setMatchResultErrorMessage(
+        getErrorMessage(error, "Не удалось подтвердить результат матча.")
       );
     } finally {
-      setIsUploadingResultScreenshot(false);
+      setIsSubmittingMatchResult(false);
     }
   }
 
@@ -709,15 +893,6 @@ export default function MatchRoomPage() {
   const isCurrentUserLobbyConfirmed = Boolean(
     currentUserId && data.screenshotUploadedUserIds.includes(currentUserId)
   );
-  const teamACaptainUserId =
-    data.teamA.roster.find((player) => player.isCaptain)?.userId ?? null;
-  const teamBCaptainUserId =
-    data.teamB.roster.find((player) => player.isCaptain)?.userId ?? null;
-  const isCurrentUserMatchCaptain = Boolean(
-    currentUserId &&
-      (currentUserId === teamACaptainUserId ||
-        currentUserId === teamBCaptainUserId)
-  );
   const checkInCount = Math.min(data.checkedInUserIds.length, TOTAL_MATCH_PLAYERS);
   const allCheckedIn = checkInCount >= TOTAL_MATCH_PLAYERS;
 
@@ -727,14 +902,66 @@ export default function MatchRoomPage() {
     teamAName.localeCompare(teamBName) <= 0 ? teamAName : teamBName;
   const hostTeam = data.teamA.name === hostTeamName ? data.teamA : data.teamB;
   const hostCaptain = hostTeam.roster.find((player) => player.isCaptain);
+  const hostCaptainUserId = hostCaptain?.userId ?? null;
   const hostLabel = hostCaptain
     ? `${hostCaptain.nickname} (${hostTeamName})`
     : hostTeamName;
+  const isCurrentUserLobbyHost = Boolean(
+    currentUserId && hostCaptainUserId === currentUserId
+  );
   const isLobbyActionBusy =
     isConfirmingLobby ||
     isUploadingLobbyScreenshot ||
     isWaitingForLobbyScreenshot ||
     isCurrentUserLobbyConfirmed;
+  const parsedReportedTeamAScore = reportedTeamAScore
+    ? Number.parseInt(reportedTeamAScore, 10)
+    : 0;
+  const parsedReportedTeamBScore = reportedTeamBScore
+    ? Number.parseInt(reportedTeamBScore, 10)
+    : 0;
+  const seriesLength = getSeriesLength(data.match.format);
+  const seriesMaxWins = getSeriesMaxWins(data.match.format);
+  const totalGames = parsedReportedTeamAScore + parsedReportedTeamBScore;
+  const uploadedResultScreenshotCount = resultScreenshotSlots.filter((slot) =>
+    Boolean(slot.publicUrl)
+  ).length;
+  const hasReportedMatchResult =
+    data.match.teamAScore !== null &&
+    data.match.teamBScore !== null &&
+    data.match.resultScreenshotUrls.length > 0;
+  const hasInvalidResultSeriesLength =
+    seriesLength !== null && totalGames > seriesLength;
+  const hasInvalidResultWinner =
+    totalGames > 0 &&
+    (parsedReportedTeamAScore === parsedReportedTeamBScore ||
+      (seriesMaxWins !== null &&
+        (parsedReportedTeamAScore > seriesMaxWins ||
+          parsedReportedTeamBScore > seriesMaxWins ||
+          Math.max(parsedReportedTeamAScore, parsedReportedTeamBScore) !==
+            seriesMaxWins)));
+  const isResultSubmitDisabled =
+    isSubmittingMatchResult ||
+    totalGames <= 0 ||
+    uploadedResultScreenshotCount !== totalGames ||
+    resultScreenshotSlots.some((slot) => slot.isUploading) ||
+    hasInvalidResultSeriesLength ||
+    hasInvalidResultWinner;
+  const reportedWinnerTeamId =
+    data.match.winnerTeamId ??
+    (data.match.teamAScore !== null &&
+    data.match.teamBScore !== null &&
+    data.match.teamAScore !== data.match.teamBScore
+      ? data.match.teamAScore > data.match.teamBScore
+        ? data.teamA.id
+        : data.teamB.id
+      : null);
+  const reportedWinnerName =
+    reportedWinnerTeamId === data.teamA.id
+      ? data.teamA.name
+      : reportedWinnerTeamId === data.teamB.id
+        ? data.teamB.name
+        : null;
 
   return (
     <div className="min-h-screen text-white">
@@ -943,9 +1170,36 @@ export default function MatchRoomPage() {
                         {isAnalyzing ? "Анализ..." : "АНАЛИЗ СЕКРЕТНЫХ ДАННЫХ"}
                       </button>
                       {ocrData && (
-                        <pre className="mt-4 overflow-x-auto border-[3px] border-[#061726] bg-black p-4 text-xs font-mono text-[#39FF14] shadow-[4px_4px_0px_0px_#061726]">
-                          {JSON.stringify(ocrData, null, 2)}
-                        </pre>
+                        <div className="mt-4 grid gap-3 md:grid-cols-2">
+                          <div className="border-[3px] border-[#061726] bg-black p-4 text-xs font-mono text-[#39FF14] shadow-[4px_4px_0px_0px_#061726]">
+                            <p className="uppercase tracking-[0.18em] text-white/70">
+                              Host Match
+                            </p>
+                            <p
+                              className={`mt-3 text-2xl font-black uppercase ${
+                                ocrData.is_host_found
+                                  ? "text-[#39FF14]"
+                                  : "text-[#F87171]"
+                              }`}
+                            >
+                              {String(ocrData.is_host_found)}
+                            </p>
+                          </div>
+                          <div className="border-[3px] border-[#061726] bg-black p-4 text-xs font-mono text-[#39FF14] shadow-[4px_4px_0px_0px_#061726]">
+                            <p className="uppercase tracking-[0.18em] text-white/70">
+                              Uploader Match
+                            </p>
+                            <p
+                              className={`mt-3 text-2xl font-black uppercase ${
+                                ocrData.is_uploader_found
+                                  ? "text-[#39FF14]"
+                                  : "text-[#F87171]"
+                              }`}
+                            >
+                              {String(ocrData.is_uploader_found)}
+                            </p>
+                          </div>
+                        </div>
                       )}
                       {lobbyErrorMessage && (
                         <p className="mt-3 text-sm font-bold text-[#FCA5A5]">
@@ -998,112 +1252,295 @@ export default function MatchRoomPage() {
           )}
           </section>
 
-          <section className="mt-6 border-[4px] border-[#CD9C3E] bg-[#061726] p-5 shadow-[6px_6px_0px_0px_#CD9C3E] md:p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
-                  Пост-матч
-                </p>
-                <h2 className="mt-2 text-2xl font-black uppercase text-white">
-                  РЕЗУЛЬТАТЫ МАТЧА
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm text-white/80">
-                  Финальный скриншот табло загружает капитан одной из двух
-                  команд этого матча.
-                </p>
-              </div>
+          {isCurrentUserLobbyHost && (
+            <section className="mt-6 border-[4px] border-[#CD9C3E] bg-[#061726] p-5 shadow-[6px_6px_0px_0px_#CD9C3E] md:p-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
+                    Пост-матч
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black uppercase text-white">
+                    РЕЗУЛЬТАТЫ МАТЧА
+                  </h2>
+                  <p className="mt-3 max-w-2xl text-sm text-white/80">
+                    Этот блок доступен только хосту лобби. Зафиксируйте итоговый
+                    счет серии и загрузите скриншот каждой сыгранной карты.
+                  </p>
+                </div>
 
-              {!data.match.resultScreenshotUrl && resultScreenshotFile && (
                 <div className="w-fit border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-white shadow-[4px_4px_0px_0px_#061726]">
-                  Выбран файл:{" "}
-                  <span className="text-[#CD9C3E]">{resultScreenshotFile.name}</span>
-                </div>
-              )}
-            </div>
-
-            {data.match.resultScreenshotUrl ? (
-              <div className="mt-5 space-y-4">
-                <div className="border-[4px] border-[#CD9C3E] bg-[#163f1d] px-4 py-4 text-sm font-black uppercase tracking-[0.2em] text-white shadow-[6px_6px_0px_0px_#061726]">
-                  РЕЗУЛЬТАТ ЗАГРУЖЕН ✅
-                </div>
-
-                <div className="border-[4px] border-[#CD9C3E] bg-[#0B3A4A] p-4 shadow-[6px_6px_0px_0px_#061726]">
-                  <Image
-                    src={data.match.resultScreenshotUrl}
-                    alt="Скриншот финального результата матча"
-                    width={1600}
-                    height={900}
-                    className="h-auto w-full border-[3px] border-[#061726] bg-black object-contain"
-                  />
-
-                  <a
-                    href={data.match.resultScreenshotUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-4 inline-block border-[3px] border-[#CD9C3E] bg-[#061726] px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#CD9C3E] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#CD9C3E]"
-                  >
-                    ОТКРЫТЬ СКРИНШОТ
-                  </a>
+                  ХОСТ ЛОББИ: <span className="text-[#CD9C3E]">{hostLabel}</span>
                 </div>
               </div>
-            ) : isCurrentUserMatchCaptain ? (
-              <form
-                className="mt-5 border-[4px] border-[#CD9C3E] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]"
-                onSubmit={(event) => void handleMatchResultUpload(event)}
-              >
-                <input
-                  ref={resultScreenshotInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleResultScreenshotSelection}
-                />
 
-                <p className="text-sm font-bold text-white/85">
-                  После завершения матча загрузите финальный скриншот табло.
-                </p>
+              {hasReportedMatchResult ? (
+                <div className="mt-5 space-y-5">
+                  <div className="border-[4px] border-[#CD9C3E] bg-[#163f1d] px-4 py-4 text-sm font-black uppercase tracking-[0.2em] text-white shadow-[6px_6px_0px_0px_#061726]">
+                    РЕЗУЛЬТАТ ПОДТВЕРЖДЕН ✅
+                  </div>
 
-                <div className="mt-4 border-[3px] border-[#CD9C3E] bg-[#061726] px-4 py-4 text-xs font-black uppercase tracking-[0.2em] text-white shadow-[4px_4px_0px_0px_#061726]">
-                  {resultScreenshotFile
-                    ? `Готов к загрузке: ${resultScreenshotFile.name}`
-                    : "Файл пока не выбран"}
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-4 shadow-[4px_4px_0px_0px_#061726]">
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
+                        СЧЕТ СЕРИИ
+                      </p>
+                      <p className="mt-4 text-4xl font-black uppercase text-[#CD9C3E]">
+                        {data.match.teamAScore} : {data.match.teamBScore}
+                      </p>
+                    </div>
+
+                    <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-4 shadow-[4px_4px_0px_0px_#061726]">
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
+                        ПОБЕДИТЕЛЬ
+                      </p>
+                      <p className="mt-4 text-2xl font-black uppercase text-white">
+                        {reportedWinnerName ?? "Определен по счету"}
+                      </p>
+                    </div>
+
+                    <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-4 shadow-[4px_4px_0px_0px_#061726]">
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
+                        СКРИНШОТЫ
+                      </p>
+                      <p className="mt-4 text-2xl font-black uppercase text-white">
+                        {data.match.resultScreenshotUrls.length}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {data.match.resultScreenshotUrls.map((screenshotUrl, index) => (
+                      <div
+                        key={`${screenshotUrl}-${index}`}
+                        className="border-[4px] border-[#CD9C3E] bg-[#0B3A4A] p-4 shadow-[6px_6px_0px_0px_#061726]"
+                      >
+                        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
+                          Скриншот Игры {index + 1}
+                        </p>
+                        <Image
+                          src={screenshotUrl}
+                          alt={`Скриншот Игры ${index + 1}`}
+                          width={1600}
+                          height={900}
+                          className="mt-4 h-auto w-full border-[3px] border-[#061726] bg-black object-contain"
+                        />
+                        <a
+                          href={screenshotUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-4 inline-block border-[3px] border-[#CD9C3E] bg-[#061726] px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+                        >
+                          ОТКРЫТЬ СКРИНШОТ
+                        </a>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              ) : (
+                <form
+                  className="mt-5 space-y-6"
+                  onSubmit={(event) => void handleMatchResultSubmit(event)}
+                >
+                  <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
+                          СЧЕТ СЕРИИ
+                        </p>
+                        <p className="mt-3 text-sm text-white/80">
+                          Укажите финальный счет серии в формате {data.match.format}.
+                        </p>
+                      </div>
+                      {seriesMaxWins !== null && (
+                        <div className="border-[3px] border-[#CD9C3E] bg-[#061726] px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726]">
+                          ДО {seriesMaxWins} ПОБЕД
+                        </div>
+                      )}
+                    </div>
 
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={openResultScreenshotPicker}
-                    disabled={isUploadingResultScreenshot}
-                    className="border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-6 py-3 text-sm font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:bg-[#145268] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
-                  >
-                    ВЫБРАТЬ СКРИНШОТ
-                  </button>
+                    <div className="mt-5 grid gap-4 md:grid-cols-2">
+                      <label className="border-[4px] border-[#061726] bg-[#061726] p-4 shadow-[4px_4px_0px_0px_#CD9C3E]">
+                        <span className="text-sm font-black uppercase tracking-[0.18em] text-white">
+                          {data.teamA.name}
+                        </span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={seriesMaxWins ?? undefined}
+                          value={reportedTeamAScore}
+                          onChange={(event) =>
+                            setReportedTeamAScore(
+                              normalizeScoreInput(event.target.value, seriesMaxWins)
+                            )
+                          }
+                          className="mt-4 h-24 w-full border-[4px] border-[#061726] bg-[#0B3A4A] px-5 text-center text-5xl font-black text-[#CD9C3E] outline-none placeholder:text-[#CD9C3E]/35"
+                          placeholder="0"
+                        />
+                      </label>
+
+                      <label className="border-[4px] border-[#061726] bg-[#061726] p-4 shadow-[4px_4px_0px_0px_#CD9C3E]">
+                        <span className="text-sm font-black uppercase tracking-[0.18em] text-white">
+                          {data.teamB.name}
+                        </span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={seriesMaxWins ?? undefined}
+                          value={reportedTeamBScore}
+                          onChange={(event) =>
+                            setReportedTeamBScore(
+                              normalizeScoreInput(event.target.value, seriesMaxWins)
+                            )
+                          }
+                          className="mt-4 h-24 w-full border-[4px] border-[#061726] bg-[#0B3A4A] px-5 text-center text-5xl font-black text-[#CD9C3E] outline-none placeholder:text-[#CD9C3E]/35"
+                          placeholder="0"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
+                          СКРИНШОТЫ ИГР
+                        </p>
+                        <p className="mt-3 text-sm text-white/80">
+                          Загружено {uploadedResultScreenshotCount} из {totalGames}.
+                        </p>
+                      </div>
+
+                      {totalGames > 0 && (
+                        <div className="border-[3px] border-[#CD9C3E] bg-[#061726] px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726]">
+                          СЫГРАНО КАРТ: {totalGames}
+                        </div>
+                      )}
+                    </div>
+
+                    {totalGames === 0 ? (
+                      <div className="mt-5 border-[4px] border-[#CD9C3E] bg-[#061726] px-4 py-4 text-sm font-bold text-white shadow-[4px_4px_0px_0px_#061726]">
+                        Укажите итоговый счет, чтобы загрузить скриншоты.
+                      </div>
+                    ) : (
+                      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                        {resultScreenshotSlots.map((slot, index) => (
+                          <div
+                            key={`result-slot-${index}`}
+                            className="border-[4px] border-[#CD9C3E] bg-[#061726] p-4 shadow-[4px_4px_0px_0px_#061726]"
+                          >
+                            <input
+                              ref={(node) => {
+                                resultScreenshotInputRefs.current[index] = node;
+                              }}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(event) =>
+                                void handleResultScreenshotSelection(index, event)
+                              }
+                            />
+
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <p className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
+                                  Скриншот Игры {index + 1}
+                                </p>
+                                <p className="mt-2 text-sm font-bold text-white/80">
+                                  {slot.publicUrl
+                                    ? "Скриншот загружен."
+                                    : "Скриншот еще не загружен."}
+                                </p>
+                              </div>
+
+                              {slot.publicUrl && (
+                                <a
+                                  href={slot.publicUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:bg-[#145268] hover:shadow-[2px_2px_0px_0px_#061726]"
+                                >
+                                  ОТКРЫТЬ
+                                </a>
+                              )}
+                            </div>
+
+                            {slot.fileName && (
+                              <p className="mt-3 text-xs font-bold uppercase tracking-[0.14em] text-white/70">
+                                Файл: {slot.fileName}
+                              </p>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => openResultScreenshotPicker(index)}
+                              disabled={slot.isUploading || isSubmittingMatchResult}
+                              className="mt-4 border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-5 py-3 text-sm font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:bg-[#145268] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
+                            >
+                              {slot.isUploading
+                                ? "ЗАГРУЗКА..."
+                                : slot.publicUrl
+                                  ? "ЗАМЕНИТЬ СКРИНШОТ"
+                                  : "ЗАГРУЗИТЬ СКРИНШОТ"}
+                            </button>
+
+                            {slot.errorMessage && (
+                              <p className="mt-3 text-sm font-bold text-[#FCA5A5]">
+                                {slot.errorMessage}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {hasInvalidResultSeriesLength && seriesLength !== null && (
+                    <p className="text-sm font-bold text-[#FCA5A5]">
+                      Серия {data.match.format} не может содержать больше {seriesLength} игр.
+                    </p>
+                  )}
+
+                  {!hasInvalidResultSeriesLength &&
+                    totalGames > 0 &&
+                    parsedReportedTeamAScore === parsedReportedTeamBScore && (
+                      <p className="text-sm font-bold text-[#FCA5A5]">
+                        Итоговый счет серии не может быть ничейным.
+                      </p>
+                    )}
+
+                  {!hasInvalidResultSeriesLength &&
+                    totalGames > 0 &&
+                    parsedReportedTeamAScore !== parsedReportedTeamBScore &&
+                    seriesMaxWins !== null &&
+                    Math.max(parsedReportedTeamAScore, parsedReportedTeamBScore) !==
+                      seriesMaxWins && (
+                      <p className="text-sm font-bold text-[#FCA5A5]">
+                        Победитель должен набрать {seriesMaxWins} карт(ы) в формате{" "}
+                        {data.match.format}.
+                      </p>
+                    )}
+
+                  {matchResultErrorMessage && (
+                    <p className="text-sm font-bold text-[#FCA5A5]">
+                      {matchResultErrorMessage}
+                    </p>
+                  )}
 
                   <button
                     type="submit"
-                    disabled={!resultScreenshotFile || isUploadingResultScreenshot}
-                    className="border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-6 py-3 text-sm font-black uppercase text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:bg-[#145268] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
+                    disabled={isResultSubmitDisabled}
+                    className="border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-6 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:bg-[#145268] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
                   >
-                    {isUploadingResultScreenshot
-                      ? "ЗАГРУЗКА..."
-                      : "ЗАГРУЗИТЬ РЕЗУЛЬТАТ"}
+                    {isSubmittingMatchResult
+                      ? "ПОДТВЕРЖДЕНИЕ..."
+                      : "ПОДТВЕРДИТЬ РЕЗУЛЬТАТ"}
                   </button>
-                </div>
-
-                {resultUploadErrorMessage && (
-                  <p className="mt-4 text-sm font-bold text-[#FCA5A5]">
-                    {resultUploadErrorMessage}
-                  </p>
-                )}
-              </form>
-            ) : (
-              <div className="mt-5 border-[4px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-4 text-sm font-bold text-white shadow-[6px_6px_0px_0px_#061726]">
-                {currentUserId
-                  ? "Загрузить итоговый скриншот может только капитан команды А или команды Б этого матча."
-                  : "Войдите в аккаунт, чтобы загрузить итоговый скриншот матча."}
-              </div>
-            )}
-          </section>
+                </form>
+              )}
+            </section>
+          )}
         </main>
       </div>
     </div>
