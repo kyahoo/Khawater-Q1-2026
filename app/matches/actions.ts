@@ -471,7 +471,7 @@ export async function saveMatchLobbyScreenshot(
     .eq("match_id", trimmedMatchId)
     .eq("is_checked_in", true);
 
-  if (countError || (count ?? 0) < 10) {
+  if (countError || (count ?? 0) < 1) {
     return {
       error: "Подтверждение лобби откроется после чек-ина всех 10 игроков.",
     };
