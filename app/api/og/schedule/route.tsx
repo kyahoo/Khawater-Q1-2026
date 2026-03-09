@@ -307,18 +307,25 @@ export async function GET(request: Request) {
                   </span>
                 </div>
 
-                <span
+                <div
+                  tw="flex items-center justify-center bg-[#061726] px-6 py-2"
                   style={{
                     marginTop: 18,
-                    color: "#FFFFFF",
-                    fontSize: 28,
-                    fontWeight: 800,
-                    letterSpacing: 2,
-                    textAlign: "center",
                   }}
                 >
-                  {formatRussianDate(target)}
-                </span>
+                  <span
+                    style={{
+                      color: "#FFFFFF",
+                      fontSize: 28,
+                      fontWeight: 900,
+                      letterSpacing: 2,
+                      textAlign: "center",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {formatRussianDate(target)}
+                  </span>
+                </div>
               </div>
 
               {visibleMatches.length === 0 ? (

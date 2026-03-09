@@ -530,17 +530,24 @@ export async function GET() {
                     {TITLE}
                   </span>
                 </div>
-                <span
+                <div
+                  tw="flex items-center justify-center bg-[#061726] px-6 py-2"
                   style={{
                     marginTop: 20,
-                    color: "#FFFFFF",
-                    fontSize: 28,
-                    fontWeight: 700,
-                    textAlign: "center",
                   }}
                 >
-                  {activeTournament.name}
-                </span>
+                  <span
+                    style={{
+                      color: "#FFFFFF",
+                      fontSize: 28,
+                      fontWeight: 900,
+                      letterSpacing: 2,
+                      textAlign: "center",
+                    }}
+                  >
+                    {activeTournament.name}
+                  </span>
+                </div>
               </div>
 
               <div

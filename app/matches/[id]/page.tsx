@@ -775,7 +775,7 @@ export default function MatchRoomPage() {
                     Этап 2
                   </p>
                   <h3 className="mt-2 text-2xl font-black uppercase text-white">
-                    Подтвердите девайс
+                    ФОТО ЛОББИ
                   </h3>
                   <p className="mt-3 max-w-2xl text-sm text-white/80">
                     Сначала пройдите биометрию повторно, затем загрузите
