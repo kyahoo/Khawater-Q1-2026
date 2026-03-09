@@ -3,43 +3,38 @@
 const champions = [
   {
     tournament: "KHAWATER SEASON 1",
-    team: "ASD",
+    team: "🏆 ASD",
     roster: "ALMAS1Q, ADLA PRIME, BERSERK, XO, ♡",
   },
   {
     tournament: "KHAWATER SEASON 2",
-    team: "Jackson 5",
+    team: "🏆 Jackson 5",
     roster: "Ебаш Кудайберген, VG, MAUnster, WW, yoyoy099",
   },
   {
     tournament: "KHAWATER DERBY 1",
-    team: "smeshar1ki^",
+    team: "🏆 smeshar1ki^",
     roster: "WinG2Kana, 770, Judar, 神靈, 死在我手上",
   },
   {
     tournament: "KHAWATER SEASON 3",
-    team: "KANA+4",
+    team: "🏆 KANA+4",
     roster: "Wing2Kana, molodoy, MAUnster, Sumira, Warrior, Asylstyle",
   },
   {
     tournament: "KHAWATER SEASON 4",
-    team: "Meet Your Makers",
+    team: "🏆 Meet Your Makers",
     roster: "Kazakh na Travelakh, Insomnia, T_Razy, ♡, Kaiba",
   },
   {
     tournament: "KHAWATER DERBY 2",
-    team: "Учпучмак на четверке",
+    team: "🏆 Учпучмак на четверке",
     roster: "JereMiah-, DLZ, Bobby Fisher, Dodger, Chawot-",
   },
   {
     tournament: "KHAWATER SEASON 5 (1st Place)",
-    team: "3+2 TEAM",
+    team: "🏆 3+2 TEAM",
     roster: "Maunster, Alina, DONI, KON, Dake",
-  },
-  {
-    tournament: "KHAWATER SEASON 5 (2nd Place)",
-    team: "АВТОБОТЫ",
-    roster: "Asylstyle, Exis, jjjimka, dzs, Protocol",
   },
 ] as const;
 
@@ -48,10 +43,10 @@ export default function HistoryPage() {
     <div className="min-h-screen text-white">
       <main className="min-h-screen px-4 pb-12 pt-24 md:px-8">
         <div className="mx-auto max-w-5xl">
-          <h1 className="text-center text-4xl font-black uppercase text-[#CD9C3E] md:text-6xl">
+          <h1 className="text-center text-4xl font-black uppercase text-[#CD9C3E] [text-shadow:3px_3px_0_#000] md:text-6xl">
             ЗАЛ СЛАВЫ
           </h1>
-          <p className="mt-4 text-center text-sm font-black uppercase tracking-[0.28em] text-[#CD9C3E] md:text-base">
+          <p className="mt-4 text-center text-sm font-black uppercase tracking-[0.28em] text-[#CD9C3E] [text-shadow:3px_3px_0_#000] md:text-base">
             ЧЕМПИОНЫ KHAWATER
           </p>
 
