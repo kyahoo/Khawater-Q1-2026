@@ -22,6 +22,7 @@ import {
   finalizeSteamLink,
   getProfilePasskeyBindingStatus,
   getProfilePasskeyRegistrationOptions,
+  updateProfileName,
   verifyProfilePasskeyRegistration,
 } from "./actions";
 
@@ -70,6 +71,9 @@ export function ProfilePageClient({
   const [isRegisteringDevice, setIsRegisteringDevice] = useState(false);
   const [isLinkingSteam, setIsLinkingSteam] = useState(false);
   const [isFinalizingSteam, setIsFinalizingSteam] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [newNameValue, setNewNameValue] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [hasLoadedDeviceBinding, setHasLoadedDeviceBinding] = useState(false);
   const [isDeviceBound, setIsDeviceBound] = useState(false);
@@ -101,6 +105,7 @@ export function ProfilePageClient({
     hasPasskey && Boolean(currentUserId) && localOwnerId !== currentUserId;
   const isDeviceOccupied =
     !hasPasskey && Boolean(localOwnerId) && Boolean(currentUserId) && localOwnerId !== currentUserId;
+  const displayName = profile?.username ?? profile?.nickname ?? "Игрок";
 
   const loadProfile = useCallback(async () => {
     setIsLoading(true);
@@ -178,6 +183,10 @@ export function ProfilePageClient({
   useEffect(() => {
     setHasPendingSteamLink(initialHasPendingSteamLink);
   }, [initialHasPendingSteamLink]);
+
+  useEffect(() => {
+    setNewNameValue(profile?.username ?? profile?.nickname ?? "");
+  }, [profile?.nickname, profile?.username]);
 
   useEffect(() => {
     if (!hasLoadedDeviceBinding || hasPasskey || !currentUserId) {
@@ -426,6 +435,55 @@ export function ProfilePageClient({
     }
   }
 
+  function handleStartEditingName() {
+    setNewNameValue(profile?.username ?? profile?.nickname ?? "");
+    setIsEditingName(true);
+    setErrorMessage("");
+  }
+
+  function handleCancelEditingName() {
+    setNewNameValue(profile?.username ?? profile?.nickname ?? "");
+    setIsEditingName(false);
+  }
+
+  async function handleSaveProfileName() {
+    setIsSavingName(true);
+    setErrorMessage("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data } = await supabase.auth.getSession();
+      const trimmedName = newNameValue.trim();
+      const result = await updateProfileName(
+        data.session?.access_token || "",
+        trimmedName
+      );
+
+      if (result.error) {
+        setErrorMessage(result.error);
+        return;
+      }
+
+      setProfile((currentProfile) =>
+        currentProfile
+          ? {
+              ...currentProfile,
+              username: trimmedName,
+            }
+          : currentProfile
+      );
+      setNewNameValue(trimmedName);
+      setIsEditingName(false);
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Не удалось обновить имя."
+      );
+    } finally {
+      setIsSavingName(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-transparent px-6 py-10 text-zinc-900">
@@ -452,8 +510,49 @@ export function ProfilePageClient({
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <section className="space-y-6">
             <div className={cardClassName}>
-              <div className="mb-2 text-2xl font-bold text-white">
-                {profile?.nickname ?? "Игрок"}
+              <div className="mb-2">
+                {isEditingName ? (
+                  <div className="flex flex-col gap-3">
+                    <input
+                      type="text"
+                      value={newNameValue}
+                      onChange={(event) => setNewNameValue(event.target.value)}
+                      disabled={isSavingName}
+                      maxLength={32}
+                      placeholder="Введите имя"
+                      className="w-full border-[3px] border-[#061726] bg-[#123C4D] px-4 py-3 text-2xl font-black text-white shadow-[4px_4px_0px_0px_#061726] outline-none placeholder:text-white/45 focus:border-[#CD9C3E] md:max-w-xl"
+                    />
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={() => void handleSaveProfileName()}
+                        disabled={isSavingName}
+                        className="border-[3px] border-[#061726] bg-[#CD9C3E] px-5 py-2 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70"
+                      >
+                        {isSavingName ? "СОХРАНЕНИЕ..." : "СОХРАНИТЬ"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelEditingName}
+                        disabled={isSavingName}
+                        className="border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-5 py-2 text-sm font-black uppercase text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-70"
+                      >
+                        ОТМЕНА
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-2xl font-bold text-white">{displayName}</div>
+                    <button
+                      type="button"
+                      onClick={handleStartEditingName}
+                      className="w-fit border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+                    >
+                      ИЗМЕНИТЬ
+                    </button>
+                  </div>
+                )}
               </div>
               {!profile?.steamId ? (
                 hasPendingSteamLink ? (

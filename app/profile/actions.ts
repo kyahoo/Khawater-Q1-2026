@@ -174,6 +174,55 @@ export async function finalizeSteamLink(
   }
 }
 
+export async function updateProfileName(
+  accessToken: string,
+  newName: string
+): Promise<{ error: string | null }> {
+  const trimmedToken = accessToken.trim();
+  const trimmedName = newName.trim();
+
+  if (!trimmedToken) {
+    return {
+      error: "Session is required.",
+    };
+  }
+
+  if (!trimmedName) {
+    return {
+      error: "Имя не может быть пустым.",
+    };
+  }
+
+  const authResult = await getProfileActionContext(trimmedToken);
+
+  if (authResult.error || !authResult.context) {
+    return {
+      error: authResult.error ?? "Could not verify your session.",
+    };
+  }
+
+  const { user, adminClient } = authResult.context;
+
+  const { error: updateError } = await adminClient
+    .from("profiles")
+    .update({
+      username: trimmedName,
+    })
+    .eq("id", user.id);
+
+  if (updateError) {
+    return {
+      error: updateError.message,
+    };
+  }
+
+  revalidatePath("/profile");
+
+  return {
+    error: null,
+  };
+}
+
 export async function getProfilePasskeyRegistrationOptions(
   accessToken: string
 ): Promise<BeginProfilePasskeyRegistrationResult> {
