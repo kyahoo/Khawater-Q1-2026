@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { getActiveTaskCountsForUsers } from "@/lib/supabase/tasks";
 
 type CreateAdminPlayerInput = {
   accessToken: string;
@@ -19,6 +20,7 @@ export type AdminPlayerListItem = {
   id: string;
   nickname: string;
   email: string;
+  openTaskCount: number;
 };
 
 type ListAdminPlayersResult =
@@ -226,6 +228,7 @@ export async function listAdminPlayers(
   const users = usersData.users;
   const userIds = users.map((user) => user.id);
   let nicknameByUserId = new Map<string, string>();
+  let openTaskCountByUserId = {} as Record<string, number>;
 
   if (userIds.length > 0) {
     const { data: profiles, error: profilesError } = await adminClient
@@ -246,6 +249,8 @@ export async function listAdminPlayers(
         profile.nickname,
       ])
     );
+
+    openTaskCountByUserId = await getActiveTaskCountsForUsers(adminClient, userIds);
   }
 
   const players = users
@@ -253,6 +258,7 @@ export async function listAdminPlayers(
       id: user.id,
       nickname: nicknameByUserId.get(user.id) ?? user.user_metadata?.nickname ?? "Unknown",
       email: user.email ?? "No email",
+      openTaskCount: openTaskCountByUserId[user.id] ?? 0,
     }))
     .sort((playerA, playerB) => playerA.nickname.localeCompare(playerB.nickname));
 

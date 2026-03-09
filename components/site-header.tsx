@@ -1,13 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getActiveTaskCountForUser } from "@/lib/supabase/tasks";
 
 export function SiteHeader() {
   const pathname = usePathname();
   const [hasSession, setHasSession] = useState<boolean | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [activeTaskCount, setActiveTaskCount] = useState<number | null>(null);
+
+  const loadActiveTaskCount = useEffectEvent(async (userId: string) => {
+    try {
+      const nextTaskCount = await getActiveTaskCountForUser(userId);
+      setActiveTaskCount(nextTaskCount);
+    } catch (error) {
+      console.error("Active task count load failed:", error);
+      setActiveTaskCount(0);
+    }
+  });
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -16,6 +29,12 @@ export function SiteHeader() {
     void supabase.auth.getSession().then(({ data }) => {
       if (isMounted) {
         setHasSession(Boolean(data.session));
+        setCurrentUserId(data.session?.user.id ?? null);
+        if (data.session?.user.id) {
+          void loadActiveTaskCount(data.session.user.id);
+        } else {
+          setActiveTaskCount(0);
+        }
       }
     });
 
@@ -23,6 +42,12 @@ export function SiteHeader() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setHasSession(Boolean(session));
+      setCurrentUserId(session?.user.id ?? null);
+      if (session?.user.id) {
+        void loadActiveTaskCount(session.user.id);
+      } else {
+        setActiveTaskCount(0);
+      }
     });
 
     return () => {
@@ -30,6 +55,14 @@ export function SiteHeader() {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!currentUserId || !hasSession) {
+      return;
+    }
+
+    void loadActiveTaskCount(currentUserId);
+  }, [pathname, hasSession, currentUserId]);
 
   function isActivePath(href: string) {
     return pathname === href || pathname.startsWith(`${href}/`);
@@ -41,6 +74,14 @@ export function SiteHeader() {
         ? "text-[#CD9C3E]"
         : "text-white hover:text-gray-300"
     }`;
+  }
+
+  function formatTaskCount(taskCount: number) {
+    if (taskCount > 99) {
+      return "99+";
+    }
+
+    return String(taskCount);
   }
 
   if (pathname === "/auth" || pathname.startsWith("/auth/")) {
@@ -71,6 +112,16 @@ export function SiteHeader() {
             <>
               <Link href="/matches" className={navLinkClass("/matches")}>
                 Мои матчи
+              </Link>
+              <Link href="/tasks" className={navLinkClass("/tasks")}>
+                <span className="inline-flex items-center gap-2">
+                  <span>Задачи</span>
+                  {(activeTaskCount ?? 0) > 0 ? (
+                    <span className="inline-flex min-w-5 items-center justify-center rounded-full border-2 border-[#7F1D1D] bg-[#DC2626] px-1.5 py-0.5 text-[10px] font-black leading-none text-white">
+                      {formatTaskCount(activeTaskCount ?? 0)}
+                    </span>
+                  ) : null}
+                </span>
               </Link>
               <Link href="/profile" className={navLinkClass("/profile")}>
                 Профиль

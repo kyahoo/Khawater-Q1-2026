@@ -1780,6 +1780,15 @@ export default function AdminPage() {
                           <div className="mt-1 text-sm text-zinc-500">{player.email}</div>
                         </div>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <div
+                            className={`w-fit border-2 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] ${
+                              player.openTaskCount > 0
+                                ? "border-[#7F1D1D] bg-[#450A0A] text-[#FCA5A5]"
+                                : "border-zinc-300 bg-white text-zinc-500"
+                            }`}
+                          >
+                            Открытые задачи: {player.openTaskCount}
+                          </div>
                           <button
                             type="button"
                             onClick={() => void handleResetPlayerDeviceBinding(player.id)}
