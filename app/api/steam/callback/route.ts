@@ -119,7 +119,13 @@ export async function GET(request: NextRequest) {
     })
   ).toString("base64url");
 
-  const response = NextResponse.redirect(new URL("/api/steam/confirm", request.url));
+  const html = `<html><head><meta http-equiv="refresh" content="0;url=/api/steam/confirm" /></head><body style="background-color: #0B3A4A; color: #CD9C3E; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif;"><h2>Завершение привязки Steam...</h2><script>window.location.href="/api/steam/confirm";</script></body></html>`;
+  const response = new NextResponse(html, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/html",
+    },
+  });
   response.cookies.set(STEAM_PENDING_DATA_COOKIE, pendingSteamData, {
     httpOnly: true,
     sameSite: "lax",
