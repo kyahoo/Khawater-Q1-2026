@@ -497,7 +497,7 @@ export default function MatchRoomPage() {
     openFilePicker(
       screenshotInputRef,
       setLobbyErrorMessage,
-      "Биометрия подтверждена. Выберите скриншот вручную."
+      ""
     );
   }
 
@@ -1161,9 +1161,8 @@ export default function MatchRoomPage() {
                     ФОТО ЛОББИ
                   </h3>
                   <p className="mt-3 max-w-2xl text-sm text-white/80">
-                    Сначала пройдите биометрию повторно, затем загрузите
-                    скриншот лобби. Задание обязательное, но не блокирует доступ
-                    к данным лобби.
+                    Обязательно сделайте фото лобби. На нем должно быть видно
+                    ваше имя, а также имя хоста.
                   </p>
 
                   {isCurrentUserLobbyConfirmed ? (
