@@ -70,11 +70,17 @@ const CHECK_IN_WINDOW_MS = 30 * 60 * 1000;
 const LATE_CHECK_IN_PENALTY = -1;
 const LATE_CHECK_IN_REASON = "Опоздание на чек-ин матча";
 const LATE_MATCH_ACTION_PENALTY = -1;
-const LATE_MATCH_ACTION_REASON =
-  "Действие (скриншот/результат) выполнено позже 12 часов после старта";
+const LATE_LOBBY_SCREENSHOT_REASON =
+  "Загрузка скриншота лобби позже 12 часов после старта";
+const LATE_MATCH_RESULT_CONFIRMATION_REASON =
+  "Подтверждение результата матча позже 12 часов после старта";
+const LATE_MATCH_RESULT_SCREENSHOT_REASON =
+  "Загрузка скриншота с результатом позже 12 часов после старта";
 const INVALID_LOBBY_SCREENSHOT_PENALTY = -1;
 const INVALID_LOBBY_SCREENSHOT_REASON =
   "Отсутствие или недействительный скриншот лобби";
+const MISSING_MATCH_RESULT_SCREENSHOTS_REASON =
+  "Отсутствие скриншотов с результатами матча";
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -1053,7 +1059,7 @@ export async function saveMatchLobbyScreenshot(
       userId: user.id,
       matchId: trimmedMatchId,
       penalty: LATE_MATCH_ACTION_PENALTY,
-      reason: LATE_MATCH_ACTION_REASON,
+      reason: LATE_LOBBY_SCREENSHOT_REASON,
     });
   }
 
@@ -1193,6 +1199,16 @@ export async function uploadMatchResultGameScreenshot(
       };
     }
 
+    if (isPastScheduledActionPenaltyWindow(authResult.context.match.scheduled_at)) {
+      await applyBehaviorPenalty({
+        adminClient: authResult.context.adminClient,
+        userId: authResult.context.user.id,
+        matchId: trimmedMatchId,
+        penalty: LATE_MATCH_ACTION_PENALTY,
+        reason: LATE_MATCH_RESULT_SCREENSHOT_REASON,
+      });
+    }
+
     revalidateMatchPaths(trimmedMatchId);
 
     return {
@@ -1298,7 +1314,7 @@ export async function confirmMatchResult(
       userId: authResult.context.user.id,
       matchId: trimmedMatchId,
       penalty: INVALID_LOBBY_SCREENSHOT_PENALTY,
-      reason: INVALID_LOBBY_SCREENSHOT_REASON,
+      reason: MISSING_MATCH_RESULT_SCREENSHOTS_REASON,
     });
   }
 
@@ -1340,7 +1356,7 @@ export async function confirmMatchResult(
       userId: authResult.context.user.id,
       matchId: trimmedMatchId,
       penalty: LATE_MATCH_ACTION_PENALTY,
-      reason: LATE_MATCH_ACTION_REASON,
+      reason: LATE_MATCH_RESULT_CONFIRMATION_REASON,
     });
   }
 
