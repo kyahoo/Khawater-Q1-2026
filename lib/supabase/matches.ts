@@ -32,6 +32,11 @@ export type MatchRoomData = {
   };
   teamA: MatchRoomTeam;
   teamB: MatchRoomTeam;
+  lobbyPhotos: Array<{
+    playerId: string;
+    mapNumber: number;
+    photoUrl: string;
+  }>;
   checkedInUserIds: string[];
   biometricVerifiedUserIds: string[];
   screenshotUploadedUserIds: string[];
@@ -182,7 +187,9 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
 
   const { data: checkIns, error: checkInsError } = await supabase
     .from("match_check_ins")
-    .select("player_id, biometric_verified, is_checked_in, lobby_screenshot_url")
+    .select(
+      "player_id, biometric_verified, is_checked_in, is_ready, lobby_screenshot_url"
+    )
     .eq("match_id", matchId);
 
   if (checkInsError) {
@@ -193,17 +200,50 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
     player_id: string;
     biometric_verified: boolean;
     is_checked_in: boolean;
+    is_ready: boolean;
     lobby_screenshot_url: string | null;
   }>;
   const checkedInUserIds = typedCheckIns
-    .filter((row) => row.is_checked_in)
+    .filter((row) => row.is_ready || row.is_checked_in)
     .map((row) => row.player_id);
   const biometricVerifiedUserIds = typedCheckIns
     .filter((row) => row.biometric_verified)
     .map((row) => row.player_id);
-  const screenshotUploadedUserIds = typedCheckIns
-    .filter((row) => Boolean(row.lobby_screenshot_url))
-    .map((row) => row.player_id);
+
+  let typedLobbyPhotos = [] as Array<{
+    player_id: string;
+    map_number: number;
+    photo_url: string;
+  }>;
+
+  const { data: lobbyPhotos, error: lobbyPhotosError } = await supabase
+    .from("match_lobby_photos")
+    .select("player_id, map_number, photo_url")
+    .eq("match_id", matchId);
+
+  if (lobbyPhotosError) {
+    console.error("Match lobby photos fetch failed:", lobbyPhotosError);
+  } else {
+    typedLobbyPhotos = (lobbyPhotos ?? []) as Array<{
+      player_id: string;
+      map_number: number;
+      photo_url: string;
+    }>;
+  }
+
+  if (typedLobbyPhotos.length === 0) {
+    typedLobbyPhotos = typedCheckIns
+      .filter((row) => Boolean(row.lobby_screenshot_url))
+      .map((row) => ({
+        player_id: row.player_id,
+        map_number: 1,
+        photo_url: row.lobby_screenshot_url as string,
+      }));
+  }
+
+  const screenshotUploadedUserIds = Array.from(
+    new Set(typedLobbyPhotos.map((row) => row.player_id))
+  );
 
   const teamAId = typedMatch.team_a_id;
   const teamBId = typedMatch.team_b_id;
@@ -248,6 +288,11 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
       },
       teamA,
       teamB,
+      lobbyPhotos: typedLobbyPhotos.map((row) => ({
+        playerId: row.player_id,
+        mapNumber: row.map_number,
+        photoUrl: row.photo_url,
+      })),
       checkedInUserIds,
       biometricVerifiedUserIds,
       screenshotUploadedUserIds,

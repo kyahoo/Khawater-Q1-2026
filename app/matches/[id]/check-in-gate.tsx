@@ -145,7 +145,7 @@ export function CheckInGate({
           </p>
         </div>
         <p className="max-w-sm text-sm text-white/80">
-          Нажмите кнопку, пройдите биометрию и подтвердите присутствие на матч.
+          Нажмите кнопку, чтобы подтвердить готовность к игре.
         </p>
       </div>
       <button
@@ -154,7 +154,7 @@ export function CheckInGate({
         disabled={isCheckingIn}
         className="mt-5 border-[3px] border-[#061726] bg-[#CD9C3E] px-6 py-3 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70 disabled:shadow-[4px_4px_0px_0px_#061726]"
       >
-        {isCheckingIn ? "Проверка..." : "ЧЕК-ИН"}
+        {isCheckingIn ? "Сохранение..." : "ГОТОВ К ИГРЕ"}
       </button>
     </div>
   );

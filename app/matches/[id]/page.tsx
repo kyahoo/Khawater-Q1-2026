@@ -31,7 +31,9 @@ import {
 } from "@/app/matches/actions";
 import { MatchTabs } from "./match-tabs";
 
-const TOTAL_MATCH_PLAYERS = 1;
+const LOBBY_MAP_NUMBERS = [1, 2, 3] as const;
+
+type LobbyMapNumber = (typeof LOBBY_MAP_NUMBERS)[number];
 
 type LobbyScreenshotVerificationData = {
   is_host_found: boolean;
@@ -44,6 +46,14 @@ type ResultScreenshotSlotState = {
   isUploading: boolean;
   errorMessage: string;
 };
+
+function createLobbyMapRecord<T>(
+  factory: (mapNumber: LobbyMapNumber) => T
+): Record<LobbyMapNumber, T> {
+  return Object.fromEntries(
+    LOBBY_MAP_NUMBERS.map((mapNumber) => [mapNumber, factory(mapNumber)])
+  ) as Record<LobbyMapNumber, T>;
+}
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -163,32 +173,6 @@ function getSeriesMaxWins(format: string) {
   return seriesLength ? Math.floor(seriesLength / 2) + 1 : null;
 }
 
-function parseSelectedSeriesScore(value: string) {
-  const match = value.trim().match(/^(\d+)-(\d+)$/);
-
-  if (!match) {
-    return null;
-  }
-
-  const teamAScore = Number.parseInt(match[1], 10);
-  const teamBScore = Number.parseInt(match[2], 10);
-
-  if (
-    !Number.isInteger(teamAScore) ||
-    !Number.isInteger(teamBScore) ||
-    teamAScore < 0 ||
-    teamBScore < 0
-  ) {
-    return null;
-  }
-
-  return {
-    teamAScore,
-    teamBScore,
-    totalGames: teamAScore + teamBScore,
-  };
-}
-
 function normalizeScoreInput(value: string, maxWins: number | null) {
   const digitsOnly = value.replace(/[^\d]/g, "");
 
@@ -224,16 +208,22 @@ export default function MatchRoomPage() {
   const [fetchError, setFetchError] = useState<unknown>(null);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [checkInErrorMessage, setCheckInErrorMessage] = useState("");
-  const [isConfirmingLobby, setIsConfirmingLobby] = useState(false);
-  const [isUploadingLobbyScreenshot, setIsUploadingLobbyScreenshot] =
-    useState(false);
-  const [isWaitingForLobbyScreenshot, setIsWaitingForLobbyScreenshot] =
-    useState(false);
-  const [lobbyErrorMessage, setLobbyErrorMessage] = useState("");
-  const [ocrData, setOcrData] = useState<LobbyScreenshotVerificationData | null>(
-    null
-  );
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [pendingLobbyMapNumber, setPendingLobbyMapNumber] =
+    useState<LobbyMapNumber | null>(null);
+  const [confirmingLobbyMapNumber, setConfirmingLobbyMapNumber] =
+    useState<LobbyMapNumber | null>(null);
+  const [uploadingLobbyMapNumber, setUploadingLobbyMapNumber] =
+    useState<LobbyMapNumber | null>(null);
+  const [waitingLobbyMapNumber, setWaitingLobbyMapNumber] =
+    useState<LobbyMapNumber | null>(null);
+  const [analyzingLobbyMapNumber, setAnalyzingLobbyMapNumber] =
+    useState<LobbyMapNumber | null>(null);
+  const [lobbyErrorMessagesByMap, setLobbyErrorMessagesByMap] = useState<
+    Record<LobbyMapNumber, string>
+  >(() => createLobbyMapRecord(() => ""));
+  const [ocrDataByMap, setOcrDataByMap] = useState<
+    Record<LobbyMapNumber, LobbyScreenshotVerificationData | null>
+  >(() => createLobbyMapRecord(() => null));
   const [reportedTeamAScore, setReportedTeamAScore] = useState("");
   const [reportedTeamBScore, setReportedTeamBScore] = useState("");
   const [resultScreenshotSlots, setResultScreenshotSlots] = useState<
@@ -241,11 +231,6 @@ export default function MatchRoomPage() {
   >([]);
   const [isSubmittingMatchResult, setIsSubmittingMatchResult] = useState(false);
   const [matchResultErrorMessage, setMatchResultErrorMessage] = useState("");
-  const [nonHostLobbyScore, setNonHostLobbyScore] = useState("");
-  const [nonHostLobbyUploadedPhotoNames, setNonHostLobbyUploadedPhotoNames] =
-    useState<string[]>([]);
-  const [isUploadingNonHostLobbyGallery, setIsUploadingNonHostLobbyGallery] =
-    useState(false);
 
   const loadMatchRoom = useCallback(
     async (nextMatchId: string, options?: { showLoading?: boolean }) => {
@@ -370,12 +355,6 @@ export default function MatchRoomPage() {
         })
       )
     );
-    setNonHostLobbyScore(
-      data.match.teamAScore !== null && data.match.teamBScore !== null
-        ? `${data.match.teamAScore}-${data.match.teamBScore}`
-        : ""
-    );
-    setNonHostLobbyUploadedPhotoNames([]);
     setMatchResultErrorMessage("");
   }, [data]);
 
@@ -405,6 +384,41 @@ export default function MatchRoomPage() {
       Math.max(totalGames, 0)
     );
   }, [reportedTeamAScore, reportedTeamBScore]);
+
+  useEffect(() => {
+    setPendingLobbyMapNumber(null);
+    setConfirmingLobbyMapNumber(null);
+    setUploadingLobbyMapNumber(null);
+    setWaitingLobbyMapNumber(null);
+    setAnalyzingLobbyMapNumber(null);
+    setLobbyErrorMessagesByMap(createLobbyMapRecord(() => ""));
+    setOcrDataByMap(createLobbyMapRecord(() => null));
+  }, [matchId]);
+
+  function setLobbyMapError(mapNumber: LobbyMapNumber, message: string) {
+    setLobbyErrorMessagesByMap((current) => ({
+      ...current,
+      [mapNumber]: message,
+    }));
+  }
+
+  function clearLobbyMapError(mapNumber: LobbyMapNumber) {
+    setLobbyMapError(mapNumber, "");
+  }
+
+  function clearAllLobbyMapErrors() {
+    setLobbyErrorMessagesByMap(createLobbyMapRecord(() => ""));
+  }
+
+  function setLobbyMapOcrData(
+    mapNumber: LobbyMapNumber,
+    nextData: LobbyScreenshotVerificationData | null
+  ) {
+    setOcrDataByMap((current) => ({
+      ...current,
+      [mapNumber]: nextData,
+    }));
+  }
 
   async function getSessionAccessToken() {
     const supabase = getSupabaseBrowserClient();
@@ -509,12 +523,9 @@ export default function MatchRoomPage() {
     }
   }
 
-  function openLobbyScreenshotPicker() {
-    openFilePicker(
-      screenshotInputRef,
-      setLobbyErrorMessage,
-      ""
-    );
+  function openLobbyScreenshotPicker(mapNumber: LobbyMapNumber) {
+    setPendingLobbyMapNumber(mapNumber);
+    openFilePicker(screenshotInputRef, (message) => setLobbyMapError(mapNumber, message), "");
   }
 
   function updateResultScreenshotSlot(
@@ -552,22 +563,14 @@ export default function MatchRoomPage() {
 
     setIsCheckingIn(true);
     setCheckInErrorMessage("");
-    setLobbyErrorMessage("");
-    setIsWaitingForLobbyScreenshot(false);
+    clearAllLobbyMapErrors();
+    setWaitingLobbyMapNumber(null);
 
     try {
       const accessToken = await getSessionAccessToken();
 
       if (!accessToken) {
         setCheckInErrorMessage("Войдите в аккаунт для отметки.");
-        return;
-      }
-
-      const biometricErrorMessage =
-        await runMatchBiometricVerification(accessToken);
-
-      if (biometricErrorMessage) {
-        setCheckInErrorMessage(biometricErrorMessage);
         return;
       }
 
@@ -588,20 +591,20 @@ export default function MatchRoomPage() {
     }
   }
 
-  async function handleConfirmLobby() {
+  async function handleConfirmLobby(mapNumber: LobbyMapNumber) {
     if (!matchId) {
       return;
     }
 
-    setIsConfirmingLobby(true);
-    setLobbyErrorMessage("");
+    setConfirmingLobbyMapNumber(mapNumber);
+    clearLobbyMapError(mapNumber);
     setCheckInErrorMessage("");
 
     try {
       const accessToken = await getSessionAccessToken();
 
       if (!accessToken) {
-        setLobbyErrorMessage("Войдите в аккаунт для подтверждения лобби.");
+        setLobbyMapError(mapNumber, "Войдите в аккаунт для подтверждения лобби.");
         return;
       }
 
@@ -609,18 +612,19 @@ export default function MatchRoomPage() {
         await runMatchBiometricVerification(accessToken);
 
       if (biometricErrorMessage) {
-        setLobbyErrorMessage(biometricErrorMessage);
+        setLobbyMapError(mapNumber, biometricErrorMessage);
         return;
       }
 
-      setIsWaitingForLobbyScreenshot(true);
-      openLobbyScreenshotPicker();
+      setWaitingLobbyMapNumber(mapNumber);
+      openLobbyScreenshotPicker(mapNumber);
     } catch (error) {
-      setLobbyErrorMessage(
+      setLobbyMapError(
+        mapNumber,
         getErrorMessage(error, "Не удалось подтвердить лобби.")
       );
     } finally {
-      setIsConfirmingLobby(false);
+      setConfirmingLobbyMapNumber(null);
     }
   }
 
@@ -629,25 +633,26 @@ export default function MatchRoomPage() {
   ) {
     const screenshotFile = event.target.files?.[0];
     event.target.value = "";
+    const targetMapNumber = pendingLobbyMapNumber;
 
-    if (!screenshotFile || !matchId || !currentUserId) {
+    if (!screenshotFile || !matchId || !currentUserId || !targetMapNumber) {
       return;
     }
 
     if (!screenshotFile.type.startsWith("image/")) {
-      setLobbyErrorMessage("Загрузите изображение скриншота.");
+      setLobbyMapError(targetMapNumber, "Загрузите изображение скриншота.");
       return;
     }
 
-    setIsUploadingLobbyScreenshot(true);
-    setLobbyErrorMessage("");
-    setOcrData(null);
+    setUploadingLobbyMapNumber(targetMapNumber);
+    clearLobbyMapError(targetMapNumber);
+    setLobbyMapOcrData(targetMapNumber, null);
 
     try {
       const accessToken = await getSessionAccessToken();
 
       if (!accessToken) {
-        setLobbyErrorMessage("Войдите в аккаунт для загрузки скриншота.");
+        setLobbyMapError(targetMapNumber, "Войдите в аккаунт для загрузки скриншота.");
         return;
       }
 
@@ -679,127 +684,25 @@ export default function MatchRoomPage() {
       const saveResult = await saveMatchLobbyScreenshot(
         matchId,
         accessToken,
-        publicUrl
+        publicUrl,
+        targetMapNumber
       );
 
       if (saveResult.error) {
         throw new Error(saveResult.error);
       }
 
-      setIsWaitingForLobbyScreenshot(false);
+      setWaitingLobbyMapNumber(null);
+      setPendingLobbyMapNumber(null);
       await refreshMatchRoom();
     } catch (error) {
       console.error("Lobby screenshot upload failed:", error);
-      setLobbyErrorMessage(
+      setLobbyMapError(
+        targetMapNumber,
         getErrorMessage(error, "Не удалось загрузить скриншот.")
       );
     } finally {
-      setIsUploadingLobbyScreenshot(false);
-    }
-  }
-
-  async function handleNonHostLobbyGalleryChange(
-    event: React.ChangeEvent<HTMLInputElement>
-  ) {
-    const selectedFiles = Array.from(event.target.files ?? []);
-    event.target.value = "";
-
-    if (!matchId || !currentUserId) {
-      return;
-    }
-
-    const parsedScore = parseSelectedSeriesScore(nonHostLobbyScore);
-
-    if (!parsedScore || parsedScore.totalGames <= 0) {
-      setLobbyErrorMessage("Сначала выберите итоговый счет серии.");
-      setNonHostLobbyUploadedPhotoNames([]);
-      return;
-    }
-
-    if (selectedFiles.length !== parsedScore.totalGames) {
-      setLobbyErrorMessage(
-        `Нужно загрузить ровно ${parsedScore.totalGames} фото(й) по выбранному счету.`
-      );
-      setNonHostLobbyUploadedPhotoNames([]);
-      return;
-    }
-
-    if (selectedFiles.some((file) => !file.type.startsWith("image/"))) {
-      setLobbyErrorMessage("Загрузите изображения из галереи.");
-      setNonHostLobbyUploadedPhotoNames([]);
-      return;
-    }
-
-    setIsUploadingNonHostLobbyGallery(true);
-    setIsUploadingLobbyScreenshot(true);
-    setLobbyErrorMessage("");
-    setOcrData(null);
-    setNonHostLobbyUploadedPhotoNames(selectedFiles.map((file) => file.name));
-
-    try {
-      const accessToken = await getSessionAccessToken();
-
-      if (!accessToken) {
-        setLobbyErrorMessage("Войдите в аккаунт для загрузки фото лобби.");
-        return;
-      }
-
-      const supabase = getSupabaseBrowserClient();
-      const publicUrls: string[] = [];
-
-      for (const [index, screenshotFile] of selectedFiles.entries()) {
-        const filePath = `${currentUserId}/${matchId}/${Date.now()}-${index}-${crypto.randomUUID()}.${getFileExtension(
-          screenshotFile
-        )}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("match-screenshots")
-          .upload(filePath, screenshotFile, {
-            cacheControl: "3600",
-            upsert: false,
-            contentType: screenshotFile.type,
-          });
-
-        if (uploadError) {
-          throw uploadError;
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("match-screenshots").getPublicUrl(filePath);
-
-        if (!publicUrl) {
-          throw new Error("Не удалось получить ссылку на фото лобби.");
-        }
-
-        publicUrls.push(publicUrl);
-      }
-
-      const canonicalLobbyPhotoUrl = publicUrls[0];
-
-      if (!canonicalLobbyPhotoUrl) {
-        throw new Error("Не удалось сохранить фото лобби.");
-      }
-
-      const saveResult = await saveMatchLobbyScreenshot(
-        matchId,
-        accessToken,
-        canonicalLobbyPhotoUrl
-      );
-
-      if (saveResult.error) {
-        throw new Error(saveResult.error);
-      }
-
-      await refreshMatchRoom();
-    } catch (error) {
-      console.error("Non-host lobby gallery upload failed:", error);
-      setLobbyErrorMessage(
-        getErrorMessage(error, "Не удалось загрузить фото лобби.")
-      );
-    } finally {
-      setIsUploadingNonHostLobbyGallery(false);
-      setIsUploadingLobbyScreenshot(false);
+      setUploadingLobbyMapNumber(null);
     }
   }
 
@@ -936,40 +839,42 @@ export default function MatchRoomPage() {
     }
   }
 
-  async function handleAnalyze() {
+  async function handleAnalyze(mapNumber: LobbyMapNumber) {
     if (!matchId) {
       return;
     }
 
-    setIsAnalyzing(true);
-    setLobbyErrorMessage("");
-    setOcrData(null);
+    setAnalyzingLobbyMapNumber(mapNumber);
+    clearLobbyMapError(mapNumber);
+    setLobbyMapOcrData(mapNumber, null);
 
     try {
       const accessToken = await getSessionAccessToken();
 
       if (!accessToken) {
-        setLobbyErrorMessage("Войдите в аккаунт для анализа скриншота.");
+        setLobbyMapError(mapNumber, "Войдите в аккаунт для анализа скриншота.");
         return;
       }
 
-      const result = await analyzeLobbyScreenshot(matchId, accessToken);
+      const result = await analyzeLobbyScreenshot(matchId, accessToken, mapNumber);
 
       if (result.error || !result.data) {
-        setLobbyErrorMessage(
+        setLobbyMapError(
+          mapNumber,
           result.error ?? "Не удалось проанализировать скриншот."
         );
         return;
       }
 
-      setOcrData(result.data);
+      setLobbyMapOcrData(mapNumber, result.data);
     } catch (error) {
       console.error("Lobby screenshot analysis failed:", error);
-      setLobbyErrorMessage(
+      setLobbyMapError(
+        mapNumber,
         getErrorMessage(error, "Не удалось проанализировать скриншот.")
       );
     } finally {
-      setIsAnalyzing(false);
+      setAnalyzingLobbyMapNumber(null);
     }
   }
 
@@ -1049,11 +954,12 @@ export default function MatchRoomPage() {
   const isCurrentUserCheckedIn = Boolean(
     currentUserId && data.checkedInUserIds.includes(currentUserId)
   );
-  const isCurrentUserLobbyConfirmed = Boolean(
-    currentUserId && data.screenshotUploadedUserIds.includes(currentUserId)
+  const totalPlayers = Math.max(
+    data.teamA.roster.length + data.teamB.roster.length,
+    1
   );
-  const checkInCount = Math.min(data.checkedInUserIds.length, TOTAL_MATCH_PLAYERS);
-  const allCheckedIn = checkInCount >= TOTAL_MATCH_PLAYERS;
+  const checkInCount = Math.min(data.checkedInUserIds.length, totalPlayers);
+  const allCheckedIn = checkInCount >= totalPlayers;
 
   const hostTeam = data.teamA;
   const hostCaptain = hostTeam.roster.find((player) => player.isCaptain);
@@ -1067,9 +973,6 @@ export default function MatchRoomPage() {
   );
   const isCurrentUserHostCaptain = Boolean(
     isCurrentUserCaptain && currentUserTeam?.id === hostTeamId
-  );
-  const isCurrentUserNonHostCaptain = Boolean(
-    isCurrentUserCaptain && currentUserTeam?.id && currentUserTeam.id !== hostTeamId
   );
   const teamAHasCheckedIn = data.teamA.roster.some((player) =>
     data.checkedInUserIds.includes(player.userId)
@@ -1085,11 +988,18 @@ export default function MatchRoomPage() {
     Date.now() > scheduledTimeMs + 15 * 60 * 1000 &&
     !teamAHasCheckedIn &&
     !teamBHasCheckedIn;
-  const isLobbyActionBusy =
-    isConfirmingLobby ||
-    isUploadingLobbyScreenshot ||
-    isWaitingForLobbyScreenshot ||
-    isCurrentUserLobbyConfirmed;
+  const currentUserLobbyPhotos = currentUserId
+    ? data.lobbyPhotos.filter((photo) => photo.playerId === currentUserId)
+    : [];
+  const currentUserLobbyPhotoUrlByMap = createLobbyMapRecord(
+    (mapNumber) =>
+      currentUserLobbyPhotos.find((photo) => photo.mapNumber === mapNumber)
+        ?.photoUrl ?? null
+  );
+  const currentLobbyMapNumber =
+    LOBBY_MAP_NUMBERS.find(
+      (mapNumber) => !currentUserLobbyPhotoUrlByMap[mapNumber]
+    ) ?? null;
   const parsedReportedTeamAScore = reportedTeamAScore
     ? Number.parseInt(reportedTeamAScore, 10)
     : 0;
@@ -1098,8 +1008,6 @@ export default function MatchRoomPage() {
     : 0;
   const seriesLength = getSeriesLength(data.match.format);
   const seriesMaxWins = getSeriesMaxWins(data.match.format);
-  const parsedNonHostLobbyScore = parseSelectedSeriesScore(nonHostLobbyScore);
-  const nonHostLobbyExpectedPhotoCount = parsedNonHostLobbyScore?.totalGames ?? 0;
   const safeResultScreenshotUrls = normalizeResultScreenshotUrls(
     data.match?.resultScreenshotUrls ?? []
   );
@@ -1182,12 +1090,13 @@ export default function MatchRoomPage() {
       <div className="min-h-screen bg-[#0B3A4A]/10 backdrop-blur-sm shadow-[0_0_60px_-10px_rgba(11,58,74,0.3)]">
         <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
           <MatchTabs
+            matchId={matchId}
             match={data.match}
             teamA={data.teamA}
             teamB={data.teamB}
             checkedInUserIds={data.checkedInUserIds}
             hostLabel={hostLabel}
-            totalPlayers={TOTAL_MATCH_PLAYERS}
+            totalPlayers={totalPlayers}
             roundLabelDisplay={roundLabelDisplay}
             scheduledAtDisplay={scheduledAtDisplay}
             lobbyStatusLabel={lobbyStatusLabel}
@@ -1195,21 +1104,20 @@ export default function MatchRoomPage() {
               isCurrentUserParticipant,
               isCurrentUserCaptain,
               isCurrentUserHostCaptain,
-              isCurrentUserNonHostCaptain,
               isCurrentUserCheckedIn,
               currentTeamId: currentUserTeam?.id ?? null,
               opponentTeamId: opponentTeam?.id ?? null,
-              isCurrentUserLobbyConfirmed,
-              isLobbyActionBusy,
-              isWaitingForLobbyScreenshot,
-              isUploadingLobbyScreenshot,
-              isConfirmingLobby,
-              isAnalyzing,
+              currentLobbyMapNumber,
+              uploadedLobbyPhotoUrlByMap: currentUserLobbyPhotoUrlByMap,
+              waitingLobbyMapNumber,
+              uploadingLobbyMapNumber,
+              confirmingLobbyMapNumber,
+              analyzingLobbyMapNumber,
               checkInCount,
               allCheckedIn,
               checkInErrorMessage,
-              lobbyErrorMessage,
-              ocrData,
+              lobbyErrorMessagesByMap,
+              ocrDataByMap,
               screenshotInputRef,
               onCheckIn: handleCheckIn,
               onConfirmLobby: handleConfirmLobby,
@@ -1222,7 +1130,6 @@ export default function MatchRoomPage() {
             }}
             results={{
               isCurrentUserLobbyHost,
-              isCurrentUserNonHostCaptain,
               hasReportedMatchResult,
               reportedWinnerName,
               safeResultScreenshotUrls,
@@ -1240,17 +1147,11 @@ export default function MatchRoomPage() {
               matchResultErrorMessage,
               isResultSubmitDisabled,
               isSubmittingMatchResult,
-              nonHostLobbyScore,
-              nonHostLobbyExpectedPhotoCount,
-              nonHostLobbyUploadedPhotoNames,
-              isUploadingNonHostLobbyGallery,
               onMatchResultSubmit: handleMatchResultSubmit,
               onReportedTeamAScoreChange: (value) =>
                 setReportedTeamAScore(normalizeScoreInput(value, seriesMaxWins)),
               onReportedTeamBScoreChange: (value) =>
                 setReportedTeamBScore(normalizeScoreInput(value, seriesMaxWins)),
-              onNonHostLobbyScoreChange: setNonHostLobbyScore,
-              onNonHostLobbyGalleryChange: handleNonHostLobbyGalleryChange,
               onSetResultScreenshotInputRef: (index, node) => {
                 resultScreenshotInputRefs.current[index] = node;
               },

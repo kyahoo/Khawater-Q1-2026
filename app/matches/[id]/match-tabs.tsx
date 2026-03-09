@@ -9,6 +9,10 @@ import { NotifyButton } from "@/components/matches/NotifyButton";
 import type { MatchRoomData } from "@/lib/supabase/matches";
 import { CheckInGate } from "./check-in-gate";
 
+const LOBBY_MAP_NUMBERS = [1, 2, 3] as const;
+
+type LobbyMapNumber = (typeof LOBBY_MAP_NUMBERS)[number];
+
 type LobbyScreenshotVerificationData = {
   is_host_found: boolean;
   is_uploader_found: boolean;
@@ -21,21 +25,8 @@ type ResultScreenshotSlotState = {
   errorMessage: string;
 };
 
-function getScoreSelectionOptions(seriesLength: number | null) {
-  const maxGames = Math.max(seriesLength ?? 3, 1);
-  const options: string[] = [];
-
-  for (let totalGames = maxGames; totalGames >= 1; totalGames -= 1) {
-    for (let teamAScore = totalGames; teamAScore >= 0; teamAScore -= 1) {
-      const teamBScore = totalGames - teamAScore;
-      options.push(`${teamAScore}-${teamBScore}`);
-    }
-  }
-
-  return Array.from(new Set(options));
-}
-
 type MatchTabsProps = {
+  matchId: string;
   match: MatchRoomData["match"];
   teamA: MatchRoomData["teamA"];
   teamB: MatchRoomData["teamB"];
@@ -49,34 +40,32 @@ type MatchTabsProps = {
     isCurrentUserParticipant: boolean;
     isCurrentUserCaptain: boolean;
     isCurrentUserHostCaptain: boolean;
-    isCurrentUserNonHostCaptain: boolean;
     isCurrentUserCheckedIn: boolean;
     currentTeamId: string | null;
     opponentTeamId: string | null;
-    isCurrentUserLobbyConfirmed: boolean;
-    isLobbyActionBusy: boolean;
-    isWaitingForLobbyScreenshot: boolean;
-    isUploadingLobbyScreenshot: boolean;
-    isConfirmingLobby: boolean;
-    isAnalyzing: boolean;
+    currentLobbyMapNumber: LobbyMapNumber | null;
+    uploadedLobbyPhotoUrlByMap: Record<LobbyMapNumber, string | null>;
+    waitingLobbyMapNumber: LobbyMapNumber | null;
+    uploadingLobbyMapNumber: LobbyMapNumber | null;
+    confirmingLobbyMapNumber: LobbyMapNumber | null;
+    analyzingLobbyMapNumber: LobbyMapNumber | null;
     checkInCount: number;
     allCheckedIn: boolean;
     checkInErrorMessage: string;
-    lobbyErrorMessage: string;
-    ocrData: LobbyScreenshotVerificationData | null;
+    lobbyErrorMessagesByMap: Record<LobbyMapNumber, string>;
+    ocrDataByMap: Record<LobbyMapNumber, LobbyScreenshotVerificationData | null>;
     screenshotInputRef: RefObject<HTMLInputElement | null>;
     onCheckIn: () => void;
-    onConfirmLobby: () => void;
-    onOpenLobbyScreenshotPicker: () => void;
+    onConfirmLobby: (mapNumber: LobbyMapNumber) => void;
+    onOpenLobbyScreenshotPicker: (mapNumber: LobbyMapNumber) => void;
     onLobbyScreenshotChange: (event: ChangeEvent<HTMLInputElement>) => void;
-    onAnalyze: () => void;
+    onAnalyze: (mapNumber: LobbyMapNumber) => void;
     isCheckingIn: boolean;
     opponentNotified: boolean;
     isLateCheckInLockout: boolean;
   };
   results: {
     isCurrentUserLobbyHost: boolean;
-    isCurrentUserNonHostCaptain: boolean;
     hasReportedMatchResult: boolean;
     reportedWinnerName: string | null;
     safeResultScreenshotUrls: string[];
@@ -97,17 +86,9 @@ type MatchTabsProps = {
     matchResultErrorMessage: string;
     isResultSubmitDisabled: boolean;
     isSubmittingMatchResult: boolean;
-    nonHostLobbyScore: string;
-    nonHostLobbyExpectedPhotoCount: number;
-    nonHostLobbyUploadedPhotoNames: string[];
-    isUploadingNonHostLobbyGallery: boolean;
     onMatchResultSubmit: (event: FormEvent<HTMLFormElement>) => void;
     onReportedTeamAScoreChange: (value: string) => void;
     onReportedTeamBScoreChange: (value: string) => void;
-    onNonHostLobbyScoreChange: (value: string) => void;
-    onNonHostLobbyGalleryChange: (
-      event: ChangeEvent<HTMLInputElement>
-    ) => void;
     onSetResultScreenshotInputRef: (
       index: number,
       node: HTMLInputElement | null
@@ -157,6 +138,7 @@ function PlayerRow({
 }
 
 export function MatchTabs({
+  matchId,
   match,
   teamA,
   teamB,
@@ -176,21 +158,20 @@ export function MatchTabs({
     isCurrentUserParticipant,
     isCurrentUserCaptain,
     isCurrentUserHostCaptain,
-    isCurrentUserNonHostCaptain,
     isCurrentUserCheckedIn,
     currentTeamId,
     opponentTeamId,
-    isCurrentUserLobbyConfirmed,
-    isLobbyActionBusy,
-    isWaitingForLobbyScreenshot,
-    isUploadingLobbyScreenshot,
-    isConfirmingLobby,
-    isAnalyzing,
+    currentLobbyMapNumber,
+    uploadedLobbyPhotoUrlByMap,
+    waitingLobbyMapNumber,
+    uploadingLobbyMapNumber,
+    confirmingLobbyMapNumber,
+    analyzingLobbyMapNumber,
     checkInCount,
     allCheckedIn,
     checkInErrorMessage,
-    lobbyErrorMessage,
-    ocrData,
+    lobbyErrorMessagesByMap,
+    ocrDataByMap,
     screenshotInputRef,
     onCheckIn,
     onConfirmLobby,
@@ -228,8 +209,7 @@ export function MatchTabs({
   const canNotifyOpponent = Boolean(
     isCurrentUserHostCaptain && currentTeamId
   );
-  const normalizedMatchId = String(match.id ?? "").trim();
-  const nonHostScoreSelectionOptions = getScoreSelectionOptions(results.seriesLength);
+  const normalizedMatchId = String(matchId ?? "").trim();
 
   return (
     <>
@@ -448,7 +428,7 @@ export function MatchTabs({
                   </div>
                 </div>
 
-                {isCurrentUserHostCaptain && (
+                {isCurrentUserParticipant && (
                   <div className="border-[4px] border-[#061726] bg-[#123C4D] p-5 shadow-[6px_6px_0px_0px_#061726]">
                     <input
                       ref={screenshotInputRef}
@@ -463,123 +443,159 @@ export function MatchTabs({
                       Этап 2
                     </p>
                     <h3 className="mt-2 text-2xl font-black uppercase text-white">
-                      ФОТО ЛОББИ
+                      ФОТО ЛОББИ ПО КАРТАМ
                     </h3>
                     <div className="mt-4 border-[3px] border-[#CD9C3E] bg-[#061726] p-4 shadow-[4px_4px_0px_0px_#061726]">
-                      <p className="mt-3 max-w-2xl text-sm font-bold text-white/90">
-                        Подтвердите устройство, затем загрузите фото лобби. На
-                        скриншоте должно быть видно ваше имя и состав в лобби.
+                      <p className="mt-3 max-w-3xl text-sm font-bold text-white/90">
+                        Для каждой карты сначала подтвердите устройство через
+                        passkey, затем сделайте фото лобби. OCR-проверка ниже
+                        сохранена без изменений и запускается отдельно для
+                        каждой загруженной карты.
                       </p>
                     </div>
-                    {isCurrentUserLobbyConfirmed ? (
-                      <>
-                        <div className="mt-5 border-[3px] border-[#061726] bg-[#163f1d] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#D9F99D] shadow-[4px_4px_0px_0px_#061726]">
-                          ФОТО ЗАГРУЖЕНО ✅
-                        </div>
-                        <button
-                          type="button"
-                          onClick={onAnalyze}
-                          disabled={isAnalyzing}
-                          className="mt-4 border-[3px] border-[#061726] bg-[#0B3A4A] px-6 py-3 text-sm font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
-                        >
-                          {isAnalyzing ? "Анализ..." : "АНАЛИЗ СЕКРЕТНЫХ ДАННЫХ"}
-                        </button>
-                        {ocrData && (
-                          <div className="mt-4 grid gap-3 md:grid-cols-2">
-                            <div className="border-[3px] border-[#061726] bg-black p-4 text-xs font-mono text-[#39FF14] shadow-[4px_4px_0px_0px_#061726]">
-                              <p className="uppercase tracking-[0.18em] text-white/70">
-                                Host Match
+
+                    <div className="mt-5 grid gap-4 xl:grid-cols-3">
+                      {LOBBY_MAP_NUMBERS.map((mapNumber) => {
+                        const uploadedPhotoUrl = uploadedLobbyPhotoUrlByMap[mapNumber];
+                        const ocrData = ocrDataByMap[mapNumber];
+                        const errorMessage = lobbyErrorMessagesByMap[mapNumber];
+                        const isUploaded = Boolean(uploadedPhotoUrl);
+                        const isCurrentMap = currentLobbyMapNumber === mapNumber;
+                        const isFutureMap =
+                          currentLobbyMapNumber !== null &&
+                          mapNumber > currentLobbyMapNumber &&
+                          !isUploaded;
+                        const isConfirmingCurrentMap =
+                          confirmingLobbyMapNumber === mapNumber;
+                        const isUploadingCurrentMap =
+                          uploadingLobbyMapNumber === mapNumber;
+                        const isWaitingCurrentMap =
+                          waitingLobbyMapNumber === mapNumber;
+                        const isAnalyzingCurrentMap =
+                          analyzingLobbyMapNumber === mapNumber;
+
+                        return (
+                          <div
+                            key={`lobby-map-${mapNumber}`}
+                            className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]"
+                          >
+                            <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
+                              Карта {mapNumber}
+                            </p>
+                            <h4 className="mt-2 text-xl font-black uppercase text-white">
+                              ФОТО ЛОББИ
+                            </h4>
+
+                            {isUploaded ? (
+                              <>
+                                <div className="mt-5 border-[3px] border-[#061726] bg-[#163f1d] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#D9F99D] shadow-[4px_4px_0px_0px_#061726]">
+                                  ФОТО ЗАГРУЖЕНО ✅
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => onAnalyze(mapNumber)}
+                                  disabled={isAnalyzingCurrentMap}
+                                  className="mt-4 border-[3px] border-[#061726] bg-[#0B3A4A] px-6 py-3 text-sm font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
+                                >
+                                  {isAnalyzingCurrentMap
+                                    ? "Анализ..."
+                                    : "АНАЛИЗ СЕКРЕТНЫХ ДАННЫХ"}
+                                </button>
+                                {ocrData && (
+                                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                                    <div className="border-[3px] border-[#061726] bg-black p-4 text-xs font-mono text-[#39FF14] shadow-[4px_4px_0px_0px_#061726]">
+                                      <p className="uppercase tracking-[0.18em] text-white/70">
+                                        Host Match
+                                      </p>
+                                      <p
+                                        className={`mt-3 text-2xl font-black uppercase ${
+                                          ocrData.is_host_found
+                                            ? "text-[#39FF14]"
+                                            : "text-[#F87171]"
+                                        }`}
+                                      >
+                                        {String(ocrData.is_host_found)}
+                                      </p>
+                                    </div>
+                                    <div className="border-[3px] border-[#061726] bg-black p-4 text-xs font-mono text-[#39FF14] shadow-[4px_4px_0px_0px_#061726]">
+                                      <p className="uppercase tracking-[0.18em] text-white/70">
+                                        Uploader Match
+                                      </p>
+                                      <p
+                                        className={`mt-3 text-2xl font-black uppercase ${
+                                          ocrData.is_uploader_found
+                                            ? "text-[#39FF14]"
+                                            : "text-[#F87171]"
+                                        }`}
+                                      >
+                                        {String(ocrData.is_uploader_found)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+                                {uploadedPhotoUrl && (
+                                  <a
+                                    href={uploadedPhotoUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-4 inline-block border-[3px] border-[#CD9C3E] bg-[#061726] px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+                                  >
+                                    ОТКРЫТЬ ФОТО
+                                  </a>
+                                )}
+                              </>
+                            ) : isFutureMap ? (
+                              <div className="mt-5 border-[3px] border-[#061726] bg-[#061726] px-4 py-4 text-sm font-bold text-white/75 shadow-[4px_4px_0px_0px_#061726]">
+                                Сначала завершите фото для предыдущей карты.
+                              </div>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => onConfirmLobby(mapNumber)}
+                                  disabled={
+                                    !isCurrentUserCheckedIn ||
+                                    (!isCurrentMap &&
+                                      !isConfirmingCurrentMap &&
+                                      !isWaitingCurrentMap &&
+                                      !isUploadingCurrentMap)
+                                  }
+                                  className="mt-5 border-[3px] border-[#061726] bg-[#CD9C3E] px-6 py-3 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70 disabled:shadow-[4px_4px_0px_0px_#061726]"
+                                >
+                                  {isConfirmingCurrentMap
+                                    ? "Проверка..."
+                                    : isUploadingCurrentMap
+                                      ? "Загрузка..."
+                                      : `СДЕЛАТЬ ФОТО ЛОББИ (КАРТА ${mapNumber})`}
+                                </button>
+
+                                {!isCurrentUserCheckedIn && (
+                                  <p className="mt-3 text-sm text-white/80">
+                                    Сначала завершите пре-матч чек-ин.
+                                  </p>
+                                )}
+
+                                {isWaitingCurrentMap && !isUploadingCurrentMap && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onOpenLobbyScreenshotPicker(mapNumber)}
+                                    className="mt-3 block border-[3px] border-[#061726] bg-white px-5 py-2 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+                                  >
+                                    ОТКРЫТЬ КАМЕРУ
+                                  </button>
+                                )}
+                              </>
+                            )}
+
+                            {errorMessage && (
+                              <p className="mt-3 text-sm font-bold text-[#FCA5A5]">
+                                {errorMessage}
                               </p>
-                              <p
-                                className={`mt-3 text-2xl font-black uppercase ${
-                                  ocrData.is_host_found
-                                    ? "text-[#39FF14]"
-                                    : "text-[#F87171]"
-                                }`}
-                              >
-                                {String(ocrData.is_host_found)}
-                              </p>
-                            </div>
-                            <div className="border-[3px] border-[#061726] bg-black p-4 text-xs font-mono text-[#39FF14] shadow-[4px_4px_0px_0px_#061726]">
-                              <p className="uppercase tracking-[0.18em] text-white/70">
-                                Uploader Match
-                              </p>
-                              <p
-                                className={`mt-3 text-2xl font-black uppercase ${
-                                  ocrData.is_uploader_found
-                                    ? "text-[#39FF14]"
-                                    : "text-[#F87171]"
-                                }`}
-                              >
-                                {String(ocrData.is_uploader_found)}
-                              </p>
-                            </div>
+                            )}
                           </div>
-                        )}
-                        {lobbyErrorMessage && (
-                          <p className="mt-3 text-sm font-bold text-[#FCA5A5]">
-                            {lobbyErrorMessage}
-                          </p>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={onConfirmLobby}
-                          disabled={
-                            isLobbyActionBusy ||
-                            !isCurrentUserCheckedIn
-                          }
-                          className="mt-5 border-[3px] border-[#061726] bg-[#CD9C3E] px-6 py-3 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70 disabled:shadow-[4px_4px_0px_0px_#061726]"
-                        >
-                          {isConfirmingLobby
-                            ? "Проверка..."
-                            : isUploadingLobbyScreenshot
-                              ? "Загрузка..."
-                              : "ПОДТВЕРДИТЕ ДЕВАЙС"}
-                        </button>
-
-                        {!isCurrentUserCheckedIn && (
-                          <p className="mt-3 text-sm text-white/80">
-                            Сначала завершите пре-матч чек-ин.
-                          </p>
-                        )}
-
-                        {isWaitingForLobbyScreenshot &&
-                          !isUploadingLobbyScreenshot && (
-                            <button
-                              type="button"
-                              onClick={onOpenLobbyScreenshotPicker}
-                              className="mt-3 block border-[3px] border-[#061726] bg-white px-5 py-2 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
-                            >
-                              СДЕЛАТЬ ФОТО ЛОББИ
-                            </button>
-                          )}
-
-                        {lobbyErrorMessage && (
-                          <p className="mt-3 text-sm font-bold text-[#FCA5A5]">
-                            {lobbyErrorMessage}
-                          </p>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {isCurrentUserNonHostCaptain && (
-                  <div className="border-[4px] border-[#061726] bg-[#123C4D] p-5 shadow-[6px_6px_0px_0px_#061726]">
-                    <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
-                      Этап 2
-                    </p>
-                    <h3 className="mt-2 text-2xl font-black uppercase text-white">
-                      ОЖИДАНИЕ РЕЗУЛЬТАТОВ
-                    </h3>
-                    <p className="mt-3 max-w-2xl text-sm text-white/80">
-                      В лобби-вкладке для второго капитана больше нет биометрической
-                      проверки. Фото лобби загружается позже во вкладке
-                      «Результаты».
-                    </p>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -941,160 +957,6 @@ export function MatchTabs({
                   : "ПОДТВЕРДИТЬ РЕЗУЛЬТАТ"}
               </button>
             </form>
-          )}
-        </section>
-      ) : results.isCurrentUserNonHostCaptain ? (
-        <section className="mt-6 border-[4px] border-[#CD9C3E] bg-[#061726] p-5 shadow-[6px_6px_0px_0px_#CD9C3E] md:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
-                Пост-матч
-              </p>
-              <h2 className="mt-2 text-2xl font-black uppercase text-white">
-                ЗАГРУЗКА ФОТО ЛОББИ
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm text-white/80">
-                Второй капитан загружает подтверждающее фото лобби здесь. Скриншот
-                должен показывать всех игроков, ваше имя и имя хоста.
-              </p>
-            </div>
-          </div>
-
-          {isCurrentUserLobbyConfirmed ? (
-            <>
-              <div className="mt-5 border-[3px] border-[#061726] bg-[#163f1d] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#D9F99D] shadow-[4px_4px_0px_0px_#061726]">
-                ФОТО ЛОББИ ЗАГРУЖЕНО ✅
-              </div>
-
-              <button
-                type="button"
-                onClick={onAnalyze}
-                disabled={isAnalyzing}
-                className="mt-4 border-[3px] border-[#061726] bg-[#0B3A4A] px-6 py-3 text-sm font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
-              >
-                {isAnalyzing ? "Анализ..." : "АНАЛИЗ ФОТО ЛОББИ"}
-              </button>
-
-              {ocrData && (
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <div className="border-[3px] border-[#061726] bg-black p-4 text-xs font-mono text-[#39FF14] shadow-[4px_4px_0px_0px_#061726]">
-                    <p className="uppercase tracking-[0.18em] text-white/70">
-                      Host Match
-                    </p>
-                    <p
-                      className={`mt-3 text-2xl font-black uppercase ${
-                        ocrData.is_host_found ? "text-[#39FF14]" : "text-[#F87171]"
-                      }`}
-                    >
-                      {String(ocrData.is_host_found)}
-                    </p>
-                  </div>
-                  <div className="border-[3px] border-[#061726] bg-black p-4 text-xs font-mono text-[#39FF14] shadow-[4px_4px_0px_0px_#061726]">
-                    <p className="uppercase tracking-[0.18em] text-white/70">
-                      Uploader Match
-                    </p>
-                    <p
-                      className={`mt-3 text-2xl font-black uppercase ${
-                        ocrData.is_uploader_found
-                          ? "text-[#39FF14]"
-                          : "text-[#F87171]"
-                      }`}
-                    >
-                      {String(ocrData.is_uploader_found)}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {lobbyErrorMessage && (
-                <p className="mt-3 text-sm font-bold text-[#FCA5A5]">
-                  {lobbyErrorMessage}
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="mt-5 border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
-                <label className="block">
-                  <span className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
-                    ИТОГОВЫЙ СЧЕТ СЕРИИ
-                  </span>
-                  <select
-                    value={results.nonHostLobbyScore}
-                    onChange={(event) =>
-                      results.onNonHostLobbyScoreChange(event.target.value)
-                    }
-                    className="mt-3 w-full border-[3px] border-[#061726] bg-[#123C4D] px-4 py-3 text-sm font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] outline-none"
-                  >
-                    <option value="">Выберите счет</option>
-                    {nonHostScoreSelectionOptions.map((scoreOption) => (
-                      <option key={scoreOption} value={scoreOption}>
-                        {scoreOption}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="mt-5 block">
-                  <span className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
-                    ФОТО ИЗ ГАЛЕРЕИ
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(event) => void results.onNonHostLobbyGalleryChange(event)}
-                    disabled={
-                      results.isUploadingNonHostLobbyGallery || !isCurrentUserCheckedIn
-                    }
-                    className="mt-3 block w-full border-[3px] border-[#061726] bg-white px-4 py-3 text-sm font-bold text-[#061726] shadow-[4px_4px_0px_0px_#061726] file:mr-4 file:border-0 file:bg-[#CD9C3E] file:px-4 file:py-2 file:text-xs file:font-black file:uppercase file:text-[#061726] disabled:opacity-60"
-                  />
-                </label>
-
-                {results.nonHostLobbyExpectedPhotoCount > 0 && (
-                  <p className="mt-4 text-sm font-bold text-white/80">
-                    Требуется фото: {results.nonHostLobbyExpectedPhotoCount}
-                  </p>
-                )}
-
-                {results.nonHostLobbyUploadedPhotoNames.length > 0 && (
-                  <p className="mt-3 text-sm font-bold text-white/80">
-                    Выбрано: {results.nonHostLobbyUploadedPhotoNames.length}
-                  </p>
-                )}
-
-                {results.nonHostLobbyUploadedPhotoNames.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {results.nonHostLobbyUploadedPhotoNames.map((fileName) => (
-                      <p
-                        key={fileName}
-                        className="text-xs font-bold uppercase tracking-[0.14em] text-white/70"
-                      >
-                        Файл: {fileName}
-                      </p>
-                    ))}
-                  </div>
-                )}
-
-                {results.isUploadingNonHostLobbyGallery && (
-                  <p className="mt-4 text-sm font-bold text-[#CD9C3E]">
-                    Загружаем фото лобби...
-                  </p>
-                )}
-              </div>
-
-              {!isCurrentUserCheckedIn && (
-                <p className="mt-3 text-sm text-white/80">
-                  Сначала завершите пре-матч чек-ин.
-                </p>
-              )}
-
-              {lobbyErrorMessage && (
-                <p className="mt-3 text-sm font-bold text-[#FCA5A5]">
-                  {lobbyErrorMessage}
-                </p>
-              )}
-            </>
           )}
         </section>
       ) : (

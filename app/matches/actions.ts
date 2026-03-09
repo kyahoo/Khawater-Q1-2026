@@ -77,6 +77,7 @@ type AuthorizedLobbyHostMatchActionContext = MatchActionContext & {
 };
 
 const CHECK_IN_WINDOW_MS = 30 * 60 * 1000;
+const MAX_LOBBY_MAP_NUMBER = 3;
 const LATE_CHECK_IN_PENALTY = -1;
 const LATE_CHECK_IN_REASON = "Опоздание на чек-ин матча";
 const LATE_MATCH_ACTION_PENALTY = -1;
@@ -565,6 +566,14 @@ Return this exact JSON structure:
 }`;
 }
 
+function normalizeLobbyMapNumber(mapNumber: number) {
+  if (!Number.isInteger(mapNumber) || mapNumber < 1 || mapNumber > MAX_LOBBY_MAP_NUMBER) {
+    return null;
+  }
+
+  return mapNumber;
+}
+
 async function getLobbyHostForMatch(params: {
   adminClient: SupabaseClient<Database>;
   match: MatchActionMatchRow;
@@ -739,12 +748,6 @@ export async function checkInToMatch(
     }
   }
 
-  if (!checkInRow?.biometric_verified) {
-    return {
-      error: "Сначала подтвердите личность через passkey.",
-    };
-  }
-
   if (match.scheduled_at) {
     const { count: unfinishedOlderMatchesCount, error: unfinishedOlderMatchesError } =
       await adminClient
@@ -771,22 +774,40 @@ export async function checkInToMatch(
     }
   }
 
-  if (checkInRow.is_checked_in) {
+  if (checkInRow?.is_ready || checkInRow?.is_checked_in) {
     return {
       error: "Вы уже прошли чек-ин.",
     };
   }
 
-  const { error: updateError } = await adminClient
-    .from("match_check_ins")
-    .update({
-      is_checked_in: true,
-    })
-    .eq("match_id", trimmedMatchId)
-    .eq("player_id", user.id);
+  if (checkInRow) {
+    const { error: updateError } = await adminClient
+      .from("match_check_ins")
+      .update({
+        is_checked_in: true,
+        is_ready: true,
+      })
+      .eq("match_id", trimmedMatchId)
+      .eq("player_id", user.id);
 
-  if (updateError) {
-    return { error: updateError.message };
+    if (updateError) {
+      return { error: updateError.message };
+    }
+  } else {
+    const { error: insertError } = await adminClient
+      .from("match_check_ins")
+      .insert({
+        match_id: trimmedMatchId,
+        player_id: user.id,
+        biometric_verified: false,
+        is_checked_in: true,
+        is_ready: true,
+        lobby_screenshot_url: null,
+      });
+
+    if (insertError) {
+      return { error: insertError.message };
+    }
   }
 
   if (isLateCheckIn) {
@@ -806,7 +827,7 @@ export async function checkInToMatch(
       head: true,
     })
     .eq("match_id", trimmedMatchId)
-    .eq("is_checked_in", true);
+    .eq("is_ready", true);
 
   if (countError || (count ?? 0) < 1) {
     revalidateMatchPaths(trimmedMatchId);
@@ -998,14 +1019,32 @@ export async function saveMatchLobbyScreenshot(
   matchId: string,
   accessToken: string,
   lobbyScreenshotUrl: string
+): Promise<SaveLobbyScreenshotResult>;
+export async function saveMatchLobbyScreenshot(
+  matchId: string,
+  accessToken: string,
+  lobbyScreenshotUrl: string,
+  mapNumber: number
+): Promise<SaveLobbyScreenshotResult>;
+export async function saveMatchLobbyScreenshot(
+  matchId: string,
+  accessToken: string,
+  lobbyScreenshotUrl: string,
+  mapNumber = 1
 ): Promise<SaveLobbyScreenshotResult> {
   const trimmedMatchId = matchId.trim();
   const trimmedToken = accessToken.trim();
   const trimmedLobbyScreenshotUrl = lobbyScreenshotUrl.trim();
+  const normalizedMapNumber = normalizeLobbyMapNumber(mapNumber);
 
-  if (!trimmedMatchId || !trimmedToken || !trimmedLobbyScreenshotUrl) {
+  if (
+    !trimmedMatchId ||
+    !trimmedToken ||
+    !trimmedLobbyScreenshotUrl ||
+    !normalizedMapNumber
+  ) {
     return {
-      error: "Матч, сессия и URL скриншота обязательны.",
+      error: "Матч, сессия, карта и URL скриншота обязательны.",
     };
   }
 
@@ -1030,7 +1069,7 @@ export async function saveMatchLobbyScreenshot(
 
   const { adminClient, checkInRow, user, match } = authResult.context;
 
-  if (!checkInRow?.is_checked_in) {
+  if (!checkInRow?.is_ready && !checkInRow?.is_checked_in) {
     return {
       error: "Сначала пройдите чек-ин на матч.",
     };
@@ -1043,11 +1082,31 @@ export async function saveMatchLobbyScreenshot(
       head: true,
     })
     .eq("match_id", trimmedMatchId)
-    .eq("is_checked_in", true);
+    .eq("is_ready", true);
 
   if (countError || (count ?? 0) < 1) {
     return {
       error: "Подтверждение лобби откроется после чек-ина всех 10 игроков.",
+    };
+  }
+
+  const { error: lobbyPhotoError } = await adminClient
+    .from("match_lobby_photos")
+    .upsert(
+      {
+        match_id: trimmedMatchId,
+        player_id: user.id,
+        map_number: normalizedMapNumber,
+        photo_url: trimmedLobbyScreenshotUrl,
+      },
+      {
+        onConflict: "match_id,player_id,map_number",
+      }
+    );
+
+  if (lobbyPhotoError) {
+    return {
+      error: lobbyPhotoError.message,
     };
   }
 
@@ -1390,11 +1449,18 @@ export async function analyzeLobbyScreenshot(
 ): Promise<AnalyzeLobbyScreenshotResult>;
 export async function analyzeLobbyScreenshot(
   matchId: string,
-  accessToken = ""
+  accessToken: string,
+  mapNumber: number
+): Promise<AnalyzeLobbyScreenshotResult>;
+export async function analyzeLobbyScreenshot(
+  matchId: string,
+  accessToken = "",
+  mapNumber = 1
 ): Promise<AnalyzeLobbyScreenshotResult> {
   const trimmedMatchId = matchId.trim();
   const trimmedToken = accessToken.trim();
   const mistralApiKey = process.env.MISTRAL_API_KEY;
+  const normalizedMapNumber = normalizeLobbyMapNumber(mapNumber);
 
   if (!trimmedMatchId) {
     return {
@@ -1407,6 +1473,13 @@ export async function analyzeLobbyScreenshot(
     return {
       data: null,
       error: "Сессия обязательна.",
+    };
+  }
+
+  if (!normalizedMapNumber) {
+    return {
+      data: null,
+      error: "Некорректный номер карты.",
     };
   }
 
@@ -1446,8 +1519,26 @@ export async function analyzeLobbyScreenshot(
     };
   }
 
-  const lobbyScreenshotUrl =
-    authResult.context.checkInRow?.lobby_screenshot_url?.trim();
+  let lobbyScreenshotUrl = authResult.context.checkInRow?.lobby_screenshot_url?.trim() ?? "";
+
+  const { data: lobbyPhotoRow, error: lobbyPhotoError } = await authResult.context.adminClient
+    .from("match_lobby_photos")
+    .select("photo_url")
+    .eq("match_id", trimmedMatchId)
+    .eq("player_id", authResult.context.user.id)
+    .eq("map_number", normalizedMapNumber)
+    .maybeSingle();
+
+  if (lobbyPhotoError) {
+    return {
+      data: null,
+      error: "Не удалось загрузить фото лобби для выбранной карты.",
+    };
+  }
+
+  if (typeof lobbyPhotoRow?.photo_url === "string" && lobbyPhotoRow.photo_url.trim()) {
+    lobbyScreenshotUrl = lobbyPhotoRow.photo_url.trim();
+  }
 
   if (!lobbyScreenshotUrl) {
     await applyBehaviorPenalty({

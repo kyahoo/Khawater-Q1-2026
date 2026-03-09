@@ -328,6 +328,7 @@ export type Database = {
           created_at: string;
           biometric_verified: boolean;
           is_checked_in: boolean;
+          is_ready: boolean;
           lobby_screenshot_url: string | null;
         };
         Insert: {
@@ -336,6 +337,7 @@ export type Database = {
           created_at?: string;
           biometric_verified?: boolean;
           is_checked_in?: boolean;
+          is_ready?: boolean;
           lobby_screenshot_url?: string | null;
         };
         Update: {
@@ -344,7 +346,32 @@ export type Database = {
           created_at?: string;
           biometric_verified?: boolean;
           is_checked_in?: boolean;
+          is_ready?: boolean;
           lobby_screenshot_url?: string | null;
+        };
+        Relationships: [];
+      };
+      match_lobby_photos: {
+        Row: {
+          match_id: string;
+          player_id: string;
+          map_number: number;
+          photo_url: string;
+          created_at: string;
+        };
+        Insert: {
+          match_id: string;
+          player_id: string;
+          map_number: number;
+          photo_url: string;
+          created_at?: string;
+        };
+        Update: {
+          match_id?: string;
+          player_id?: string;
+          map_number?: number;
+          photo_url?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
