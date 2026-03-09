@@ -23,7 +23,6 @@ export type MatchRoomData = {
     teamBScore: number | null;
     lobbyName: string | null;
     lobbyPassword: string | null;
-    resultScreenshotUrl: string | null;
     resultScreenshotUrls: string[];
     winnerTeamId: string | null;
   };
@@ -221,7 +220,6 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
         teamBScore: typedMatch.team_b_score,
         lobbyName: typedMatch.lobby_name ?? null,
         lobbyPassword: typedMatch.lobby_password ?? null,
-        resultScreenshotUrl: resultScreenshotUrls[0] ?? null,
         resultScreenshotUrls,
         winnerTeamId:
           typeof typedMatch.winner_team_id === "string"

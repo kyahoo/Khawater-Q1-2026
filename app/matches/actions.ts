@@ -88,15 +88,14 @@ function getActionErrorMessage(error: unknown, fallbackMessage: string) {
   return fallbackMessage;
 }
 
-function normalizeStoredResultScreenshotUrls(params: {
-  resultScreenshotUrl: string | null | undefined;
-  resultScreenshotUrls: string[] | null | undefined;
-}) {
-  if (Array.isArray(params.resultScreenshotUrls)) {
-    return params.resultScreenshotUrls.filter(isNonEmptyString);
+function normalizeStoredResultScreenshotUrls(
+  resultScreenshotUrls: string[] | null | undefined
+) {
+  if (Array.isArray(resultScreenshotUrls)) {
+    return resultScreenshotUrls.filter(isNonEmptyString);
   }
 
-  return params.resultScreenshotUrl?.trim() ? [params.resultScreenshotUrl.trim()] : [];
+  return [];
 }
 
 function appendOrReplaceResultScreenshotUrl(params: {
@@ -1072,10 +1071,9 @@ export async function uploadMatchResultGameScreenshot(
       };
     }
 
-    const existingScreenshotUrls = normalizeStoredResultScreenshotUrls({
-      resultScreenshotUrl: authResult.context.match.result_screenshot_url,
-      resultScreenshotUrls: authResult.context.match.result_screenshot_urls,
-    });
+    const existingScreenshotUrls = normalizeStoredResultScreenshotUrls(
+      authResult.context.match.result_screenshot_urls
+    );
     const nextScreenshotUrls = appendOrReplaceResultScreenshotUrl({
       existingUrls: existingScreenshotUrls,
       slotIndex,
@@ -1085,32 +1083,9 @@ export async function uploadMatchResultGameScreenshot(
     let { error: updateError } = await authResult.context.adminClient
       .from("tournament_matches")
       .update({
-        result_screenshot_url: nextScreenshotUrls[0] ?? publicUrl,
         result_screenshot_urls: nextScreenshotUrls,
       })
       .eq("id", trimmedMatchId);
-
-    if (
-      updateError?.message.includes("column tournament_matches.") &&
-      updateError.message.includes("does not exist")
-    ) {
-      console.warn(
-        "Match screenshot upload is falling back to the legacy tournament_matches schema:",
-        updateError.message
-      );
-
-      const legacyUpdateResult = await authResult.context.adminClient
-        .from("tournament_matches")
-        .update({
-          result_screenshot_url:
-            slotIndex === 1
-              ? publicUrl
-              : authResult.context.match.result_screenshot_url ?? publicUrl,
-        })
-        .eq("id", trimmedMatchId);
-
-      updateError = legacyUpdateResult.error;
-    }
 
     if (updateError) {
       return {
@@ -1240,32 +1215,9 @@ export async function confirmMatchResult(
       team_a_score: teamAScore,
       team_b_score: teamBScore,
       winner_team_id: winnerTeamId,
-      result_screenshot_url: screenshotUrls[0] ?? null,
       result_screenshot_urls: screenshotUrls,
     })
     .eq("id", trimmedMatchId);
-
-  if (
-    updateError?.message.includes("column tournament_matches.") &&
-    updateError.message.includes("does not exist")
-  ) {
-    console.warn(
-      "Match result update is falling back to the legacy tournament_matches schema:",
-      updateError.message
-    );
-
-    const legacyUpdateResult = await authResult.context.adminClient
-      .from("tournament_matches")
-      .update({
-        status: "finished",
-        team_a_score: teamAScore,
-        team_b_score: teamBScore,
-        result_screenshot_url: screenshotUrls[0] ?? null,
-      })
-      .eq("id", trimmedMatchId);
-
-    updateError = legacyUpdateResult.error;
-  }
 
   if (updateError) {
     throw new Error(updateError.message);

@@ -37,11 +37,11 @@ type TournamentMatchTaskRow = Pick<
   | "format"
   | "lobby_name"
   | "lobby_password"
-  | "result_screenshot_url"
+  | "result_screenshot_urls"
 >;
 
 type TournamentMatchTaskQueryRow = TournamentMatchTaskRow & {
-  result_screenshot_urls?: string[] | null;
+  result_screenshot_urls: string[] | null;
 };
 
 type TeamTaskRow = Pick<Database["public"]["Tables"]["teams"]["Row"], "id" | "name">;
@@ -76,11 +76,7 @@ function normalizeResultScreenshotUrls(match: TournamentMatchTaskQueryRow) {
       )
     : [];
 
-  if (arrayUrls.length > 0) {
-    return arrayUrls;
-  }
-
-  return match.result_screenshot_url?.trim() ? [match.result_screenshot_url.trim()] : [];
+  return arrayUrls;
 }
 
 function getHostTeamId(
@@ -145,26 +141,11 @@ export async function listActiveTasksForUsers(
   const initialMatchesResult = await supabase
     .from("tournament_matches")
     .select(
-      "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_url, result_screenshot_urls"
+      "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls"
     )
     .eq("tournament_id", activeTournament.id);
   let matches = initialMatchesResult.data as TournamentMatchTaskQueryRow[] | null;
   let matchesError = initialMatchesResult.error;
-
-  if (
-    matchesError?.message.includes("column tournament_matches.") &&
-    matchesError.message.includes("does not exist")
-  ) {
-    const legacyResult = await supabase
-      .from("tournament_matches")
-      .select(
-        "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_url"
-      )
-      .eq("tournament_id", activeTournament.id);
-
-    matches = legacyResult.data;
-    matchesError = legacyResult.error;
-  }
 
   if (matchesError || !matches?.length) {
     return tasksByUserId;

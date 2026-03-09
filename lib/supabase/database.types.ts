@@ -181,8 +181,7 @@ export type Database = {
           created_at: string;
           lobby_name: string | null;
           lobby_password: string | null;
-          result_screenshot_url: string | null;
-          result_screenshot_urls: string[];
+          result_screenshot_urls: string[] | null;
           winner_team_id: string | null;
         };
         Insert: {
@@ -200,8 +199,7 @@ export type Database = {
           created_at?: string;
           lobby_name?: string | null;
           lobby_password?: string | null;
-          result_screenshot_url?: string | null;
-          result_screenshot_urls?: string[];
+          result_screenshot_urls?: string[] | null;
           winner_team_id?: string | null;
         };
         Update: {
@@ -219,8 +217,7 @@ export type Database = {
           created_at?: string;
           lobby_name?: string | null;
           lobby_password?: string | null;
-          result_screenshot_url?: string | null;
-          result_screenshot_urls?: string[];
+          result_screenshot_urls?: string[] | null;
           winner_team_id?: string | null;
         };
         Relationships: [];
