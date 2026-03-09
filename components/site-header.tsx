@@ -62,6 +62,9 @@ export function SiteHeader() {
           <Link href="/rules" className={navLinkClass("/rules")}>
             Правила
           </Link>
+          <Link href="/history" className={navLinkClass("/history")}>
+            Зал славы
+          </Link>
           {hasSession === null ? (
             <div className="h-9 w-24 shrink-0 bg-white/10" />
           ) : hasSession ? (
