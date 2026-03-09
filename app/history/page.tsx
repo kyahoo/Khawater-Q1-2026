@@ -43,12 +43,14 @@ export default function HistoryPage() {
     <div className="min-h-screen text-white">
       <main className="min-h-screen px-4 pb-12 pt-24 md:px-8">
         <div className="mx-auto max-w-5xl">
-          <h1 className="text-center text-4xl font-black uppercase text-[#CD9C3E] [text-shadow:3px_3px_0_#000] md:text-6xl">
-            ЗАЛ СЛАВЫ
-          </h1>
-          <p className="mt-4 text-center text-sm font-black uppercase tracking-[0.28em] text-[#CD9C3E] [text-shadow:3px_3px_0_#000] md:text-base">
-            ЧЕМПИОНЫ KHAWATER
-          </p>
+          <div className="mx-auto mb-8 w-full border-2 border-[#CD9C3E] bg-[#0B3A4A] p-6 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] md:p-8">
+            <h1 className="text-4xl font-black uppercase text-[#CD9C3E] md:text-6xl">
+              ЗАЛ СЛАВЫ
+            </h1>
+            <p className="mt-4 text-sm font-black uppercase tracking-[0.28em] text-[#CD9C3E] md:text-base">
+              ЧЕМПИОНЫ KHAWATER
+            </p>
+          </div>
 
           <div className="mt-10 space-y-5">
             {champions.map((champion) => (
