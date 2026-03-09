@@ -47,6 +47,25 @@ type ResultScreenshotSlotState = {
   errorMessage: string;
 };
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function normalizeResultScreenshotUrls(urls: string[] | null | undefined) {
+  return Array.isArray(urls) ? urls.filter(isNonEmptyString) : [];
+}
+
+function createEmptyResultScreenshotSlot(
+  partialSlot?: Partial<ResultScreenshotSlotState>
+): ResultScreenshotSlotState {
+  return {
+    publicUrl: partialSlot?.publicUrl ?? null,
+    fileName: partialSlot?.fileName ?? "",
+    isUploading: partialSlot?.isUploading ?? false,
+    errorMessage: partialSlot?.errorMessage ?? "",
+  };
+}
+
 function formatAlmatyDateTime(
   dateInput: string,
   options: Intl.DateTimeFormatOptions
@@ -347,13 +366,16 @@ export default function MatchRoomPage() {
     setReportedTeamBScore(
       data.match.teamBScore !== null ? String(data.match.teamBScore) : ""
     );
+    const safeResultScreenshotUrls = normalizeResultScreenshotUrls(
+      data.match?.resultScreenshotUrls
+    );
     setResultScreenshotSlots(
-      data.match.resultScreenshotUrls.map((publicUrl, index) => ({
-        publicUrl,
-        fileName: `Скриншот Игры ${index + 1}`,
-        isUploading: false,
-        errorMessage: "",
-      }))
+      safeResultScreenshotUrls.map((publicUrl, index) =>
+        createEmptyResultScreenshotSlot({
+          publicUrl,
+          fileName: `Скриншот Игры ${index + 1}`,
+        })
+      )
     );
     setMatchResultErrorMessage("");
   }, [data]);
@@ -375,12 +397,7 @@ export default function MatchRoomPage() {
           return currentSlot;
         }
 
-        return {
-          publicUrl: null,
-          fileName: "",
-          isUploading: false,
-          errorMessage: "",
-        };
+        return createEmptyResultScreenshotSlot();
       });
     });
 
@@ -507,7 +524,9 @@ export default function MatchRoomPage() {
   ) {
     setResultScreenshotSlots((currentSlots) =>
       currentSlots.map((slot, currentIndex) =>
-        currentIndex === slotIndex ? updater(slot) : slot
+        currentIndex === slotIndex
+          ? updater(slot ?? createEmptyResultScreenshotSlot())
+          : slot ?? createEmptyResultScreenshotSlot()
       )
     );
   }
@@ -932,14 +951,23 @@ export default function MatchRoomPage() {
     : 0;
   const seriesLength = getSeriesLength(data.match.format);
   const seriesMaxWins = getSeriesMaxWins(data.match.format);
+  const safeResultScreenshotUrls = normalizeResultScreenshotUrls(
+    data.match?.resultScreenshotUrls
+  );
+  const safeResultScreenshotSlots = resultScreenshotSlots.map((slot, index) =>
+    slot ??
+    createEmptyResultScreenshotSlot({
+      fileName: `Скриншот Игры ${index + 1}`,
+    })
+  );
   const totalGames = parsedReportedTeamAScore + parsedReportedTeamBScore;
-  const uploadedResultScreenshotCount = resultScreenshotSlots.filter((slot) =>
-    Boolean(slot.publicUrl)
+  const uploadedResultScreenshotCount = safeResultScreenshotSlots.filter((slot) =>
+    Boolean(slot?.publicUrl)
   ).length;
   const hasReportedMatchResult =
     data.match.teamAScore !== null &&
     data.match.teamBScore !== null &&
-    data.match.resultScreenshotUrls.length > 0;
+    safeResultScreenshotUrls.length > 0;
   const hasInvalidResultSeriesLength =
     seriesLength !== null && totalGames > seriesLength;
   const hasInvalidResultWinner =
@@ -954,7 +982,7 @@ export default function MatchRoomPage() {
     isSubmittingMatchResult ||
     totalGames <= 0 ||
     uploadedResultScreenshotCount !== totalGames ||
-    resultScreenshotSlots.some((slot) => slot.isUploading) ||
+    safeResultScreenshotSlots.some((slot) => slot?.isUploading) ||
     hasInvalidResultSeriesLength ||
     hasInvalidResultWinner;
   const reportedWinnerTeamId =
@@ -1312,37 +1340,43 @@ export default function MatchRoomPage() {
                         СКРИНШОТЫ
                       </p>
                       <p className="mt-4 text-2xl font-black uppercase text-white">
-                        {data.match.resultScreenshotUrls.length}
+                        {safeResultScreenshotUrls.length}
                       </p>
                     </div>
                   </div>
 
                   <div className="grid gap-4 lg:grid-cols-2">
-                    {data.match.resultScreenshotUrls.map((screenshotUrl, index) => (
-                      <div
-                        key={`${screenshotUrl}-${index}`}
-                        className="border-[4px] border-[#CD9C3E] bg-[#0B3A4A] p-4 shadow-[6px_6px_0px_0px_#061726]"
-                      >
-                        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
-                          Скриншот Игры {index + 1}
-                        </p>
-                        <Image
-                          src={screenshotUrl}
-                          alt={`Скриншот Игры ${index + 1}`}
-                          width={1600}
-                          height={900}
-                          className="mt-4 h-auto w-full border-[3px] border-[#061726] bg-black object-contain"
-                        />
-                        <a
-                          href={screenshotUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-4 inline-block border-[3px] border-[#CD9C3E] bg-[#061726] px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+                    {safeResultScreenshotUrls.length > 0 ? (
+                      safeResultScreenshotUrls.map((screenshotUrl, index) => (
+                        <div
+                          key={`${screenshotUrl}-${index}`}
+                          className="border-[4px] border-[#CD9C3E] bg-[#0B3A4A] p-4 shadow-[6px_6px_0px_0px_#061726]"
                         >
-                          ОТКРЫТЬ СКРИНШОТ
-                        </a>
+                          <p className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
+                            Скриншот Игры {index + 1}
+                          </p>
+                          <Image
+                            src={screenshotUrl}
+                            alt={`Скриншот Игры ${index + 1}`}
+                            width={1600}
+                            height={900}
+                            className="mt-4 h-auto w-full border-[3px] border-[#061726] bg-black object-contain"
+                          />
+                          <a
+                            href={screenshotUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-4 inline-block border-[3px] border-[#CD9C3E] bg-[#061726] px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+                          >
+                            ОТКРЫТЬ СКРИНШОТ
+                          </a>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="border-[4px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-4 text-sm font-bold text-white shadow-[4px_4px_0px_0px_#061726]">
+                        Скриншоты серии пока недоступны.
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               ) : (
@@ -1434,7 +1468,7 @@ export default function MatchRoomPage() {
                       </div>
                     ) : (
                       <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                        {resultScreenshotSlots.map((slot, index) => (
+                        {safeResultScreenshotSlots.map((slot, index) => (
                           <div
                             key={`result-slot-${index}`}
                             className="border-[4px] border-[#CD9C3E] bg-[#061726] p-4 shadow-[4px_4px_0px_0px_#061726]"
@@ -1457,13 +1491,13 @@ export default function MatchRoomPage() {
                                   Скриншот Игры {index + 1}
                                 </p>
                                 <p className="mt-2 text-sm font-bold text-white/80">
-                                  {slot.publicUrl
+                                  {slot?.publicUrl
                                     ? "Скриншот загружен."
                                     : "Скриншот еще не загружен."}
                                 </p>
                               </div>
 
-                              {slot.publicUrl && (
+                              {slot?.publicUrl && (
                                 <a
                                   href={slot.publicUrl}
                                   target="_blank"
@@ -1475,7 +1509,7 @@ export default function MatchRoomPage() {
                               )}
                             </div>
 
-                            {slot.fileName && (
+                            {slot?.fileName && (
                               <p className="mt-3 text-xs font-bold uppercase tracking-[0.14em] text-white/70">
                                 Файл: {slot.fileName}
                               </p>
@@ -1484,17 +1518,17 @@ export default function MatchRoomPage() {
                             <button
                               type="button"
                               onClick={() => openResultScreenshotPicker(index)}
-                              disabled={slot.isUploading || isSubmittingMatchResult}
+                              disabled={slot?.isUploading || isSubmittingMatchResult}
                               className="mt-4 border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-5 py-3 text-sm font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:bg-[#145268] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
                             >
-                              {slot.isUploading
+                              {slot?.isUploading
                                 ? "ЗАГРУЗКА..."
-                                : slot.publicUrl
+                                : slot?.publicUrl
                                   ? "ЗАМЕНИТЬ СКРИНШОТ"
                                   : "ЗАГРУЗИТЬ СКРИНШОТ"}
                             </button>
 
-                            {slot.errorMessage && (
+                            {slot?.errorMessage && (
                               <p className="mt-3 text-sm font-bold text-[#FCA5A5]">
                                 {slot.errorMessage}
                               </p>

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -12,34 +13,6 @@ type PendingSteamData = {
   username: string;
   avatar_url: string | null;
 };
-
-function copyCookies(source: NextResponse, target: NextResponse) {
-  source.cookies.getAll().forEach((cookie) => {
-    target.cookies.set(cookie);
-  });
-}
-
-function buildProfileRedirectResponse(
-  request: NextRequest,
-  errorMessage?: string,
-  cookieResponse?: NextResponse
-) {
-  const profileUrl = new URL("/profile", request.url);
-
-  if (errorMessage) {
-    profileUrl.searchParams.set("error", errorMessage);
-  }
-
-  const response = NextResponse.redirect(profileUrl);
-
-  if (cookieResponse) {
-    copyCookies(cookieResponse, response);
-  }
-
-  response.cookies.delete(STEAM_PENDING_DATA_COOKIE);
-
-  return response;
-}
 
 function parsePendingSteamData(cookieValue: string | undefined): PendingSteamData | null {
   if (!cookieValue) {
@@ -73,37 +46,40 @@ export async function GET(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const cookieStore = await cookies();
 
   if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey) {
-    return buildProfileRedirectResponse(
-      request,
-      "Steam confirm is missing required environment variables."
+    cookieStore.delete(STEAM_PENDING_DATA_COOKIE);
+    return NextResponse.redirect(
+      new URL("/profile?error=Steam+confirm+is+missing+required+environment+variables.", request.url)
     );
   }
 
-  const cookieResponse = NextResponse.next();
   const supabase = createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
-        return request.cookies.getAll();
+        return cookieStore.getAll();
       },
       setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          cookieResponse.cookies.set(name, value, options);
-        });
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // Ignore cookie writes when the runtime disallows mutation here.
+        }
       },
     },
   });
 
   const pendingSteamData = parsePendingSteamData(
-    request.cookies.get(STEAM_PENDING_DATA_COOKIE)?.value
+    cookieStore.get(STEAM_PENDING_DATA_COOKIE)?.value
   );
 
   if (!pendingSteamData) {
-    return buildProfileRedirectResponse(
-      request,
-      "Steam link data is missing or invalid.",
-      cookieResponse
+    cookieStore.delete(STEAM_PENDING_DATA_COOKIE);
+    return NextResponse.redirect(
+      new URL("/profile?error=Steam+link+data+is+missing+or+invalid.", request.url)
     );
   }
 
@@ -113,10 +89,9 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    return buildProfileRedirectResponse(
-      request,
-      "Could not verify your session. Please log in again.",
-      cookieResponse
+    cookieStore.delete(STEAM_PENDING_DATA_COOKIE);
+    return NextResponse.redirect(
+      new URL("/profile?error=Could+not+verify+your+session.+Please+log+in+again.", request.url)
     );
   }
 
@@ -138,15 +113,23 @@ export async function GET(request: NextRequest) {
       .eq("id", user.id);
 
     if (updateError) {
-      return buildProfileRedirectResponse(request, updateError.message, cookieResponse);
+      cookieStore.delete(STEAM_PENDING_DATA_COOKIE);
+      return NextResponse.redirect(
+        new URL(`/profile?error=${encodeURIComponent(updateError.message)}`, request.url)
+      );
     }
   } catch (error) {
-    return buildProfileRedirectResponse(
-      request,
-      error instanceof Error ? error.message : "Steam profile update failed.",
-      cookieResponse
+    cookieStore.delete(STEAM_PENDING_DATA_COOKIE);
+    return NextResponse.redirect(
+      new URL(
+        `/profile?error=${encodeURIComponent(
+          error instanceof Error ? error.message : "Steam profile update failed."
+        )}`,
+        request.url
+      )
     );
   }
 
-  return buildProfileRedirectResponse(request, undefined, cookieResponse);
+  cookieStore.delete(STEAM_PENDING_DATA_COOKIE);
+  return NextResponse.redirect(new URL("/profile", request.url));
 }
