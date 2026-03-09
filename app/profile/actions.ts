@@ -203,6 +203,69 @@ export async function updateProfileName(
 
   const { user, adminClient } = authResult.context;
 
+  const { data: membership, error: membershipError } = await adminClient
+    .from("team_members")
+    .select("team_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (membershipError) {
+    return {
+      error: membershipError.message,
+    };
+  }
+
+  if (membership?.team_id) {
+    const { data: activeTournament, error: activeTournamentError } = await adminClient
+      .from("tournaments")
+      .select("id")
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (activeTournamentError) {
+      return {
+        error: activeTournamentError.message,
+      };
+    }
+
+    if (activeTournament?.id) {
+      const [{ data: confirmation, error: confirmationError }, { data: teamEntry, error: teamEntryError }] =
+        await Promise.all([
+          adminClient
+            .from("tournament_confirmations")
+            .select("tournament_id")
+            .eq("tournament_id", activeTournament.id)
+            .eq("user_id", user.id)
+            .maybeSingle(),
+          adminClient
+            .from("tournament_team_entries")
+            .select("id, is_suspended")
+            .eq("tournament_id", activeTournament.id)
+            .eq("team_id", membership.team_id)
+            .eq("is_suspended", false)
+            .maybeSingle(),
+        ]);
+
+      if (confirmationError) {
+        return {
+          error: confirmationError.message,
+        };
+      }
+
+      if (teamEntryError) {
+        return {
+          error: teamEntryError.message,
+        };
+      }
+
+      if (confirmation || teamEntry) {
+        return {
+          error: "Нельзя изменить имя во время активного турнира.",
+        };
+      }
+    }
+  }
+
   const { error: updateError } = await adminClient
     .from("profiles")
     .update({

@@ -106,6 +106,7 @@ export function ProfilePageClient({
   const isDeviceOccupied =
     !hasPasskey && Boolean(localOwnerId) && Boolean(currentUserId) && localOwnerId !== currentUserId;
   const displayName = profile?.username ?? profile?.nickname ?? "Игрок";
+  const isTournamentLocked = Boolean(activeTournament && isParticipationConfirmed);
 
   const loadProfile = useCallback(async () => {
     setIsLoading(true);
@@ -187,6 +188,12 @@ export function ProfilePageClient({
   useEffect(() => {
     setNewNameValue(profile?.username ?? profile?.nickname ?? "");
   }, [profile?.nickname, profile?.username]);
+
+  useEffect(() => {
+    if (isTournamentLocked) {
+      setIsEditingName(false);
+    }
+  }, [isTournamentLocked]);
 
   useEffect(() => {
     if (!hasLoadedDeviceBinding || hasPasskey || !currentUserId) {
@@ -436,6 +443,10 @@ export function ProfilePageClient({
   }
 
   function handleStartEditingName() {
+    if (isTournamentLocked) {
+      return;
+    }
+
     setNewNameValue(profile?.username ?? profile?.nickname ?? "");
     setIsEditingName(true);
     setErrorMessage("");
@@ -543,14 +554,23 @@ export function ProfilePageClient({
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-2xl font-bold text-white">{displayName}</div>
-                    <button
-                      type="button"
-                      onClick={handleStartEditingName}
-                      className="w-fit border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
-                    >
-                      ИЗМЕНИТЬ
-                    </button>
+                    <div>
+                      <div className="text-2xl font-bold text-white">{displayName}</div>
+                      {isTournamentLocked && (
+                        <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-white/60">
+                          Имя заблокировано на время турнира
+                        </p>
+                      )}
+                    </div>
+                    {!isTournamentLocked && (
+                      <button
+                        type="button"
+                        onClick={handleStartEditingName}
+                        className="w-fit border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+                      >
+                        ИЗМЕНИТЬ
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
