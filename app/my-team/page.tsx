@@ -18,7 +18,6 @@ import {
   getTournamentTeamEntry,
   type Tournament,
 } from "@/lib/supabase/tournaments";
-import { SiteHeader } from "@/components/site-header";
 
 const TOURNAMENT_ENTRY_PLAYER_TARGET = 5;
 
@@ -254,7 +253,6 @@ export default function MyTeamPage() {
 
   return (
     <div className="min-h-screen bg-transparent text-zinc-900">
-      <SiteHeader />
 
       <main className="mx-auto max-w-6xl px-6 py-8">
         {errorMessage && (

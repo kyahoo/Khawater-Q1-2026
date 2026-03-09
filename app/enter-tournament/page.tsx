@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { SiteHeader } from "@/components/site-header";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getProfileByUserId } from "@/lib/supabase/profiles";
 import { getCurrentTeamDetails } from "@/lib/supabase/teams";
@@ -175,7 +174,6 @@ export default function EnterTournamentPage() {
 
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-900">
-      <SiteHeader />
 
       <main className="mx-auto max-w-3xl px-6 py-10">
         {errorMessage && (

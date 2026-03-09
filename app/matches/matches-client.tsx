@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MatchCard } from "@/app/matches/match-card";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";

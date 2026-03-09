@@ -144,8 +144,8 @@ export async function listActiveTasksForUsers(
       "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls"
     )
     .eq("tournament_id", activeTournament.id);
-  let matches = initialMatchesResult.data as TournamentMatchTaskQueryRow[] | null;
-  let matchesError = initialMatchesResult.error;
+  const matches = initialMatchesResult.data as TournamentMatchTaskQueryRow[] | null;
+  const matchesError = initialMatchesResult.error;
 
   if (matchesError || !matches?.length) {
     return tasksByUserId;

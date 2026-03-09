@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -17,7 +18,6 @@ import {
   getTournamentConfirmation,
   type Tournament,
 } from "@/lib/supabase/tournaments";
-import { SiteHeader } from "@/components/site-header";
 import {
   finalizeSteamLink,
   getProfilePasskeyBindingStatus,
@@ -507,7 +507,6 @@ export function ProfilePageClient({
 
   return (
     <div className="min-h-screen bg-transparent text-zinc-900">
-      <SiteHeader />
 
       <main className="mx-auto max-w-5xl px-6 py-10">
         <h1 className="mb-8 inline-block border-[3px] border-[#061726] bg-[#0B3A4A] px-6 py-3 text-4xl font-black uppercase text-[#CD9C3E] shadow-[6px_6px_0px_0px_#061726] md:text-5xl">
@@ -609,9 +608,12 @@ export function ProfilePageClient({
                 <div className="mt-2 border-[3px] border-[#061726] bg-[#061726] p-4 shadow-[4px_4px_0px_0px_#061726]">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                     {profile.avatarUrl ? (
-                      <img
+                      <Image
                         src={profile.avatarUrl}
                         alt={`Аватар Steam ${profile.username ?? profile.nickname}`}
+                        width={64}
+                        height={64}
+                        unoptimized
                         className="h-16 w-16 border-[3px] border-[#061726] object-cover"
                       />
                     ) : (

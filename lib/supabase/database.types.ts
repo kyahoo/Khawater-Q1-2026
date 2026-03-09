@@ -18,6 +18,7 @@ export type Database = {
           steam_id: string | null;
           created_at: string;
           is_admin: boolean;
+          behavior_score: number;
         };
         Insert: {
           id: string;
@@ -27,6 +28,7 @@ export type Database = {
           steam_id?: string | null;
           created_at?: string;
           is_admin?: boolean;
+          behavior_score?: number;
         };
         Update: {
           id?: string;
@@ -36,6 +38,34 @@ export type Database = {
           steam_id?: string | null;
           created_at?: string;
           is_admin?: boolean;
+          behavior_score?: number;
+        };
+        Relationships: [];
+      };
+      behavior_logs: {
+        Row: {
+          id: string;
+          user_id: string;
+          match_id: string | null;
+          score_change: number;
+          reason: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          match_id?: string | null;
+          score_change: number;
+          reason: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          match_id?: string | null;
+          score_change?: number;
+          reason?: string;
+          created_at?: string;
         };
         Relationships: [];
       };

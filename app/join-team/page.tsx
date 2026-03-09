@@ -10,7 +10,6 @@ import {
   listTeamsWithMeta,
   type TeamListItem,
 } from "@/lib/supabase/teams";
-import { SiteHeader } from "@/components/site-header";
 
 export default function JoinTeamPage() {
   const router = useRouter();
@@ -108,7 +107,6 @@ export default function JoinTeamPage() {
 
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-900">
-      <SiteHeader />
 
       <main className="mx-auto max-w-4xl px-6 py-10">
         <h1 className="mb-4 text-3xl font-semibold">Join Team</h1>

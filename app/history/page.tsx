@@ -1,6 +1,5 @@
 "use client";
 
-import { SiteHeader } from "@/components/site-header";
 
 const PAST_SEASONS = [
   {
@@ -68,7 +67,6 @@ function PodiumPlace({
 export default function RulesPage() {
   return (
     <div className="min-h-screen text-white">
-      <SiteHeader />
 
       <main className="min-h-screen px-4 pb-12 pt-24 md:px-8">
         <div className="mx-auto max-w-6xl">

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getProfileByUserId } from "@/lib/supabase/profiles";
 import { createTeamWithCaptain, getCurrentMembership } from "@/lib/supabase/teams";
-import { SiteHeader } from "@/components/site-header";
 
 export default function CreateTeamPage() {
   const router = useRouter();
@@ -103,7 +102,6 @@ export default function CreateTeamPage() {
 
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-900">
-      <SiteHeader />
 
       <main className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="mb-4 text-3xl font-semibold">Create Team</h1>

@@ -8,7 +8,6 @@ import {
   type MatchComponentProps,
   type MatchType,
 } from "@g-loot/react-tournament-brackets";
-import { SiteHeader } from "@/components/site-header";
 import { TeamLogo } from "@/components/team-logo";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
@@ -597,7 +596,6 @@ export default function TournamentPage() {
 
   return (
     <div className="min-h-screen bg-transparent text-zinc-900">
-      <SiteHeader />
 
       <main className="mx-auto max-w-6xl px-6 py-8">
         {isLoading ? (

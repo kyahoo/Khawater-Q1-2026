@@ -6,6 +6,7 @@ import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
 } from "@simplewebauthn/server";
+import { logBehaviorPenalty } from "@/lib/supabase/behavior";
 import type { Database } from "@/lib/supabase/database.types";
 import {
   beginMatchBiometricVerification,
@@ -65,6 +66,11 @@ type AuthorizedLobbyHostMatchActionContext = MatchActionContext & {
 };
 
 const CHECK_IN_WINDOW_MS = 30 * 60 * 1000;
+const LATE_CHECK_IN_PENALTY = -1;
+const LATE_CHECK_IN_REASON = "Опоздание на чек-ин матча";
+const INVALID_LOBBY_SCREENSHOT_PENALTY = -1;
+const INVALID_LOBBY_SCREENSHOT_REASON =
+  "Отсутствие или недействительный скриншот лобби";
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -416,6 +422,27 @@ function revalidateMatchPaths(matchId: string) {
   revalidatePath("/tournament");
 }
 
+async function applyBehaviorPenalty(params: {
+  adminClient: SupabaseClient<Database>;
+  userId: string;
+  matchId: string | null;
+  penalty: number;
+  reason: string;
+}) {
+  try {
+    await logBehaviorPenalty(
+      params.adminClient,
+      params.userId,
+      params.matchId,
+      params.penalty,
+      params.reason
+    );
+    revalidatePath("/", "layout");
+  } catch (error) {
+    console.error("Behavior penalty logging failed:", error);
+  }
+}
+
 function getMistralMessageText(content: unknown): string {
   if (typeof content === "string") {
     return content;
@@ -654,6 +681,7 @@ export async function checkInToMatch(
   }
 
   const { adminClient, checkInRow, match, user } = authResult.context;
+  let isLateCheckIn = false;
 
   if (match.scheduled_at) {
     const scheduledTimeMs = new Date(match.scheduled_at).getTime();
@@ -666,6 +694,8 @@ export async function checkInToMatch(
           error: "Чекин откроется за 30 минут до начала матча.",
         };
       }
+
+      isLateCheckIn = Date.now() > scheduledTimeMs;
     }
   }
 
@@ -691,6 +721,16 @@ export async function checkInToMatch(
 
   if (updateError) {
     return { error: updateError.message };
+  }
+
+  if (isLateCheckIn) {
+    await applyBehaviorPenalty({
+      adminClient,
+      userId: user.id,
+      matchId: trimmedMatchId,
+      penalty: LATE_CHECK_IN_PENALTY,
+      reason: LATE_CHECK_IN_REASON,
+    });
   }
 
   const { count, error: countError } = await adminClient
@@ -1109,7 +1149,7 @@ export async function uploadMatchResultGameScreenshot(
       publicUrl,
     });
 
-    let { error: updateError } = await authResult.context.adminClient
+    const { error: updateError } = await authResult.context.adminClient
       .from("tournament_matches")
       .update({
         result_screenshot_urls: nextScreenshotUrls,
@@ -1219,6 +1259,19 @@ export async function confirmMatchResult(
     .getAll("screenshotUrls")
     .map((value) => (typeof value === "string" ? value.trim() : ""))
     .filter((value): value is string => Boolean(value));
+  const existingResultScreenshotUrls = normalizeStoredResultScreenshotUrls(
+    authResult.context.match.result_screenshot_urls
+  );
+
+  if (existingResultScreenshotUrls.length === 0 && screenshotUrls.length === 0) {
+    await applyBehaviorPenalty({
+      adminClient: authResult.context.adminClient,
+      userId: authResult.context.user.id,
+      matchId: trimmedMatchId,
+      penalty: INVALID_LOBBY_SCREENSHOT_PENALTY,
+      reason: INVALID_LOBBY_SCREENSHOT_REASON,
+    });
+  }
 
   if (screenshotUrls.length !== totalGames) {
     throw new Error("Количество скриншотов должно совпадать с числом сыгранных карт.");
@@ -1237,7 +1290,7 @@ export async function confirmMatchResult(
       ? authResult.context.match.team_a_id
       : authResult.context.match.team_b_id;
 
-  let { error: updateError } = await authResult.context.adminClient
+  const { error: updateError } = await authResult.context.adminClient
     .from("tournament_matches")
     .update({
       status: "finished",
@@ -1330,6 +1383,14 @@ export async function analyzeLobbyScreenshot(
     authResult.context.checkInRow?.lobby_screenshot_url?.trim();
 
   if (!lobbyScreenshotUrl) {
+    await applyBehaviorPenalty({
+      adminClient: authResult.context.adminClient,
+      userId: authResult.context.user.id,
+      matchId: trimmedMatchId,
+      penalty: INVALID_LOBBY_SCREENSHOT_PENALTY,
+      reason: INVALID_LOBBY_SCREENSHOT_REASON,
+    });
+
     return {
       data: null,
       error: "Сначала загрузите фото лобби.",
@@ -1339,6 +1400,14 @@ export async function analyzeLobbyScreenshot(
   try {
     new URL(lobbyScreenshotUrl);
   } catch {
+    await applyBehaviorPenalty({
+      adminClient: authResult.context.adminClient,
+      userId: authResult.context.user.id,
+      matchId: trimmedMatchId,
+      penalty: INVALID_LOBBY_SCREENSHOT_PENALTY,
+      reason: INVALID_LOBBY_SCREENSHOT_REASON,
+    });
+
     return {
       data: null,
       error: "URL скриншота лобби некорректен.",
@@ -1446,6 +1515,16 @@ export async function analyzeLobbyScreenshot(
         data: null,
         error: "Mistral OCR returned an invalid JSON structure.",
       };
+    }
+
+    if (!parsedData.is_host_found || !parsedData.is_uploader_found) {
+      await applyBehaviorPenalty({
+        adminClient: authResult.context.adminClient,
+        userId: authResult.context.user.id,
+        matchId: trimmedMatchId,
+        penalty: INVALID_LOBBY_SCREENSHOT_PENALTY,
+        reason: INVALID_LOBBY_SCREENSHOT_REASON,
+      });
     }
 
     return {

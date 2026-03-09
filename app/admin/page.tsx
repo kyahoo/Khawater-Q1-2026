@@ -18,7 +18,6 @@ import {
   updateTournamentMatchAction,
   type AdminPlayerListItem,
 } from "./actions";
-import { SiteHeader } from "@/components/site-header";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   getProfileByUserId,
@@ -1670,7 +1669,6 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-transparent text-zinc-900">
-      <SiteHeader />
 
       <main className="mx-auto max-w-5xl px-6 py-8">
         {pageErrorMessage && (

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -31,7 +32,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-[100dvh] bg-[#0B3A4A] bg-[url('/esports-bg.png')] bg-cover bg-fixed bg-[position:75%_center] bg-no-repeat text-slate-900 antialiased md:bg-center`}
       >
-        <div className="relative z-0 min-h-[100dvh]">{children}</div>
+        <div className="relative z-0 min-h-[100dvh]">
+          <SiteHeader />
+          {children}
+        </div>
       </body>
     </html>
   );

@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getProfileByUserId, upsertProfile } from "@/lib/supabase/profiles";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { SiteHeader } from "@/components/site-header";
 
 export default function PlayerSetupPage() {
   const router = useRouter();
@@ -81,7 +80,6 @@ export default function PlayerSetupPage() {
 
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-900">
-      <SiteHeader />
 
       <main className="mx-auto max-w-3xl px-6 py-10">
         <h1 className="mb-4 text-3xl font-semibold">Player Setup</h1>
