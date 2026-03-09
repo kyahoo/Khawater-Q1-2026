@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
 export const runtime = "nodejs";
@@ -57,6 +57,29 @@ function getAdminClient() {
       persistSession: false,
     },
   });
+}
+
+async function getStorageImageDataUri(
+  supabase: SupabaseClient<Database>,
+  path: string
+) {
+  try {
+    const { data: fileBlob, error } = await supabase.storage
+      .from("social-templates")
+      .download(path);
+
+    if (error || !fileBlob) {
+      return null;
+    }
+
+    const contentType = fileBlob.type || "image/png";
+    const base64 = Buffer.from(await fileBlob.arrayBuffer()).toString("base64");
+
+    return `data:${contentType};base64,${base64}`;
+  } catch (error) {
+    console.error(`Could not load storage image ${path}:`, error);
+    return null;
+  }
 }
 
 function getFallbackGroupCount(teamCount: number, preferredCount: number) {
@@ -411,10 +434,10 @@ export async function GET() {
       );
     }
 
-    const { data: backgroundData } = supabase.storage
-      .from("social-templates")
-      .getPublicUrl("standings-bg.png");
-    const backgroundUrl = backgroundData.publicUrl.trim() || null;
+    const backgroundUrl = await getStorageImageDataUri(
+      supabase,
+      "standings-bg.png"
+    );
 
     const { data: tournamentEntries, error: tournamentEntriesError } = await supabase
       .from("tournament_team_entries")
