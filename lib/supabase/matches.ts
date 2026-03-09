@@ -43,7 +43,9 @@ export type UserTeamMatch = {
   scheduledAt: string | null;
   status: string;
   teamAName: string;
+  teamALogoUrl: string | null;
   teamBName: string;
+  teamBLogoUrl: string | null;
   teamAId: string;
   teamBId: string;
 };
@@ -225,11 +227,19 @@ export async function getMatchesForUserTeam(userId: string): Promise<UserTeamMat
 
   const { data: teams } = await supabase
     .from("teams")
-    .select("id, name")
+    .select("id, name, logo_url")
     .in("id", teamIds);
 
   const teamNameById = new Map(
-    ((teams ?? []) as Array<{ id: string; name: string }>).map((t) => [t.id, t.name])
+    (
+      (teams ?? []) as Array<{ id: string; name: string; logo_url: string | null }>
+    ).map((team) => [
+      team.id,
+      {
+        name: team.name,
+        logoUrl: team.logo_url,
+      },
+    ])
   );
 
   return (matches as Array<{
@@ -246,8 +256,10 @@ export async function getMatchesForUserTeam(userId: string): Promise<UserTeamMat
     format: m.format,
     scheduledAt: m.scheduled_at,
     status: m.status,
-    teamAName: teamNameById.get(m.team_a_id) ?? "Team A",
-    teamBName: teamNameById.get(m.team_b_id) ?? "Team B",
+    teamAName: teamNameById.get(m.team_a_id)?.name ?? "Team A",
+    teamALogoUrl: teamNameById.get(m.team_a_id)?.logoUrl ?? null,
+    teamBName: teamNameById.get(m.team_b_id)?.name ?? "Team B",
+    teamBLogoUrl: teamNameById.get(m.team_b_id)?.logoUrl ?? null,
     teamAId: m.team_a_id,
     teamBId: m.team_b_id,
   }));

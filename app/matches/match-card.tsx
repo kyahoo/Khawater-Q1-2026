@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import type { UserTeamMatch } from "@/lib/supabase/matches";
 
@@ -92,6 +93,28 @@ type MatchCardProps = {
   hasMounted: boolean;
 };
 
+function TeamLogoBox({
+  teamName,
+  logoUrl,
+}: {
+  teamName: string;
+  logoUrl: string | null;
+}) {
+  return (
+    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-none border-[2px] border-[#061726] bg-[#061726] md:h-12 md:w-12">
+      {logoUrl ? (
+        <Image
+          src={logoUrl}
+          alt={`Логотип команды ${teamName}`}
+          width={48}
+          height={48}
+          className="h-full w-full object-cover"
+        />
+      ) : null}
+    </div>
+  );
+}
+
 export function MatchCard({ match, currentTimeMs, hasMounted }: MatchCardProps) {
   const isActive = isMatchActive(match, currentTimeMs, hasMounted);
   const formattedSchedule = match.scheduledAt
@@ -111,7 +134,8 @@ export function MatchCard({ match, currentTimeMs, hasMounted }: MatchCardProps) 
         {formatRoundLabel(match.roundLabel)} - {match.format}
       </div>
       <div className="mt-4 flex items-center gap-2 md:gap-4">
-        <div className="flex min-w-0 flex-1 items-center justify-start">
+        <div className="flex min-w-0 flex-1 items-center justify-start gap-3">
+          <TeamLogoBox teamName={match.teamAName} logoUrl={match.teamALogoUrl} />
           <span className="min-w-0 truncate text-sm font-bold uppercase tracking-wide text-white md:text-2xl">
             {match.teamAName}
           </span>
@@ -119,10 +143,11 @@ export function MatchCard({ match, currentTimeMs, hasMounted }: MatchCardProps) 
         <div className="shrink-0 text-center text-lg font-black uppercase tracking-[0.25em] text-[#CD9C3E] md:text-3xl">
           VS
         </div>
-        <div className="flex min-w-0 flex-1 items-center justify-end text-right">
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-3 text-right">
           <span className="min-w-0 truncate text-sm font-bold uppercase tracking-wide text-white md:text-2xl">
             {match.teamBName}
           </span>
+          <TeamLogoBox teamName={match.teamBName} logoUrl={match.teamBLogoUrl} />
         </div>
       </div>
       <div className="mt-4 text-sm font-medium text-gray-300 md:text-base">

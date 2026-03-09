@@ -90,13 +90,17 @@ const PLAYOFF_FORMAT_OPTIONS = [
   "Double Elimination",
 ] as const;
 
+const ALMATY_TIME_ZONE = "Asia/Almaty";
+
 const ADMIN_TABS = [
-  { id: "players", label: "Players" },
-  { id: "teams", label: "Teams" },
-  { id: "tournaments", label: "Tournaments" },
+  { id: "players", label: "Игроки" },
+  { id: "teams", label: "Команды" },
+  { id: "tournaments", label: "Турниры" },
+  { id: "social", label: "Социальные сети" },
 ] as const;
 
 type AdminTabId = (typeof ADMIN_TABS)[number]["id"];
+type ScheduleDayParam = "today" | "tomorrow";
 
 function getSupabaseLikeErrorMessage(error: unknown, fallbackMessage: string) {
   if (error instanceof Error && error.message) {
@@ -129,11 +133,33 @@ function getSupabaseLikeErrorMessage(error: unknown, fallbackMessage: string) {
   return fallbackMessage;
 }
 
-function getLocalDateStamp() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
+function getTimeZoneDateParts(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const year = Number(parts.find((part) => part.type === "year")?.value ?? "0");
+  const month = Number(parts.find((part) => part.type === "month")?.value ?? "0");
+  const day = Number(parts.find((part) => part.type === "day")?.value ?? "0");
+
+  return {
+    year,
+    month,
+    day,
+  };
+}
+
+function getTimeZoneDateStamp(dayOffset = 0, timeZone = ALMATY_TIME_ZONE) {
+  const currentParts = getTimeZoneDateParts(new Date(), timeZone);
+  const date = new Date(
+    Date.UTC(currentParts.year, currentParts.month - 1, currentParts.day + dayOffset)
+  );
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
 }
@@ -220,11 +246,19 @@ export default function AdminPage() {
   const [selectedStandingsBackgroundFile, setSelectedStandingsBackgroundFile] =
     useState<File | null>(null);
   const [standingsBackgroundInputKey, setStandingsBackgroundInputKey] = useState(0);
+  const [selectedScheduleBackgroundFile, setSelectedScheduleBackgroundFile] =
+    useState<File | null>(null);
+  const [scheduleBackgroundInputKey, setScheduleBackgroundInputKey] = useState(0);
   const [socialErrorMessage, setSocialErrorMessage] = useState("");
   const [socialSuccessMessage, setSocialSuccessMessage] = useState("");
   const [isUploadingStandingsBackground, setIsUploadingStandingsBackground] =
     useState(false);
+  const [isUploadingScheduleBackground, setIsUploadingScheduleBackground] =
+    useState(false);
   const [isGeneratingStandingsImage, setIsGeneratingStandingsImage] = useState(false);
+  const [isGeneratingScheduleDay, setIsGeneratingScheduleDay] = useState<
+    ScheduleDayParam | null
+  >(null);
   const [selectedMatches, setSelectedMatches] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<AdminTabId>("players");
 
@@ -944,6 +978,84 @@ export default function AdminPage() {
     }
   }
 
+  async function handleUploadScheduleBackground() {
+    if (!selectedScheduleBackgroundFile) {
+      setSocialErrorMessage("Выберите PNG-файл шаблона расписания.");
+      setSocialSuccessMessage("");
+      return;
+    }
+
+    if (selectedScheduleBackgroundFile.type !== "image/png") {
+      setSocialErrorMessage("Для фона расписания поддерживается только PNG.");
+      setSocialSuccessMessage("");
+      return;
+    }
+
+    setIsUploadingScheduleBackground(true);
+    setSocialErrorMessage("");
+    setSocialSuccessMessage("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: uploadError } = await supabase.storage
+        .from("social-templates")
+        .upload("schedule-bg.png", selectedScheduleBackgroundFile, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: "image/png",
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      setSelectedScheduleBackgroundFile(null);
+      setScheduleBackgroundInputKey((current) => current + 1);
+      setSocialSuccessMessage("Фон расписания успешно загружен.");
+    } catch (error) {
+      setSocialErrorMessage(
+        getSupabaseLikeErrorMessage(error, "Не удалось загрузить фон расписания.")
+      );
+    } finally {
+      setIsUploadingScheduleBackground(false);
+    }
+  }
+
+  async function downloadSocialImage(params: {
+    url: string;
+    fileName: string;
+    successMessage: string;
+    fallbackErrorMessage: string;
+  }) {
+    const response = await fetch(params.url, {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const contentType = response.headers.get("content-type") ?? "";
+
+      if (contentType.includes("application/json")) {
+        const payload = (await response.json()) as { error?: string };
+        throw new Error(payload.error ?? params.fallbackErrorMessage);
+      }
+
+      const message = await response.text();
+      throw new Error(message || params.fallbackErrorMessage);
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = params.fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+    setSocialSuccessMessage(params.successMessage);
+  }
+
   async function handleDownloadStandingsImage() {
     if (!activeTournament) {
       setSocialErrorMessage("Сначала выберите активный турнир.");
@@ -956,40 +1068,50 @@ export default function AdminPage() {
     setSocialSuccessMessage("");
 
     try {
-      const response = await fetch("/api/og/standings", {
-        method: "GET",
-        cache: "no-store",
+      await downloadSocialImage({
+        url: "/api/og/standings",
+        fileName: `khawater-standings-${getTimeZoneDateStamp()}.png`,
+        successMessage: "Таблица успешно скачана.",
+        fallbackErrorMessage: "Не удалось сгенерировать таблицу.",
       });
-
-      if (!response.ok) {
-        const contentType = response.headers.get("content-type") ?? "";
-
-        if (contentType.includes("application/json")) {
-          const payload = (await response.json()) as { error?: string };
-          throw new Error(payload.error ?? "Не удалось сгенерировать таблицу.");
-        }
-
-        const message = await response.text();
-        throw new Error(message || "Не удалось сгенерировать таблицу.");
-      }
-
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.download = `khawater-standings-${getLocalDateStamp()}.png`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(downloadUrl);
-
-      setSocialSuccessMessage("Таблица успешно скачана.");
     } catch (error) {
       setSocialErrorMessage(
         error instanceof Error ? error.message : "Не удалось скачать таблицу."
       );
     } finally {
       setIsGeneratingStandingsImage(false);
+    }
+  }
+
+  async function handleDownloadScheduleImage(day: ScheduleDayParam) {
+    if (!activeTournament) {
+      setSocialErrorMessage("Сначала выберите активный турнир.");
+      setSocialSuccessMessage("");
+      return;
+    }
+
+    setIsGeneratingScheduleDay(day);
+    setSocialErrorMessage("");
+    setSocialSuccessMessage("");
+
+    try {
+      await downloadSocialImage({
+        url: `/api/og/schedule?day=${day}`,
+        fileName: `khawater-schedule-${getTimeZoneDateStamp(
+          day === "tomorrow" ? 1 : 0
+        )}.png`,
+        successMessage:
+          day === "today"
+            ? "Расписание на сегодня успешно скачано."
+            : "Расписание на завтра успешно скачано.",
+        fallbackErrorMessage: "Не удалось сгенерировать расписание.",
+      });
+    } catch (error) {
+      setSocialErrorMessage(
+        error instanceof Error ? error.message : "Не удалось скачать расписание."
+      );
+    } finally {
+      setIsGeneratingScheduleDay(null);
     }
   }
 
@@ -2138,90 +2260,6 @@ export default function AdminPage() {
 
               <section className="border border-zinc-300 bg-white p-5 shadow-md">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
-                  Социальные сети
-                </h2>
-
-                <div className="space-y-4">
-                  <div className="text-sm text-zinc-600">
-                    Активный турнир:{" "}
-                    <span className="font-medium text-zinc-900">
-                      {activeTournament?.name ?? "Не выбран"}
-                    </span>
-                  </div>
-
-                  <div className="border-[3px] border-[#061726] bg-white px-4 py-4 shadow-[4px_4px_0px_0px_#061726]">
-                    <div className="text-sm font-bold uppercase tracking-wide text-[#061726]">
-                      Фон таблицы
-                    </div>
-                    <p className="mt-2 text-sm text-zinc-600">
-                      Загрузите blank PNG-шаблон в bucket `social-templates` как
-                      `standings-bg.png`.
-                    </p>
-                    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-                      <label className="flex-1 text-sm font-medium text-zinc-700">
-                        PNG-файл
-                        <input
-                          key={standingsBackgroundInputKey}
-                          type="file"
-                          accept="image/png"
-                          onChange={(event) =>
-                            setSelectedStandingsBackgroundFile(
-                              event.target.files?.[0] ?? null
-                            )
-                          }
-                          className="mt-2 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => void handleUploadStandingsBackground()}
-                        disabled={
-                          !selectedStandingsBackgroundFile || isUploadingStandingsBackground
-                        }
-                        className="inline-flex items-center justify-center gap-2 rounded border-[3px] border-[#061726] bg-[#CD9C3E] px-4 py-2 text-sm font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500 disabled:shadow-none"
-                      >
-                        {isUploadingStandingsBackground && (
-                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#061726] border-t-transparent" />
-                        )}
-                        {isUploadingStandingsBackground ? "Загрузка..." : "Загрузить фон"}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="border-[3px] border-[#061726] bg-white px-4 py-4 shadow-[4px_4px_0px_0px_#061726]">
-                    <div className="text-sm font-bold uppercase tracking-wide text-[#061726]">
-                      Экспорт таблицы
-                    </div>
-                    <p className="mt-2 text-sm text-zinc-600">
-                      Сгенерировать PNG-баннер `1080x1440` через `next/og`.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => void handleDownloadStandingsImage()}
-                      disabled={!activeTournament || isGeneratingStandingsImage}
-                      className="mt-4 inline-flex items-center justify-center gap-2 rounded border-[3px] border-[#061726] bg-[#061726] px-4 py-2 text-sm font-extrabold uppercase text-white shadow-[4px_4px_0px_0px_#CD9C3E] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#CD9C3E] disabled:translate-y-0 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500 disabled:shadow-none"
-                    >
-                      {isGeneratingStandingsImage && (
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      )}
-                      {isGeneratingStandingsImage
-                        ? "Генерация..."
-                        : "Скачать таблицу (3:4)"}
-                    </button>
-                  </div>
-
-                  {socialErrorMessage && (
-                    <p className="text-sm text-zinc-600">{socialErrorMessage}</p>
-                  )}
-
-                  {socialSuccessMessage && (
-                    <p className="text-sm text-zinc-600">{socialSuccessMessage}</p>
-                  )}
-                </div>
-              </section>
-
-              <section className="border border-zinc-300 bg-white p-5 shadow-md">
-                <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                   Generate Group Stage
                 </h2>
 
@@ -2752,6 +2790,159 @@ export default function AdminPage() {
                     )}
                   </div>
                 )}
+              </section>
+            </div>
+          )}
+
+          {activeTab === "social" && (
+            <div className="space-y-6">
+              <section className="border border-zinc-300 bg-white p-5 shadow-md">
+                <h2 className="mb-4 text-lg font-semibold text-zinc-500">
+                  Социальные сети
+                </h2>
+
+                <div className="space-y-4">
+                  <div className="text-sm text-zinc-600">
+                    Активный турнир:{" "}
+                    <span className="font-medium text-zinc-900">
+                      {activeTournament?.name ?? "Не выбран"}
+                    </span>
+                  </div>
+
+                  <div className="border-[3px] border-[#061726] bg-white px-4 py-4 shadow-[4px_4px_0px_0px_#061726]">
+                    <div className="text-sm font-bold uppercase tracking-wide text-[#061726]">
+                      Фоны шаблонов
+                    </div>
+                    <div className="mt-4 flex flex-col gap-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <label className="flex-1 text-sm font-medium text-zinc-700">
+                          Фон таблицы (`standings-bg.png`)
+                          <input
+                            key={standingsBackgroundInputKey}
+                            type="file"
+                            accept="image/png"
+                            onChange={(event) =>
+                              setSelectedStandingsBackgroundFile(
+                                event.target.files?.[0] ?? null
+                              )
+                            }
+                            className="mt-2 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => void handleUploadStandingsBackground()}
+                          disabled={
+                            !selectedStandingsBackgroundFile || isUploadingStandingsBackground
+                          }
+                          className="inline-flex items-center justify-center gap-2 rounded border-[3px] border-[#061726] bg-[#CD9C3E] px-4 py-2 text-sm font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500 disabled:shadow-none"
+                        >
+                          {isUploadingStandingsBackground && (
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#061726] border-t-transparent" />
+                          )}
+                          {isUploadingStandingsBackground ? "Загрузка..." : "Загрузить"}
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <label className="flex-1 text-sm font-medium text-zinc-700">
+                          Фон расписания (`schedule-bg.png`)
+                          <input
+                            key={scheduleBackgroundInputKey}
+                            type="file"
+                            accept="image/png"
+                            onChange={(event) =>
+                              setSelectedScheduleBackgroundFile(
+                                event.target.files?.[0] ?? null
+                              )
+                            }
+                            className="mt-2 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => void handleUploadScheduleBackground()}
+                          disabled={
+                            !selectedScheduleBackgroundFile || isUploadingScheduleBackground
+                          }
+                          className="inline-flex items-center justify-center gap-2 rounded border-[3px] border-[#061726] bg-[#CD9C3E] px-4 py-2 text-sm font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500 disabled:shadow-none"
+                        >
+                          {isUploadingScheduleBackground && (
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#061726] border-t-transparent" />
+                          )}
+                          {isUploadingScheduleBackground ? "Загрузка..." : "Загрузить"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-[3px] border-[#061726] bg-white px-4 py-4 shadow-[4px_4px_0px_0px_#061726]">
+                    <div className="text-sm font-bold uppercase tracking-wide text-[#061726]">
+                      Экспорт таблицы
+                    </div>
+                    <p className="mt-2 text-sm text-zinc-600">
+                      Сгенерировать PNG-баннер `1080x1440` через `next/og`.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void handleDownloadStandingsImage()}
+                      disabled={!activeTournament || isGeneratingStandingsImage}
+                      className="mt-4 inline-flex items-center justify-center gap-2 rounded border-[3px] border-[#061726] bg-[#061726] px-4 py-2 text-sm font-extrabold uppercase text-white shadow-[4px_4px_0px_0px_#CD9C3E] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#CD9C3E] disabled:translate-y-0 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500 disabled:shadow-none"
+                    >
+                      {isGeneratingStandingsImage && (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      )}
+                      {isGeneratingStandingsImage
+                        ? "Генерация..."
+                        : "Скачать таблицу (3:4)"}
+                    </button>
+                  </div>
+
+                  <div className="border-[3px] border-[#061726] bg-white px-4 py-4 shadow-[4px_4px_0px_0px_#061726]">
+                    <div className="text-sm font-bold uppercase tracking-wide text-[#061726]">
+                      Экспорт расписания
+                    </div>
+                    <p className="mt-2 text-sm text-zinc-600">
+                      Сгенерировать PNG-баннеры расписания матчей на даты по времени Алматы.
+                    </p>
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                      <button
+                        type="button"
+                        onClick={() => void handleDownloadScheduleImage("today")}
+                        disabled={!activeTournament || isGeneratingScheduleDay !== null}
+                        className="inline-flex items-center justify-center gap-2 rounded border-[3px] border-[#061726] bg-[#061726] px-4 py-2 text-sm font-extrabold uppercase text-white shadow-[4px_4px_0px_0px_#CD9C3E] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#CD9C3E] disabled:translate-y-0 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500 disabled:shadow-none"
+                      >
+                        {isGeneratingScheduleDay === "today" && (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        )}
+                        {isGeneratingScheduleDay === "today"
+                          ? "Генерация..."
+                          : "РАСПИСАНИЕ НА СЕГОДНЯ"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleDownloadScheduleImage("tomorrow")}
+                        disabled={!activeTournament || isGeneratingScheduleDay !== null}
+                        className="inline-flex items-center justify-center gap-2 rounded border-[3px] border-[#061726] bg-[#061726] px-4 py-2 text-sm font-extrabold uppercase text-white shadow-[4px_4px_0px_0px_#CD9C3E] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#CD9C3E] disabled:translate-y-0 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500 disabled:shadow-none"
+                      >
+                        {isGeneratingScheduleDay === "tomorrow" && (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        )}
+                        {isGeneratingScheduleDay === "tomorrow"
+                          ? "Генерация..."
+                          : "РАСПИСАНИЕ НА ЗАВТРА"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {socialErrorMessage && (
+                    <p className="text-sm text-zinc-600">{socialErrorMessage}</p>
+                  )}
+
+                  {socialSuccessMessage && (
+                    <p className="text-sm text-zinc-600">{socialSuccessMessage}</p>
+                  )}
+                </div>
               </section>
             </div>
           )}
