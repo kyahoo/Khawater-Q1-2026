@@ -91,6 +91,7 @@ export function ProfilePageClient({
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [hasLoadedDeviceBinding, setHasLoadedDeviceBinding] = useState(false);
   const [isDeviceBound, setIsDeviceBound] = useState(false);
+  const [hasPushSubscription, setHasPushSubscription] = useState(false);
   const [deviceMessage, setDeviceMessage] = useState("");
   const [hasPendingSteamLink, setHasPendingSteamLink] = useState(
     initialHasPendingSteamLink
@@ -163,14 +164,20 @@ export function ProfilePageClient({
       }
 
       setProfile(nextProfile);
-      const [nextTeamData, nextActiveTournament, deviceBindingStatus] = await Promise.all([
-        getCurrentTeamDetails(user.id),
-        getActiveTournament(),
-        getProfilePasskeyBindingStatus(session.access_token),
-      ]);
+      const [nextTeamData, nextActiveTournament, deviceBindingStatus, pushSubscriptionCount] =
+        await Promise.all([
+          getCurrentTeamDetails(user.id),
+          getActiveTournament(),
+          getProfilePasskeyBindingStatus(session.access_token),
+          supabase
+            .from("push_subscriptions")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id),
+        ]);
 
       setTeamData(nextTeamData);
       setActiveTournament(nextActiveTournament);
+      setHasPushSubscription((pushSubscriptionCount.count ?? 0) > 0);
 
       if (deviceBindingStatus.error) {
         setHasLoadedDeviceBinding(false);
@@ -548,6 +555,7 @@ export function ProfilePageClient({
               hasDevice={hasDevice}
               hasTeam={hasTeam}
               isConfirmed={isConfirmed}
+              hasPushSubscription={hasPushSubscription}
             />
 
             <div className={cardClassName}>

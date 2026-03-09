@@ -4,6 +4,7 @@ type OnboardingChecklistProps = {
   hasDevice: boolean;
   hasTeam: boolean;
   isConfirmed: boolean;
+  hasPushSubscription: boolean;
 };
 
 type ChecklistItem = {
@@ -33,6 +34,7 @@ export function OnboardingChecklist({
   hasDevice,
   hasTeam,
   isConfirmed,
+  hasPushSubscription,
 }: OnboardingChecklistProps) {
   const items: ChecklistItem[] = [
     {
@@ -55,6 +57,10 @@ export function OnboardingChecklist({
       label: "Подтвердить участие в турнире",
       completed: isConfirmed,
     },
+    {
+      label: "Включить push-уведомления",
+      completed: hasPushSubscription,
+    },
   ];
 
   const completedSteps = items.filter((item) => item.completed).length;
@@ -71,7 +77,7 @@ export function OnboardingChecklist({
             isReadyForTournament ? "text-green-400" : "text-white/75"
           }`}
         >
-          {isReadyForTournament ? "ГОТОВ К ТУРНИРУ" : `${completedSteps}/5`}
+          {isReadyForTournament ? "ГОТОВ К ТУРНИРУ" : `${completedSteps}/6`}
         </p>
       </div>
 
