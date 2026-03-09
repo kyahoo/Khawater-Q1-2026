@@ -404,7 +404,9 @@ export function ProfilePageClient({
     setErrorMessage("");
 
     try {
-      const result = await finalizeSteamLink();
+      const supabase = getSupabaseBrowserClient();
+      const { data } = await supabase.auth.getSession();
+      const result = await finalizeSteamLink(data.session?.access_token || "");
 
       if (result.error) {
         setErrorMessage(result.error);

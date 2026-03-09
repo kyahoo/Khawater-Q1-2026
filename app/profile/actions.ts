@@ -2,7 +2,6 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import type { RegistrationResponseJSON } from "@simplewebauthn/server";
 import type { Database } from "@/lib/supabase/database.types";
@@ -117,19 +116,14 @@ async function getProfileActionContext(
   };
 }
 
-export async function finalizeSteamLink(): Promise<{ error: string | null }> {
-  const env = getProfileActionEnv();
+export async function finalizeSteamLink(
+  accessToken: string
+): Promise<{ error: string | null }> {
+  const trimmedToken = accessToken.trim();
   const cookieStore = await cookies();
   const pendingSteamData = parsePendingSteamData(
     cookieStore.get("steam_pending_data")?.value
   );
-
-  if (!env) {
-    cookieStore.delete("steam_pending_data");
-    return {
-      error: "Missing Supabase server environment configuration.",
-    };
-  }
 
   if (!pendingSteamData) {
     cookieStore.delete("steam_pending_data");
@@ -138,41 +132,15 @@ export async function finalizeSteamLink(): Promise<{ error: string | null }> {
     };
   }
 
-  const supabase = createServerClient<Database>(env.supabaseUrl, env.supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
-          });
-        } catch {
-          // Ignore cookie writes when mutation is unavailable in the current runtime.
-        }
-      },
-    },
-  });
+  const authResult = await getProfileActionContext(trimmedToken);
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
+  if (authResult.error || !authResult.context) {
     cookieStore.delete("steam_pending_data");
     return {
-      error: "Could not verify your session. Please log in again.",
+      error: authResult.error ?? "Could not verify your session.",
     };
   }
-
-  const adminClient = createClient<Database>(env.supabaseUrl, env.serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  const { user, adminClient } = authResult.context;
 
   try {
     const { error: updateError } = await adminClient
