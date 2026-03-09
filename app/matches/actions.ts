@@ -57,6 +57,7 @@ type MatchCheckInRow = Database["public"]["Tables"]["match_check_ins"]["Row"];
 type AuthorizedMatchActionContext = MatchActionContext & {
   match: MatchActionMatchRow;
   checkInRow: MatchCheckInRow | null;
+  participantTeamId: string;
 };
 
 type AuthorizedLobbyHostMatchActionContext = MatchActionContext & {
@@ -68,6 +69,9 @@ type AuthorizedLobbyHostMatchActionContext = MatchActionContext & {
 const CHECK_IN_WINDOW_MS = 30 * 60 * 1000;
 const LATE_CHECK_IN_PENALTY = -1;
 const LATE_CHECK_IN_REASON = "Опоздание на чек-ин матча";
+const LATE_MATCH_ACTION_PENALTY = -1;
+const LATE_MATCH_ACTION_REASON =
+  "Действие (скриншот/результат) выполнено позже 12 часов после старта";
 const INVALID_LOBBY_SCREENSHOT_PENALTY = -1;
 const INVALID_LOBBY_SCREENSHOT_REASON =
   "Отсутствие или недействительный скриншот лобби";
@@ -346,6 +350,7 @@ async function getAuthorizedMatchActionContext(
       adminClient,
       match: typedMatch,
       checkInRow: (checkInRow ?? null) as MatchCheckInRow | null,
+      participantTeamId: membership.team_id as string,
     },
   };
 }
@@ -441,6 +446,22 @@ async function applyBehaviorPenalty(params: {
   } catch (error) {
     console.error("Behavior penalty logging failed:", error);
   }
+}
+
+function isPastScheduledActionPenaltyWindow(
+  scheduledAt: string | null | undefined
+) {
+  if (!scheduledAt) {
+    return false;
+  }
+
+  const scheduledAtMs = new Date(scheduledAt).getTime();
+
+  if (!Number.isFinite(scheduledAtMs)) {
+    return false;
+  }
+
+  return Date.now() > scheduledAtMs + 12 * 60 * 60 * 1000;
 }
 
 function getMistralMessageText(content: unknown): string {
@@ -680,7 +701,8 @@ export async function checkInToMatch(
     return { error: authResult.error };
   }
 
-  const { adminClient, checkInRow, match, user } = authResult.context;
+  const { adminClient, checkInRow, match, user, participantTeamId } =
+    authResult.context;
   let isLateCheckIn = false;
 
   if (match.scheduled_at) {
@@ -703,6 +725,32 @@ export async function checkInToMatch(
     return {
       error: "Сначала подтвердите личность через passkey.",
     };
+  }
+
+  if (match.scheduled_at) {
+    const { count: unfinishedOlderMatchesCount, error: unfinishedOlderMatchesError } =
+      await adminClient
+        .from("tournament_matches")
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
+        .or(`team_a_id.eq.${participantTeamId},team_b_id.eq.${participantTeamId}`)
+        .lt("scheduled_at", match.scheduled_at)
+        .neq("status", "finished");
+
+    if (unfinishedOlderMatchesError) {
+      return {
+        error: unfinishedOlderMatchesError.message,
+      };
+    }
+
+    if ((unfinishedOlderMatchesCount ?? 0) > 0) {
+      return {
+        error:
+          "ОШИБКА: У вас есть незавершенные прошлые матчи. Капитаны должны загрузить результаты и скриншоты старых игр перед чек-ином на новые.",
+      };
+    }
   }
 
   if (checkInRow.is_checked_in) {
@@ -962,41 +1010,12 @@ export async function saveMatchLobbyScreenshot(
     };
   }
 
-  const { adminClient, checkInRow, user } = authResult.context;
+  const { adminClient, checkInRow, user, match } = authResult.context;
 
   if (!checkInRow?.is_checked_in) {
     return {
       error: "Сначала пройдите чек-ин на матч.",
     };
-  }
-
-  const { data: matchScheduleRow, error: matchScheduleError } = await adminClient
-    .from("tournament_matches")
-    .select("scheduled_at")
-    .eq("id", trimmedMatchId)
-    .maybeSingle();
-
-  if (matchScheduleError) {
-    return {
-      error: matchScheduleError.message,
-    };
-  }
-
-  const scheduledAt = matchScheduleRow?.scheduled_at;
-
-  if (scheduledAt) {
-    const scheduledAtTime = new Date(scheduledAt).getTime();
-
-    if (Number.isFinite(scheduledAtTime)) {
-      const uploadDeadline = scheduledAtTime + 30 * 60 * 1000;
-
-      if (Date.now() > uploadDeadline) {
-        return {
-          error:
-            "Время загрузки истекло. Скриншоты лобби принимаются только в течение 30 минут после старта.",
-        };
-      }
-    }
   }
 
   const { count, error: countError } = await adminClient
@@ -1026,6 +1045,16 @@ export async function saveMatchLobbyScreenshot(
     return {
       error: updateError.message,
     };
+  }
+
+  if (isPastScheduledActionPenaltyWindow(match.scheduled_at)) {
+    await applyBehaviorPenalty({
+      adminClient,
+      userId: user.id,
+      matchId: trimmedMatchId,
+      penalty: LATE_MATCH_ACTION_PENALTY,
+      reason: LATE_MATCH_ACTION_REASON,
+    });
   }
 
   revalidateMatchPaths(trimmedMatchId);
@@ -1303,6 +1332,16 @@ export async function confirmMatchResult(
 
   if (updateError) {
     throw new Error(updateError.message);
+  }
+
+  if (isPastScheduledActionPenaltyWindow(authResult.context.match.scheduled_at)) {
+    await applyBehaviorPenalty({
+      adminClient: authResult.context.adminClient,
+      userId: authResult.context.user.id,
+      matchId: trimmedMatchId,
+      penalty: LATE_MATCH_ACTION_PENALTY,
+      reason: LATE_MATCH_ACTION_REASON,
+    });
   }
 
   revalidateMatchPaths(trimmedMatchId);

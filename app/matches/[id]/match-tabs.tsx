@@ -34,7 +34,6 @@ type MatchTabsProps = {
     isCurrentUserCheckedIn: boolean;
     isCurrentUserLobbyConfirmed: boolean;
     isLobbyActionBusy: boolean;
-    isLobbyUploadExpired: boolean;
     isWaitingForLobbyScreenshot: boolean;
     isUploadingLobbyScreenshot: boolean;
     isConfirmingLobby: boolean;
@@ -361,12 +360,6 @@ export function MatchTabs({
                       Обязательно сделайте фото лобби. На нем должно быть видно
                       ваше имя, а также имя хоста.
                     </p>
-                    {lobby.isLobbyUploadExpired && (
-                      <p className="mt-3 text-sm font-bold text-[#FCA5A5]">
-                        Время загрузки скриншотов вышло (окно 30 минут)
-                      </p>
-                    )}
-
                     {lobby.isCurrentUserLobbyConfirmed ? (
                       <>
                         <div className="mt-5 border-[3px] border-[#061726] bg-[#163f1d] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#D9F99D] shadow-[4px_4px_0px_0px_#061726]">
@@ -425,8 +418,7 @@ export function MatchTabs({
                           onClick={lobby.onConfirmLobby}
                           disabled={
                             lobby.isLobbyActionBusy ||
-                            !lobby.isCurrentUserCheckedIn ||
-                            lobby.isLobbyUploadExpired
+                            !lobby.isCurrentUserCheckedIn
                           }
                           className="mt-5 border-[3px] border-[#061726] bg-[#CD9C3E] px-6 py-3 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70 disabled:shadow-[4px_4px_0px_0px_#061726]"
                         >
@@ -444,7 +436,6 @@ export function MatchTabs({
                         )}
 
                         {lobby.isWaitingForLobbyScreenshot &&
-                          !lobby.isLobbyUploadExpired &&
                           !lobby.isUploadingLobbyScreenshot && (
                             <button
                               type="button"

@@ -74,20 +74,6 @@ function formatAlmatyDateTime(
   }).format(new Date(dateInput));
 }
 
-function hasLobbyScreenshotUploadExpired(scheduledAt: string | null | undefined) {
-  if (!scheduledAt) {
-    return false;
-  }
-
-  const scheduledAtTime = new Date(scheduledAt).getTime();
-
-  if (!Number.isFinite(scheduledAtTime)) {
-    return false;
-  }
-
-  return Date.now() > scheduledAtTime + 30 * 60 * 1000;
-}
-
 function formatRoundLabel(roundLabel: string) {
   if (roundLabel === "Group Stage") {
     return "Групповой этап";
@@ -487,14 +473,6 @@ export default function MatchRoomPage() {
   }
 
   function openLobbyScreenshotPicker() {
-    if (hasLobbyScreenshotUploadExpired(data?.match.scheduledAt)) {
-      setLobbyErrorMessage(
-        "Время загрузки истекло. Скриншоты лобби принимаются только в течение 30 минут после старта."
-      );
-      setIsWaitingForLobbyScreenshot(false);
-      return;
-    }
-
     openFilePicker(
       screenshotInputRef,
       setLobbyErrorMessage,
@@ -578,13 +556,6 @@ export default function MatchRoomPage() {
       return;
     }
 
-    if (hasLobbyScreenshotUploadExpired(data?.match.scheduledAt)) {
-      setLobbyErrorMessage(
-        "Время загрузки истекло. Скриншоты лобби принимаются только в течение 30 минут после старта."
-      );
-      return;
-    }
-
     setIsConfirmingLobby(true);
     setLobbyErrorMessage("");
     setCheckInErrorMessage("");
@@ -623,13 +594,6 @@ export default function MatchRoomPage() {
     event.target.value = "";
 
     if (!screenshotFile || !matchId || !currentUserId) {
-      return;
-    }
-
-    if (hasLobbyScreenshotUploadExpired(data?.match.scheduledAt)) {
-      setLobbyErrorMessage(
-        "Время загрузки истекло. Скриншоты лобби принимаются только в течение 30 минут после старта."
-      );
       return;
     }
 
@@ -949,9 +913,6 @@ export default function MatchRoomPage() {
     isUploadingLobbyScreenshot ||
     isWaitingForLobbyScreenshot ||
     isCurrentUserLobbyConfirmed;
-  const isLobbyUploadExpired = hasLobbyScreenshotUploadExpired(
-    data.match.scheduledAt
-  );
   const parsedReportedTeamAScore = reportedTeamAScore
     ? Number.parseInt(reportedTeamAScore, 10)
     : 0;
@@ -1056,7 +1017,6 @@ export default function MatchRoomPage() {
               isCurrentUserCheckedIn,
               isCurrentUserLobbyConfirmed,
               isLobbyActionBusy,
-              isLobbyUploadExpired,
               isWaitingForLobbyScreenshot,
               isUploadingLobbyScreenshot,
               isConfirmingLobby,
