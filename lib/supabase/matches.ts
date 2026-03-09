@@ -53,11 +53,11 @@ type MatchRoomBaseRow = Pick<
   | "format"
   | "lobby_name"
   | "lobby_password"
-  | "result_screenshot_url"
+  | "result_screenshot_urls"
 >;
 
 type MatchRoomQueryRow = MatchRoomBaseRow & {
-  result_screenshot_urls?: string[] | null;
+  result_screenshot_urls: string[] | null;
   winner_team_id?: string | null;
 };
 
@@ -118,7 +118,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
   const initialMatchResult = await supabase
     .from("tournament_matches")
     .select(
-      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_url, result_screenshot_urls, winner_team_id"
+      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls, winner_team_id"
     )
     .eq("id", matchId)
     .maybeSingle();
@@ -137,7 +137,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
     const legacyResult = await supabase
       .from("tournament_matches")
       .select(
-        "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_url"
+        "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls"
       )
       .eq("id", matchId)
       .maybeSingle();
@@ -196,9 +196,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
     ? typedMatch.result_screenshot_urls.filter(
         (url): url is string => typeof url === "string" && url.trim().length > 0
       )
-    : typedMatch.result_screenshot_url
-      ? [typedMatch.result_screenshot_url]
-      : [];
+    : [];
 
   const [teamA, teamB] = await Promise.all([
     getMatchRoomTeam({
@@ -223,8 +221,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
         teamBScore: typedMatch.team_b_score,
         lobbyName: typedMatch.lobby_name ?? null,
         lobbyPassword: typedMatch.lobby_password ?? null,
-        resultScreenshotUrl:
-          resultScreenshotUrls[0] ?? typedMatch.result_screenshot_url ?? null,
+        resultScreenshotUrl: resultScreenshotUrls[0] ?? null,
         resultScreenshotUrls,
         winnerTeamId:
           typeof typedMatch.winner_team_id === "string"
