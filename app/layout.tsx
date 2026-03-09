@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#061726",
+  themeColor: "#0B3A4A",
 };
 
 export default function RootLayout({
@@ -27,11 +27,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru">
+    <html lang="ru" className="bg-[#0B3A4A]">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} bg-[url('/esports-bg.png')] bg-cover bg-fixed bg-[position:75%_center] bg-no-repeat text-slate-900 antialiased md:bg-center`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-[100dvh] bg-[#0B3A4A] bg-[url('/esports-bg.png')] bg-cover bg-fixed bg-[position:75%_center] bg-no-repeat text-slate-900 antialiased md:bg-center`}
       >
-        <div className="relative z-0">{children}</div>
+        <div className="relative z-0 min-h-[100dvh]">{children}</div>
       </body>
     </html>
   );
