@@ -2,20 +2,31 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function Home() {
-  const isLoggedIn = false;
   const router = useRouter();
+  const supabase = getSupabaseBrowserClient();
 
   useEffect(() => {
-    if (isLoggedIn) {
-      router.replace("/tournament");
-    }
-  }, [isLoggedIn, router]);
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session) {
+          router.push("/tournament");
+        }
+      }
+    );
 
-  if (isLoggedIn) {
-    return null;
-  }
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        router.push("/tournament");
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [router, supabase]);
 
   return (
     <div className="min-h-screen bg-transparent text-white">
