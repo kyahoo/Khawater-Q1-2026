@@ -6,7 +6,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { browserSupportsWebAuthn, startRegistration } from "@simplewebauthn/browser";
 import { OnboardingChecklist } from "@/components/profile/OnboardingChecklist";
-import { PushTestButton } from "@/components/profile/PushTestButton";
 import { PushToggleButton } from "@/components/profile/PushToggleButton";
 import { getProfileByUserId, type Profile } from "@/lib/supabase/profiles";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -709,9 +708,27 @@ export function ProfilePageClient({
                   <p className="text-sm text-white/80">{deviceMessage}</p>
                 )}
               </div>
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
-                <PushToggleButton />
-                <PushTestButton />
+              <div className="mt-5 max-w-xl border-[3px] border-[#061726] bg-[#123C4D] p-5 shadow-[4px_4px_0px_0px_#061726]">
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-white">
+                  Зачем включать уведомления?
+                </p>
+                <ul className="mt-3 space-y-2 text-sm font-bold text-white/90">
+                  <li className="flex items-start gap-2">
+                    <span className="text-[#CD9C3E]">•</span>
+                    <span>Важные анонсы турнира</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-[#CD9C3E]">•</span>
+                    <span>Напоминания перед стартом матчей</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-[#CD9C3E]">•</span>
+                    <span>Уведомления о готовности лобби</span>
+                  </li>
+                </ul>
+                <div className="mt-4">
+                  <PushToggleButton />
+                </div>
               </div>
               <button
                 type="button"
