@@ -23,6 +23,7 @@ export type AdminPlayerListItem = {
   email: string;
   openTaskCount: number;
   mmrStatus: "pending" | "verified" | "rejected";
+  behaviorScore: number;
 };
 
 type ListAdminPlayersResult =
@@ -44,6 +45,10 @@ type ResetPlayerDeviceBindingResult = {
 };
 
 type UpdateMMRStatusResult = {
+  error: string | null;
+};
+
+type ResetPlayerBehaviorScoreResult = {
   error: string | null;
 };
 
@@ -235,12 +240,13 @@ export async function listAdminPlayers(
   const userIds = users.map((user) => user.id);
   let nicknameByUserId = new Map<string, string>();
   let mmrStatusByUserId = new Map<string, "pending" | "verified" | "rejected">();
+  let behaviorScoreByUserId = new Map<string, number>();
   let openTaskCountByUserId = {} as Record<string, number>;
 
   if (userIds.length > 0) {
     const { data: profiles, error: profilesError } = await adminClient
       .from("profiles")
-      .select("id, nickname, mmr_status")
+      .select("id, nickname, mmr_status, behavior_score")
       .in("id", userIds);
 
     if (profilesError) {
@@ -266,6 +272,15 @@ export async function listAdminPlayers(
       ).map((profile) => [profile.id, profile.mmr_status ?? "pending"])
     );
 
+    behaviorScoreByUserId = new Map(
+      (
+        (profiles ?? []) as Array<{
+          id: string;
+          behavior_score: number | null;
+        }>
+      ).map((profile) => [profile.id, profile.behavior_score ?? 5])
+    );
+
     openTaskCountByUserId = await getActiveTaskCountsForUsers(adminClient, userIds);
   }
 
@@ -276,6 +291,7 @@ export async function listAdminPlayers(
       email: user.email ?? "No email",
       openTaskCount: openTaskCountByUserId[user.id] ?? 0,
       mmrStatus: mmrStatusByUserId.get(user.id) ?? "pending",
+      behaviorScore: behaviorScoreByUserId.get(user.id) ?? 5,
     }))
     .sort((playerA, playerB) => playerA.nickname.localeCompare(playerB.nickname));
 
@@ -362,6 +378,112 @@ export async function updateMMRStatus(
   }
 
   revalidatePath("/admin");
+
+  return {
+    error: null,
+  };
+}
+
+export async function resetPlayerBehaviorScore(
+  userId: string
+): Promise<ResetPlayerBehaviorScoreResult> {
+  const normalizedUserId = userId.trim();
+
+  if (!normalizedUserId) {
+    return {
+      error: "Player ID is required.",
+    };
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return {
+      error: "Missing Supabase server environment configuration.",
+    };
+  }
+
+  const supabase = await getSupabaseServerClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      error: "Could not verify admin session.",
+    };
+  }
+
+  const { data: actingProfile, error: actingProfileError } = await supabase
+    .from("profiles")
+    .select("id, is_admin")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (actingProfileError || !actingProfile?.is_admin) {
+    return {
+      error: "You do not have admin access for this action.",
+    };
+  }
+
+  const adminClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+
+  const { data: playerProfile, error: playerProfileError } = await adminClient
+    .from("profiles")
+    .select("behavior_score")
+    .eq("id", normalizedUserId)
+    .maybeSingle();
+
+  if (playerProfileError) {
+    return {
+      error: playerProfileError.message,
+    };
+  }
+
+  if (!playerProfile) {
+    return {
+      error: "Player profile not found.",
+    };
+  }
+
+  const currentBehaviorScore = playerProfile.behavior_score ?? 5;
+  const scoreChange = 5 - currentBehaviorScore;
+
+  const { error: updateError } = await adminClient
+    .from("profiles")
+    .update({
+      behavior_score: 5,
+    })
+    .eq("id", normalizedUserId);
+
+  if (updateError) {
+    return {
+      error: updateError.message,
+    };
+  }
+
+  const { error: logError } = await adminClient.from("behavior_logs").insert({
+    user_id: normalizedUserId,
+    match_id: null,
+    score_change: scoreChange,
+    reason: "Ручной сброс баллов администратором",
+  });
+
+  if (logError) {
+    return {
+      error: logError.message,
+    };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/profile");
 
   return {
     error: null,

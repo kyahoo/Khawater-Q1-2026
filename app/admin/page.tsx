@@ -13,6 +13,7 @@ import {
   deleteTeam,
   generateGroupStageMatches,
   listAdminPlayers,
+  resetPlayerBehaviorScore,
   resetPlayerDeviceBinding,
   toggleTeamSuspension,
   updateMMRStatus,
@@ -211,6 +212,10 @@ function getMMRStatusSelectClassName(status: AdminPlayerListItem["mmrStatus"]) {
   return `${baseClassName} border-[#CD9C3E] bg-[#CD9C3E]/10 text-[#CD9C3E]`;
 }
 
+function getBehaviorScoreClassName(score: number) {
+  return score >= 4 ? "text-[#CD9C3E]" : "text-red-500";
+}
+
 async function getSocialTemplateStatus() {
   try {
     const supabase = getSupabaseBrowserClient();
@@ -304,6 +309,9 @@ export default function AdminPage() {
     string | null
   >(null);
   const [isUpdatingMMRStatusUserId, setIsUpdatingMMRStatusUserId] = useState<
+    string | null
+  >(null);
+  const [isResettingBehaviorScoreUserId, setIsResettingBehaviorScoreUserId] = useState<
     string | null
   >(null);
   const [isDeletingTeamId, setIsDeletingTeamId] = useState<string | null>(null);
@@ -732,6 +740,28 @@ export default function AdminPage() {
       );
     } finally {
       setIsUpdatingMMRStatusUserId(null);
+    }
+  }
+
+  async function handleResetPlayerBehaviorScore(userId: string) {
+    setIsResettingBehaviorScoreUserId(userId);
+    setErrorMessage("");
+
+    try {
+      const result = await resetPlayerBehaviorScore(userId);
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      await loadAdminData();
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Не удалось сбросить балл поведения."
+      );
+    } finally {
+      setIsResettingBehaviorScoreUserId(null);
     }
   }
 
@@ -1826,7 +1856,12 @@ export default function AdminPage() {
                         <div>
                           <div className="font-medium">{player.nickname}</div>
                           <div className="mt-1 text-sm text-zinc-500">{player.email}</div>
-                          <div className="mt-3">
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <div
+                              className={`text-sm font-black uppercase tracking-[0.16em] ${getBehaviorScoreClassName(player.behaviorScore)}`}
+                            >
+                              Балл: {player.behaviorScore}
+                            </div>
                             <label className="block w-fit">
                               <span className="sr-only">Статус подтверждения MMR</span>
                               <select
@@ -1868,6 +1903,16 @@ export default function AdminPage() {
                             {isResettingDeviceUserId === player.id
                               ? "Сброс..."
                               : "Сбросить устройство"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleResetPlayerBehaviorScore(player.id)}
+                            disabled={isResettingBehaviorScoreUserId === player.id}
+                            className="border-2 border-blue-500 bg-blue-500/10 px-3 py-1 text-sm font-bold uppercase text-blue-500 transition-colors hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isResettingBehaviorScoreUserId === player.id
+                              ? "СБРОС..."
+                              : "СБРОСИТЬ БАЛЛ"}
                           </button>
                           <button
                             type="button"
