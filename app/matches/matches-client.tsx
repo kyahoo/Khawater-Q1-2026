@@ -58,6 +58,14 @@ function StatePanel({
   );
 }
 
+function EmptyStateBlock({ message }: { message: string }) {
+  return (
+    <div className="rounded-none border-[3px] border-[#061726] bg-[#061726] p-5 text-sm font-black uppercase tracking-wide text-gray-300 shadow-[4px_4px_0px_0px_#061726]">
+      {message}
+    </div>
+  );
+}
+
 export function MatchesClient() {
   const router = useRouter();
   const [matches, setMatches] = useState<UserTeamMatch[]>([]);
@@ -114,35 +122,71 @@ export function MatchesClient() {
     return <StatePanel tone="danger">{errorMessage}</StatePanel>;
   }
 
-  if (matches.length === 0) {
-    return (
-      <StatePanel tone="default">
-        <div className="space-y-4 normal-case tracking-normal">
-          <p className="text-sm leading-7 text-gray-200">
-            У вас пока нет матчей. Убедитесь, что вы в команде и она заявилась на активный
-            турнир.
-          </p>
-          <Link
-            href="/tournament"
-            className="inline-flex items-center justify-center rounded-none border-[3px] border-[#061726] bg-[#CD9C3E] px-5 py-3 text-sm font-black uppercase tracking-wide text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
-          >
-            Перейти к турниру
-          </Link>
-        </div>
-      </StatePanel>
-    );
-  }
+  const upcomingMatches = matches.filter(
+    (match) => match.status === "scheduled" || match.status === "live"
+  );
+  const finishedMatches = matches.filter((match) => match.status === "finished");
 
   return (
-    <div className="space-y-4">
-      {matches.map((match) => (
-        <MatchCard
-          key={match.id}
-          match={match}
-          currentTimeMs={currentTimeMs}
-          hasMounted={hasMounted}
-        />
-      ))}
+    <div>
+      <section>
+        <h2 className="mb-4 text-base font-black uppercase tracking-[0.2em] text-[#CD9C3E] md:text-lg">
+          ПРЕДСТОЯЩИЕ МАТЧИ
+        </h2>
+        <div className="space-y-4">
+          {upcomingMatches.length > 0 ? (
+            upcomingMatches.map((match) => (
+              <MatchCard
+                key={match.id}
+                match={match}
+                currentTimeMs={currentTimeMs}
+                hasMounted={hasMounted}
+              />
+            ))
+          ) : (
+            <EmptyStateBlock message="НЕТ ПРЕДСТОЯЩИХ МАТЧЕЙ" />
+          )}
+        </div>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="mb-4 text-base font-black uppercase tracking-[0.2em] text-gray-400 md:text-lg">
+          ПРОШЕДШИЕ МАТЧИ
+        </h2>
+        <div className="space-y-4">
+          {finishedMatches.length > 0 ? (
+            finishedMatches.map((match) => (
+              <MatchCard
+                key={match.id}
+                match={match}
+                currentTimeMs={currentTimeMs}
+                hasMounted={hasMounted}
+              />
+            ))
+          ) : (
+            <EmptyStateBlock message="НЕТ ПРОШЕДШИХ МАТЧЕЙ" />
+          )}
+        </div>
+      </section>
+
+      {matches.length === 0 && (
+        <div className="mt-8">
+          <StatePanel tone="default">
+            <div className="space-y-4 normal-case tracking-normal">
+              <p className="text-sm leading-7 text-gray-200">
+                У вас пока нет матчей. Убедитесь, что вы в команде и она заявилась на
+                активный турнир.
+              </p>
+              <Link
+                href="/tournament"
+                className="inline-flex items-center justify-center rounded-none border-[3px] border-[#061726] bg-[#CD9C3E] px-5 py-3 text-sm font-black uppercase tracking-wide text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+              >
+                Перейти к турниру
+              </Link>
+            </div>
+          </StatePanel>
+        </div>
+      )}
     </div>
   );
 }
