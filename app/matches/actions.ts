@@ -23,6 +23,10 @@ type SaveLobbyScreenshotResult = {
   error: string | null;
 };
 
+type UploadMatchResultScreenshotResult = {
+  publicUrl: string;
+};
+
 type LobbyScreenshotOcrData = {
   lobby_host: string;
   players_in_lobby: string[];
@@ -50,8 +54,56 @@ const CHECK_IN_WINDOW_MS = 30 * 60 * 1000;
 const MISTRAL_LOBBY_OCR_SYSTEM_PROMPT =
   "You are an OCR assistant analyzing a photo of a monitor displaying a Dota 2 custom lobby. Focus strictly on extracting two things: 1. The 'Lobby Host' (located in the top right of the lobby UI panel, e.g., 'Lobby Host: [Name]'). 2. The exact in-game nicknames of any players currently assigned to 'The Radiant' or 'The Dire' team slots. Return ONLY a valid JSON object in this exact format: { \"lobby_host\": \"Name\", \"players_in_lobby\": [\"Player1\", \"Player2\"] }. Do not include any markdown formatting, backticks, or conversational text.";
 
-function random4DigitPassword(): string {
-  return String(Math.floor(1000 + Math.random() * 9000));
+function generateLobbyPassword(): string {
+  const useFourDigits = Math.random() >= 0.5;
+  const min = useFourDigits ? 1000 : 100;
+  const max = useFourDigits ? 9000 : 900;
+
+  return `khawater${Math.floor(min + Math.random() * max)}`;
+}
+
+function isKnownLobbyTeamName(value: string | null | undefined) {
+  const trimmedValue = value?.trim();
+
+  if (!trimmedValue) {
+    return false;
+  }
+
+  return !/^(tbd|team a|team b)$/i.test(trimmedValue);
+}
+
+function generateLobbyName(params: {
+  matchId: string;
+  roundLabel: string | null | undefined;
+  teamAName: string | null | undefined;
+  teamBName: string | null | undefined;
+}) {
+  const teamAName = params.teamAName?.trim();
+  const teamBName = params.teamBName?.trim();
+
+  if (isKnownLobbyTeamName(teamAName) && isKnownLobbyTeamName(teamBName)) {
+    return `${teamAName} vs ${teamBName}`;
+  }
+
+  const fallbackLabel = params.roundLabel?.trim() || params.matchId;
+  return `Match ${fallbackLabel}`;
+}
+
+function getUploadFileExtension(file: File) {
+  const extensionByType: Record<string, string> = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "image/heic": "heic",
+    "image/heif": "heif",
+  };
+
+  const extension =
+    extensionByType[file.type] ??
+    file.name.split(".").pop()?.toLowerCase()?.replace(/[^a-z0-9]/g, "") ??
+    "jpg";
+
+  return extension || "jpg";
 }
 
 function getMatchActionEnv() {
@@ -136,7 +188,7 @@ async function getAuthorizedMatchActionContext(
   const { adminClient, user } = authResult.context;
   const { data: matchRow, error: matchError } = await adminClient
     .from("tournament_matches")
-    .select("id, team_a_id, team_b_id, scheduled_at, lobby_name, lobby_password")
+    .select("id, team_a_id, team_b_id, round_label, scheduled_at, lobby_name, lobby_password")
     .eq("id", matchId)
     .maybeSingle();
 
@@ -340,8 +392,24 @@ export async function checkInToMatch(
   let lobbyPassword = match.lobby_password;
 
   if (!lobbyName || !lobbyPassword) {
-    lobbyName = `KHW_${trimmedMatchId}`;
-    lobbyPassword = random4DigitPassword();
+    const { data: teams } = await adminClient
+      .from("teams")
+      .select("id, name")
+      .in("id", [match.team_a_id, match.team_b_id]);
+    const teamNameById = new Map(
+      ((teams ?? []) as Array<{ id: string; name: string | null }>).map((team) => [
+        team.id,
+        team.name,
+      ])
+    );
+
+    lobbyName = generateLobbyName({
+      matchId: trimmedMatchId,
+      roundLabel: match.round_label,
+      teamAName: teamNameById.get(match.team_a_id),
+      teamBName: teamNameById.get(match.team_b_id),
+    });
+    lobbyPassword = generateLobbyPassword();
 
     const { error: updateError } = await adminClient
       .from("tournament_matches")
@@ -576,6 +644,110 @@ export async function saveMatchLobbyScreenshot(
 
   return {
     error: null,
+  };
+}
+
+export async function uploadMatchResultScreenshot(
+  matchId: string,
+  formData: FormData
+): Promise<UploadMatchResultScreenshotResult> {
+  const trimmedMatchId = matchId.trim();
+  const accessTokenEntry = formData.get("accessToken");
+  const imageFileEntry = formData.get("resultScreenshot");
+  const accessToken =
+    typeof accessTokenEntry === "string" ? accessTokenEntry.trim() : "";
+
+  if (!trimmedMatchId) {
+    throw new Error("Матч обязателен.");
+  }
+
+  if (!accessToken) {
+    throw new Error("Сессия истекла. Войдите в аккаунт заново.");
+  }
+
+  if (!(imageFileEntry instanceof File) || imageFileEntry.size === 0) {
+    throw new Error("Выберите скриншот финального результата.");
+  }
+
+  if (!imageFileEntry.type.startsWith("image/")) {
+    throw new Error("Файл результата должен быть изображением.");
+  }
+
+  const authResult = await getMatchActionContext(accessToken);
+
+  if (authResult.error || !authResult.context) {
+    throw new Error(authResult.error ?? "Не удалось проверить сессию.");
+  }
+
+  const { adminClient, user } = authResult.context;
+  const { data: matchRow, error: matchError } = await adminClient
+    .from("tournament_matches")
+    .select("id, team_a_id, team_b_id")
+    .eq("id", trimmedMatchId)
+    .maybeSingle();
+
+  if (matchError || !matchRow) {
+    throw new Error("Матч не найден.");
+  }
+
+  const typedMatch = matchRow as Pick<
+    MatchActionMatchRow,
+    "id" | "team_a_id" | "team_b_id"
+  >;
+  const { data: captainMembership, error: captainError } = await adminClient
+    .from("team_members")
+    .select("team_id")
+    .eq("user_id", user.id)
+    .eq("is_captain", true)
+    .in("team_id", [typedMatch.team_a_id, typedMatch.team_b_id])
+    .maybeSingle();
+
+  if (captainError || !captainMembership) {
+    throw new Error(
+      "Только капитан одной из команд этого матча может загрузить итоговый скриншот."
+    );
+  }
+
+  const filePath = `${trimmedMatchId}/${Date.now()}-result.${getUploadFileExtension(
+    imageFileEntry
+  )}`;
+  const imageBytes = new Uint8Array(await imageFileEntry.arrayBuffer());
+  const { error: uploadError } = await adminClient.storage
+    .from("match-results")
+    .upload(filePath, imageBytes, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: imageFileEntry.type || undefined,
+    });
+
+  if (uploadError) {
+    throw new Error(uploadError.message);
+  }
+
+  const {
+    data: { publicUrl },
+  } = adminClient.storage.from("match-results").getPublicUrl(filePath);
+
+  if (!publicUrl) {
+    throw new Error("Не удалось получить публичную ссылку на результат матча.");
+  }
+
+  const { error: updateError } = await adminClient
+    .from("tournament_matches")
+    .update({
+      result_screenshot_url: publicUrl,
+    })
+    .eq("id", trimmedMatchId);
+
+  if (updateError) {
+    await adminClient.storage.from("match-results").remove([filePath]);
+    throw new Error(updateError.message);
+  }
+
+  revalidateMatchPaths(trimmedMatchId);
+
+  return {
+    publicUrl,
   };
 }
 

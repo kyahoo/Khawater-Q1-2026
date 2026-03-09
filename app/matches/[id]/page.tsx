@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -22,6 +23,7 @@ import {
   checkInToMatch,
   getMatchBiometricVerificationOptions,
   saveMatchLobbyScreenshot,
+  uploadMatchResultScreenshot,
   verifyMatchBiometricAuthentication,
   verifyMatchBiometricRegistration,
 } from "@/app/matches/actions";
@@ -150,6 +152,7 @@ export default function MatchRoomPage() {
   const router = useRouter();
   const matchId = typeof params.id === "string" ? params.id : null;
   const screenshotInputRef = useRef<HTMLInputElement | null>(null);
+  const resultScreenshotInputRef = useRef<HTMLInputElement | null>(null);
 
   const [data, setData] = useState<MatchRoomData | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -166,6 +169,12 @@ export default function MatchRoomPage() {
   const [lobbyErrorMessage, setLobbyErrorMessage] = useState("");
   const [ocrData, setOcrData] = useState<LobbyScreenshotOcrData | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [resultScreenshotFile, setResultScreenshotFile] = useState<File | null>(
+    null
+  );
+  const [isUploadingResultScreenshot, setIsUploadingResultScreenshot] =
+    useState(false);
+  const [resultUploadErrorMessage, setResultUploadErrorMessage] = useState("");
 
   const loadMatchRoom = useCallback(
     async (nextMatchId: string, options?: { showLoading?: boolean }) => {
@@ -335,11 +344,15 @@ export default function MatchRoomPage() {
     }
   }
 
-  function openScreenshotPicker() {
-    const fileInput = screenshotInputRef.current;
+  function openFilePicker(
+    inputRef: { current: HTMLInputElement | null },
+    setFormErrorMessage: (message: string) => void,
+    fallbackMessage: string
+  ) {
+    const fileInput = inputRef.current;
 
     if (!fileInput) {
-      setLobbyErrorMessage("Не удалось открыть выбор файла.");
+      setFormErrorMessage("Не удалось открыть выбор файла.");
       return;
     }
 
@@ -357,11 +370,25 @@ export default function MatchRoomPage() {
 
       fileInput.click();
     } catch (error) {
-      console.error("Lobby screenshot picker open failed:", error);
-      setLobbyErrorMessage(
-        "Биометрия подтверждена. Выберите скриншот вручную."
-      );
+      console.error("Hidden file picker open failed:", error);
+      setFormErrorMessage(fallbackMessage);
     }
+  }
+
+  function openLobbyScreenshotPicker() {
+    openFilePicker(
+      screenshotInputRef,
+      setLobbyErrorMessage,
+      "Биометрия подтверждена. Выберите скриншот вручную."
+    );
+  }
+
+  function openResultScreenshotPicker() {
+    openFilePicker(
+      resultScreenshotInputRef,
+      setResultUploadErrorMessage,
+      "Выберите скриншот результата вручную."
+    );
   }
 
   async function handleCheckIn() {
@@ -433,7 +460,7 @@ export default function MatchRoomPage() {
       }
 
       setIsWaitingForLobbyScreenshot(true);
-      openScreenshotPicker();
+      openLobbyScreenshotPicker();
     } catch (error) {
       setLobbyErrorMessage(
         getErrorMessage(error, "Не удалось подтвердить лобби.")
@@ -514,6 +541,70 @@ export default function MatchRoomPage() {
       );
     } finally {
       setIsUploadingLobbyScreenshot(false);
+    }
+  }
+
+  function handleResultScreenshotSelection(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const nextFile = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    setResultUploadErrorMessage("");
+
+    if (!nextFile) {
+      return;
+    }
+
+    if (!nextFile.type.startsWith("image/")) {
+      setResultScreenshotFile(null);
+      setResultUploadErrorMessage("Загрузите изображение финального результата.");
+      return;
+    }
+
+    setResultScreenshotFile(nextFile);
+  }
+
+  async function handleMatchResultUpload(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    if (!matchId) {
+      return;
+    }
+
+    if (!resultScreenshotFile) {
+      setResultUploadErrorMessage("Сначала выберите скриншот результата.");
+      return;
+    }
+
+    setIsUploadingResultScreenshot(true);
+    setResultUploadErrorMessage("");
+
+    try {
+      const accessToken = await getSessionAccessToken();
+
+      if (!accessToken) {
+        setResultUploadErrorMessage(
+          "Войдите в аккаунт для загрузки результата матча."
+        );
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("accessToken", accessToken);
+      formData.append("resultScreenshot", resultScreenshotFile);
+
+      await uploadMatchResultScreenshot(matchId, formData);
+      setResultScreenshotFile(null);
+      await refreshMatchRoom();
+    } catch (error) {
+      console.error("Match result screenshot upload failed:", error);
+      setResultUploadErrorMessage(
+        getErrorMessage(error, "Не удалось загрузить скриншот результата.")
+      );
+    } finally {
+      setIsUploadingResultScreenshot(false);
     }
   }
 
@@ -617,6 +708,15 @@ export default function MatchRoomPage() {
   );
   const isCurrentUserLobbyConfirmed = Boolean(
     currentUserId && data.screenshotUploadedUserIds.includes(currentUserId)
+  );
+  const teamACaptainUserId =
+    data.teamA.roster.find((player) => player.isCaptain)?.userId ?? null;
+  const teamBCaptainUserId =
+    data.teamB.roster.find((player) => player.isCaptain)?.userId ?? null;
+  const isCurrentUserMatchCaptain = Boolean(
+    currentUserId &&
+      (currentUserId === teamACaptainUserId ||
+        currentUserId === teamBCaptainUserId)
   );
   const checkInCount = Math.min(data.checkedInUserIds.length, TOTAL_MATCH_PLAYERS);
   const allCheckedIn = checkInCount >= TOTAL_MATCH_PLAYERS;
@@ -878,7 +978,7 @@ export default function MatchRoomPage() {
                         !isUploadingLobbyScreenshot && (
                           <button
                             type="button"
-                            onClick={openScreenshotPicker}
+                            onClick={openLobbyScreenshotPicker}
                             className="mt-3 block border-[3px] border-[#061726] bg-white px-5 py-2 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
                           >
                             СДЕЛАТЬ ФОТО ЛОББИ
@@ -896,6 +996,113 @@ export default function MatchRoomPage() {
               )}
             </div>
           )}
+          </section>
+
+          <section className="mt-6 border-[4px] border-[#CD9C3E] bg-[#061726] p-5 shadow-[6px_6px_0px_0px_#CD9C3E] md:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
+                  Пост-матч
+                </p>
+                <h2 className="mt-2 text-2xl font-black uppercase text-white">
+                  РЕЗУЛЬТАТЫ МАТЧА
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm text-white/80">
+                  Финальный скриншот табло загружает капитан одной из двух
+                  команд этого матча.
+                </p>
+              </div>
+
+              {!data.match.resultScreenshotUrl && resultScreenshotFile && (
+                <div className="w-fit border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-white shadow-[4px_4px_0px_0px_#061726]">
+                  Выбран файл:{" "}
+                  <span className="text-[#CD9C3E]">{resultScreenshotFile.name}</span>
+                </div>
+              )}
+            </div>
+
+            {data.match.resultScreenshotUrl ? (
+              <div className="mt-5 space-y-4">
+                <div className="border-[4px] border-[#CD9C3E] bg-[#163f1d] px-4 py-4 text-sm font-black uppercase tracking-[0.2em] text-white shadow-[6px_6px_0px_0px_#061726]">
+                  РЕЗУЛЬТАТ ЗАГРУЖЕН ✅
+                </div>
+
+                <div className="border-[4px] border-[#CD9C3E] bg-[#0B3A4A] p-4 shadow-[6px_6px_0px_0px_#061726]">
+                  <Image
+                    src={data.match.resultScreenshotUrl}
+                    alt="Скриншот финального результата матча"
+                    width={1600}
+                    height={900}
+                    className="h-auto w-full border-[3px] border-[#061726] bg-black object-contain"
+                  />
+
+                  <a
+                    href={data.match.resultScreenshotUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-4 inline-block border-[3px] border-[#CD9C3E] bg-[#061726] px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#CD9C3E] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#CD9C3E]"
+                  >
+                    ОТКРЫТЬ СКРИНШОТ
+                  </a>
+                </div>
+              </div>
+            ) : isCurrentUserMatchCaptain ? (
+              <form
+                className="mt-5 border-[4px] border-[#CD9C3E] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]"
+                onSubmit={(event) => void handleMatchResultUpload(event)}
+              >
+                <input
+                  ref={resultScreenshotInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleResultScreenshotSelection}
+                />
+
+                <p className="text-sm font-bold text-white/85">
+                  После завершения матча загрузите финальный скриншот табло.
+                </p>
+
+                <div className="mt-4 border-[3px] border-[#CD9C3E] bg-[#061726] px-4 py-4 text-xs font-black uppercase tracking-[0.2em] text-white shadow-[4px_4px_0px_0px_#061726]">
+                  {resultScreenshotFile
+                    ? `Готов к загрузке: ${resultScreenshotFile.name}`
+                    : "Файл пока не выбран"}
+                </div>
+
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={openResultScreenshotPicker}
+                    disabled={isUploadingResultScreenshot}
+                    className="border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-6 py-3 text-sm font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:bg-[#145268] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
+                  >
+                    ВЫБРАТЬ СКРИНШОТ
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={!resultScreenshotFile || isUploadingResultScreenshot}
+                    className="border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-6 py-3 text-sm font-black uppercase text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:bg-[#145268] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
+                  >
+                    {isUploadingResultScreenshot
+                      ? "ЗАГРУЗКА..."
+                      : "ЗАГРУЗИТЬ РЕЗУЛЬТАТ"}
+                  </button>
+                </div>
+
+                {resultUploadErrorMessage && (
+                  <p className="mt-4 text-sm font-bold text-[#FCA5A5]">
+                    {resultUploadErrorMessage}
+                  </p>
+                )}
+              </form>
+            ) : (
+              <div className="mt-5 border-[4px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-4 text-sm font-bold text-white shadow-[6px_6px_0px_0px_#061726]">
+                {currentUserId
+                  ? "Загрузить итоговый скриншот может только капитан команды А или команды Б этого матча."
+                  : "Войдите в аккаунт, чтобы загрузить итоговый скриншот матча."}
+              </div>
+            )}
           </section>
         </main>
       </div>
