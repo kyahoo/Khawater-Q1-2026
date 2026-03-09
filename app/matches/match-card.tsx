@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import type { UserTeamMatch } from "@/lib/supabase/matches";
 
+const PRE_MATCH_OPEN_WINDOW_MS = 30 * 60 * 1000;
+
 const almatyDateTimeFormatter = new Intl.DateTimeFormat("ru-RU", {
   timeZone: "Asia/Almaty",
   day: "numeric",
@@ -86,7 +88,7 @@ function isMatchActive(match: UserTeamMatch, currentTimeMs: number | null, hasMo
     return false;
   }
 
-  return currentTimeMs >= scheduledTimeMs;
+  return currentTimeMs >= scheduledTimeMs - PRE_MATCH_OPEN_WINDOW_MS;
 }
 
 type MatchCardProps = {
