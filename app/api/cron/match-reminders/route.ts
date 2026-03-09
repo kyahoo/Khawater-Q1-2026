@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { sendNotificationToUsers } from "@/lib/notifications/push";
 import type { Database } from "@/lib/supabase/database.types";
@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type ReminderField = "reminder_1h_sent" | "reminder_30m_sent";
+type AdminClient = SupabaseClient<Database>;
 
 type ReminderMatchRow = Pick<
   Database["public"]["Tables"]["tournament_matches"]["Row"],
@@ -17,7 +18,7 @@ type ReminderMatchRow = Pick<
 };
 
 async function getUserIdsForMatchTeams(
-  adminClient: ReturnType<typeof createClient<Database>>,
+  adminClient: AdminClient,
   teamIds: string[]
 ) {
   const uniqueTeamIds = Array.from(new Set(teamIds.filter(Boolean)));
@@ -43,7 +44,7 @@ async function getUserIdsForMatchTeams(
 }
 
 async function sendReminderBatch(params: {
-  adminClient: ReturnType<typeof createClient<Database>>;
+  adminClient: AdminClient;
   matches: ReminderMatchRow[];
   title: string;
   body: string;
@@ -80,7 +81,7 @@ async function sendReminderBatch(params: {
 }
 
 async function processReminderWindow(params: {
-  adminClient: ReturnType<typeof createClient<Database>>;
+  adminClient: AdminClient;
   reminderField: ReminderField;
   minutesAhead: number;
   title: string;
@@ -143,6 +144,30 @@ async function processReminderWindow(params: {
   };
 }
 
+function createAdminSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return {
+      adminClient: null,
+      error: "Missing server environment configuration.",
+    };
+  }
+
+  // Cron requests do not carry user cookies, so every match/subscription query
+  // must use the service-role client to bypass RLS safely.
+  return {
+    adminClient: createClient<Database>(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }),
+    error: null,
+  };
+}
+
 export async function GET(request: NextRequest) {
   const expectedAuthorization = `Bearer ${process.env.CRON_SECRET}`;
   const authorization = request.headers.get("authorization");
@@ -151,21 +176,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRoleKey) {
+  const { adminClient, error: adminClientError } = createAdminSupabaseClient();
+
+  if (!adminClient || adminClientError) {
     return NextResponse.json(
-      { error: "Missing server environment configuration." },
+      { error: adminClientError ?? "Missing server environment configuration." },
       { status: 500 }
     );
   }
-
-  const adminClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
 
   try {
     const oneHourResult = await processReminderWindow({
