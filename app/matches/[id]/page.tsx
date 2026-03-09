@@ -367,7 +367,7 @@ export default function MatchRoomPage() {
       data.match.teamBScore !== null ? String(data.match.teamBScore) : ""
     );
     const safeResultScreenshotUrls = normalizeResultScreenshotUrls(
-      data.match?.resultScreenshotUrls
+      data.match?.resultScreenshotUrls ?? []
     );
     setResultScreenshotSlots(
       safeResultScreenshotUrls.map((publicUrl, index) =>
@@ -963,15 +963,29 @@ export default function MatchRoomPage() {
   const seriesLength = getSeriesLength(data.match.format);
   const seriesMaxWins = getSeriesMaxWins(data.match.format);
   const safeResultScreenshotUrls = normalizeResultScreenshotUrls(
-    data.match?.resultScreenshotUrls
+    data.match?.resultScreenshotUrls ?? []
   );
-  const safeResultScreenshotSlots = resultScreenshotSlots.map((slot, index) =>
+  const safeResultScreenshotSlots = (Array.isArray(resultScreenshotSlots)
+    ? resultScreenshotSlots
+    : []
+  ).map((slot, index) =>
     slot ??
     createEmptyResultScreenshotSlot({
       fileName: `Скриншот Игры ${index + 1}`,
     })
   );
   const totalGames = parsedReportedTeamAScore + parsedReportedTeamBScore;
+  const reportedResultScreenshotSlotCount = Math.max(
+    totalGames,
+    safeResultScreenshotUrls.length
+  );
+  const reportedResultScreenshotSlots =
+    reportedResultScreenshotSlotCount > 0
+      ? Array.from({ length: reportedResultScreenshotSlotCount }, (_, index) => ({
+          index,
+          url: safeResultScreenshotUrls[index] ?? null,
+        }))
+      : [];
   const uploadedResultScreenshotCount = safeResultScreenshotSlots.filter((slot) =>
     Boolean(slot?.publicUrl)
   ).length;
@@ -1357,30 +1371,38 @@ export default function MatchRoomPage() {
                   </div>
 
                   <div className="grid gap-4 lg:grid-cols-2">
-                    {safeResultScreenshotUrls.length > 0 ? (
-                      safeResultScreenshotUrls.map((screenshotUrl, index) => (
+                    {reportedResultScreenshotSlots.length > 0 ? (
+                      reportedResultScreenshotSlots.map(({ index, url }) => (
                         <div
-                          key={`${screenshotUrl}-${index}`}
+                          key={`reported-screenshot-${index}`}
                           className="border-[4px] border-[#CD9C3E] bg-[#0B3A4A] p-4 shadow-[6px_6px_0px_0px_#061726]"
                         >
                           <p className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
                             Скриншот Игры {index + 1}
                           </p>
-                          <Image
-                            src={screenshotUrl}
-                            alt={`Скриншот Игры ${index + 1}`}
-                            width={1600}
-                            height={900}
-                            className="mt-4 h-auto w-full border-[3px] border-[#061726] bg-black object-contain"
-                          />
-                          <a
-                            href={screenshotUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-4 inline-block border-[3px] border-[#CD9C3E] bg-[#061726] px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
-                          >
-                            ОТКРЫТЬ СКРИНШОТ
-                          </a>
+                          {url ? (
+                            <>
+                              <Image
+                                src={url}
+                                alt={`Скриншот Игры ${index + 1}`}
+                                width={1600}
+                                height={900}
+                                className="mt-4 h-auto w-full border-[3px] border-[#061726] bg-black object-contain"
+                              />
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-4 inline-block border-[3px] border-[#CD9C3E] bg-[#061726] px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+                              >
+                                ОТКРЫТЬ СКРИНШОТ
+                              </a>
+                            </>
+                          ) : (
+                            <div className="mt-4 border-[3px] border-[#061726] bg-[#061726] px-4 py-6 text-sm font-bold text-white/80 shadow-[4px_4px_0px_0px_#061726]">
+                              Скриншот еще не загружен.
+                            </div>
+                          )}
                         </div>
                       ))
                     ) : (
