@@ -4,9 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import type { UserTeamMatch } from "@/lib/supabase/matches";
 
-const LIVE_WINDOW_BEFORE_MS = 30 * 60 * 1000;
-const LIVE_WINDOW_AFTER_MS = 60 * 60 * 1000;
-
 const almatyDateTimeFormatter = new Intl.DateTimeFormat("ru-RU", {
   timeZone: "Asia/Almaty",
   day: "numeric",
@@ -70,12 +67,16 @@ function hasMatchResult(match: UserTeamMatch) {
   return match.teamAScore !== null && match.teamBScore !== null;
 }
 
+function isMatchCompleted(match: UserTeamMatch) {
+  return match.status === "finished" || match.status === "completed";
+}
+
 function isMatchActive(match: UserTeamMatch, currentTimeMs: number | null, hasMounted: boolean) {
   if (!hasMounted || currentTimeMs === null || !match.scheduledAt) {
     return false;
   }
 
-  if (match.status === "finished" || hasMatchResult(match)) {
+  if (isMatchCompleted(match)) {
     return false;
   }
 
@@ -85,10 +86,7 @@ function isMatchActive(match: UserTeamMatch, currentTimeMs: number | null, hasMo
     return false;
   }
 
-  return (
-    currentTimeMs >= scheduledTimeMs - LIVE_WINDOW_BEFORE_MS &&
-    currentTimeMs <= scheduledTimeMs + LIVE_WINDOW_AFTER_MS
-  );
+  return currentTimeMs >= scheduledTimeMs;
 }
 
 type MatchCardProps = {
@@ -121,7 +119,7 @@ function TeamLogoBox({
 
 export function MatchCard({ match, currentTimeMs, hasMounted }: MatchCardProps) {
   const isActive = isMatchActive(match, currentTimeMs, hasMounted);
-  const isFinished = match.status === "finished" || hasMatchResult(match);
+  const isFinished = isMatchCompleted(match);
   const formattedSchedule = match.scheduledAt
     ? `${formatMatchDateTime(match.scheduledAt)}${isFinished ? " - Завершен" : ""}`
     : "Время будет объявлено позже";
@@ -187,7 +185,7 @@ export function MatchCard({ match, currentTimeMs, hasMounted }: MatchCardProps) 
       </div>
       {isActive && (
         <div className="mt-3 text-xs font-black uppercase tracking-[0.2em] text-[#39FF14] md:text-sm">
-          Матч идет сейчас
+          МАТЧ ОТКРЫТ
         </div>
       )}
     </Link>

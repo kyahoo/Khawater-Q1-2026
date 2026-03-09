@@ -122,10 +122,12 @@ export function MatchesClient() {
     return <StatePanel tone="danger">{errorMessage}</StatePanel>;
   }
 
+  const isCompletedMatch = (match: UserTeamMatch) =>
+    match.status === "finished" || match.status === "completed";
   const upcomingMatches = matches.filter(
-    (match) => match.status === "scheduled" || match.status === "live"
+    (match) => !isCompletedMatch(match)
   );
-  const finishedMatches = matches.filter((match) => match.status === "finished");
+  const finishedMatches = matches.filter((match) => isCompletedMatch(match));
 
   return (
     <div>
