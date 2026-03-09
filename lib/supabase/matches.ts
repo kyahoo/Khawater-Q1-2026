@@ -23,6 +23,7 @@ export type MatchRoomData = {
     teamBScore: number | null;
     lobbyName: string | null;
     lobbyPassword: string | null;
+    resultScreenshotUrl: string | null;
   };
   teamA: MatchRoomTeam;
   teamB: MatchRoomTeam;
@@ -93,7 +94,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
   const { data: matchRow, error: matchError } = await supabase
     .from("tournament_matches")
     .select(
-      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password"
+      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_url"
     )
     .eq("id", matchId)
     .maybeSingle();
@@ -168,6 +169,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
         teamBScore: typedMatch.team_b_score,
         lobbyName: typedMatch.lobby_name ?? null,
         lobbyPassword: typedMatch.lobby_password ?? null,
+        resultScreenshotUrl: typedMatch.result_screenshot_url ?? null,
       },
       teamA,
       teamB,
