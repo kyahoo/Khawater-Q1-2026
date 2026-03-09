@@ -29,155 +29,173 @@ function isValidPushSubscription(
 export async function savePushSubscription(
   subscription: any
 ): Promise<SavePushSubscriptionResult> {
-  if (!isValidPushSubscription(subscription)) {
-    return {
-      error: "Некорректная push-подписка.",
-    };
-  }
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return {
-      error: "Missing Supabase server environment configuration.",
-    };
-  }
-
-  const supabase = await getSupabaseServerClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return {
-      error: "Сессия истекла. Войдите в аккаунт заново.",
-    };
-  }
-
-  const adminClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-
-  const normalizedSubscription = JSON.parse(JSON.stringify(subscription)) as Json;
-
-  const { error } = await adminClient.from("push_subscriptions").insert({
-    user_id: user.id,
-    subscription: normalizedSubscription,
-  });
-
-  if (error) {
-    if ("code" in error && error.code === "23505") {
+  try {
+    if (!isValidPushSubscription(subscription)) {
       return {
-        error: null,
+        error: "Некорректная push-подписка.",
       };
     }
 
-    return {
-      error: error.message,
-    };
-  }
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  revalidatePath("/profile");
+    if (!supabaseUrl || !serviceRoleKey) {
+      return {
+        error: "Missing Supabase server environment configuration.",
+      };
+    }
 
-  return {
-    error: null,
-  };
-}
+    const supabase = await getSupabaseServerClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-export async function sendTestNotification(): Promise<SendTestNotificationResult> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+    if (userError || !user) {
+      return {
+        error: userError?.message ?? "Could not verify the current user session.",
+      };
+    }
 
-  if (!supabaseUrl || !serviceRoleKey || !vapidPublicKey || !vapidPrivateKey) {
-    return {
-      error: "Push-уведомления не настроены на сервере.",
-    };
-  }
+    const adminClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
 
-  const supabase = await getSupabaseServerClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+    const normalizedSubscription = JSON.parse(JSON.stringify(subscription)) as Json;
 
-  if (userError || !user) {
-    return {
-      error: "Сессия истекла. Войдите в аккаунт заново.",
-    };
-  }
+    const { error } = await adminClient.from("push_subscriptions").insert({
+      user_id: user.id,
+      subscription: normalizedSubscription,
+    });
 
-  const adminClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-
-  const { data: subscriptions, error: subscriptionsError } = await adminClient
-    .from("push_subscriptions")
-    .select("id, subscription")
-    .eq("user_id", user.id);
-
-  if (subscriptionsError) {
-    return {
-      error: subscriptionsError.message,
-    };
-  }
-
-  if (!subscriptions || subscriptions.length === 0) {
-    return {
-      error: "Сначала подключите push-уведомления.",
-    };
-  }
-
-  webpush.setVapidDetails(
-    "mailto:admin@airbafresh.com",
-    vapidPublicKey,
-    vapidPrivateKey
-  );
-
-  for (const row of subscriptions) {
-    try {
-      await webpush.sendNotification(
-        (row.subscription as unknown) as webpush.PushSubscription,
-        JSON.stringify({
-          title: "KHAWATER СИСТЕМА",
-          body: "Уведомления успешно подключены! Тест пройден.",
-        })
-      );
-    } catch (error) {
-      const statusCode =
-        typeof error === "object" &&
-        error !== null &&
-        "statusCode" in error &&
-        typeof error.statusCode === "number"
-          ? error.statusCode
-          : null;
-
-      if (statusCode === 410) {
-        await adminClient.from("push_subscriptions").delete().eq("id", row.id);
-        continue;
+    if (error) {
+      if ("code" in error && error.code === "23505") {
+        return {
+          error: null,
+        };
       }
 
       return {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Не удалось отправить тестовое уведомление.",
+        error: error.message,
       };
     }
+
+    revalidatePath("/profile");
+
+    return {
+      error: null,
+    };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Не удалось сохранить push-подписку.",
+    };
   }
+}
 
-  revalidatePath("/profile");
+export async function sendTestNotification(): Promise<SendTestNotificationResult> {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
-  return {
-    error: null,
-  };
+    if (!supabaseUrl || !serviceRoleKey || !vapidPublicKey || !vapidPrivateKey) {
+      return {
+        error: "Push-уведомления не настроены на сервере.",
+      };
+    }
+
+    const supabase = await getSupabaseServerClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return {
+        error: userError?.message ?? "Could not verify the current user session.",
+      };
+    }
+
+    const adminClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    const { data: subscriptions, error: subscriptionsError } = await adminClient
+      .from("push_subscriptions")
+      .select("id, subscription")
+      .eq("user_id", user.id);
+
+    if (subscriptionsError) {
+      return {
+        error: subscriptionsError.message,
+      };
+    }
+
+    if (!subscriptions || subscriptions.length === 0) {
+      return {
+        error: "Сначала подключите push-уведомления.",
+      };
+    }
+
+    webpush.setVapidDetails(
+      "mailto:admin@airbafresh.com",
+      vapidPublicKey,
+      vapidPrivateKey
+    );
+
+    for (const row of subscriptions) {
+      try {
+        await webpush.sendNotification(
+          (row.subscription as unknown) as webpush.PushSubscription,
+          JSON.stringify({
+            title: "KHAWATER СИСТЕМА",
+            body: "Уведомления успешно подключены! Тест пройден.",
+          })
+        );
+      } catch (error) {
+        const statusCode =
+          typeof error === "object" &&
+          error !== null &&
+          "statusCode" in error &&
+          typeof error.statusCode === "number"
+            ? error.statusCode
+            : null;
+
+        if (statusCode === 410) {
+          await adminClient.from("push_subscriptions").delete().eq("id", row.id);
+          continue;
+        }
+
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Не удалось отправить тестовое уведомление.",
+        };
+      }
+    }
+
+    revalidatePath("/profile");
+
+    return {
+      error: null,
+    };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Не удалось отправить тестовое уведомление.",
+    };
+  }
 }
