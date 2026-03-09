@@ -32,6 +32,7 @@ import { CheckInGate } from "./check-in-gate";
 import { SiteHeader } from "@/components/site-header";
 
 const TOTAL_MATCH_PLAYERS = 1;
+const MATCH_ROOM_OPEN_WINDOW_MS = 30 * 60 * 1000;
 
 type LobbyScreenshotVerificationData = {
   is_host_found: boolean;
@@ -117,6 +118,24 @@ function getFileExtension(file: File) {
     file.name.split(".").pop()?.toLowerCase() ??
     "png"
   );
+}
+
+function isMatchRoomAccessible(match: MatchRoomData["match"]) {
+  if (match.status === "live" || match.status === "finished" || match.status === "completed") {
+    return true;
+  }
+
+  if (!match.scheduledAt) {
+    return true;
+  }
+
+  const scheduledTimeMs = new Date(match.scheduledAt).getTime();
+
+  if (Number.isNaN(scheduledTimeMs)) {
+    return true;
+  }
+
+  return Date.now() >= scheduledTimeMs - MATCH_ROOM_OPEN_WINDOW_MS;
 }
 
 function getSeriesLength(format: string) {
@@ -244,6 +263,13 @@ export default function MatchRoomPage() {
 
         if (!result.data) {
           setFetchError(result.error);
+          setErrorMessage("Матч не найден.");
+          return;
+        }
+
+        if (!isMatchRoomAccessible(result.data.match)) {
+          setData(null);
+          setFetchError(new Error("Match room is not open yet."));
           setErrorMessage("Матч не найден.");
           return;
         }
