@@ -1614,8 +1614,8 @@ export async function notifyOpponentLobbyReady(
   matchId: string,
   currentTeamId: string
 ): Promise<NotifyOpponentLobbyReadyResult> {
-  const trimmedMatchId = matchId.trim();
-  const trimmedCurrentTeamId = currentTeamId.trim();
+  const trimmedMatchId = String(matchId ?? "").trim();
+  const trimmedCurrentTeamId = String(currentTeamId ?? "").trim();
   const env = getMatchActionEnv();
 
   if (!trimmedMatchId || !trimmedCurrentTeamId) {
@@ -1761,9 +1761,9 @@ export async function claimDefaultWin(
   claimingTeamId: string,
   opponentTeamId: string
 ): Promise<ClaimDefaultWinResult> {
-  const trimmedMatchId = matchId.trim();
-  const trimmedClaimingTeamId = claimingTeamId.trim();
-  const trimmedOpponentTeamId = opponentTeamId.trim();
+  const trimmedMatchId = String(matchId ?? "").trim();
+  const trimmedClaimingTeamId = String(claimingTeamId ?? "").trim();
+  const trimmedOpponentTeamId = String(opponentTeamId ?? "").trim();
   const env = getMatchActionEnv();
 
   if (!trimmedMatchId || !trimmedClaimingTeamId || !trimmedOpponentTeamId) {
@@ -1883,7 +1883,9 @@ export async function claimDefaultWin(
       });
     }
 
-    revalidateMatchPaths(trimmedMatchId);
+    revalidatePath(`/matches/${trimmedMatchId}`);
+    revalidatePath("/matches");
+    revalidatePath("/tournament");
 
     return {
       error: null,

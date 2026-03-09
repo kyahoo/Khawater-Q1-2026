@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { claimDefaultWin } from "@/app/matches/actions";
 
@@ -22,32 +22,75 @@ export function ForfeitClaimButton({
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [isPending, startTransition] = useTransition();
+  const [toastMessage, setToastMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const toast = useMemo(
+    () => ({
+      error: (message: string) => setToastMessage(message),
+    }),
+    []
+  );
 
-  const isDisabled = isPending || isForfeit || isMatchFinished;
+  useEffect(() => {
+    if (!toastMessage) {
+      return;
+    }
 
-  function handleConfirm() {
+    const timeoutId = window.setTimeout(() => {
+      setToastMessage("");
+    }, 3500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [toastMessage]);
+
+  const isDisabled = isSubmitting || isForfeit || isMatchFinished;
+
+  async function handleConfirm() {
     if (isDisabled) {
       return;
     }
 
+    const normalizedMatchId = matchId.trim();
+    const normalizedClaimingTeamId = claimingTeamId.trim();
+    const normalizedOpponentTeamId = opponentTeamId.trim();
+
+    if (!normalizedMatchId || !normalizedClaimingTeamId || !normalizedOpponentTeamId) {
+      const message = "Не удалось определить данные матча для технической победы.";
+      setErrorMessage(message);
+      toast.error(message);
+      return;
+    }
+
+    setIsSubmitting(true);
     setErrorMessage("");
+    const result = await claimDefaultWin(
+      normalizedMatchId,
+      normalizedClaimingTeamId,
+      normalizedOpponentTeamId
+    );
 
-    startTransition(async () => {
-      const result = await claimDefaultWin(matchId, claimingTeamId, opponentTeamId);
+    if (result.error) {
+      setErrorMessage(result.error);
+      toast.error(result.error);
+      setIsSubmitting(false);
+      return;
+    }
 
-      if (result.error) {
-        setErrorMessage(result.error);
-        return;
-      }
-
-      setIsOpen(false);
-      router.refresh();
-    });
+    setIsOpen(false);
+    setIsSubmitting(false);
+    router.refresh();
   }
 
   return (
     <>
+      {toastMessage && (
+        <div className="fixed right-4 top-4 z-[60] max-w-sm border-[3px] border-[#7F1D1D] bg-[#450A0A] px-4 py-3 text-sm font-black text-[#FCA5A5] shadow-[6px_6px_0px_0px_#061726]">
+          {toastMessage}
+        </div>
+      )}
+
       <button
         type="button"
         onClick={() => setIsOpen(true)}
@@ -56,7 +99,7 @@ export function ForfeitClaimButton({
       >
         {isForfeit || isMatchFinished
           ? "Тех. победа недоступна"
-          : isPending
+          : isSubmitting
             ? "ОБРАБОТКА..."
             : "Запросить тех. победу"}
       </button>
@@ -81,18 +124,18 @@ export function ForfeitClaimButton({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                disabled={isPending}
+                disabled={isSubmitting}
                 className="border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-5 py-3 text-sm font-black uppercase text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-60"
               >
                 Отмена
               </button>
               <button
                 type="button"
-                onClick={handleConfirm}
-                disabled={isPending}
+                onClick={() => void handleConfirm()}
+                disabled={isSubmitting}
                 className="border-[3px] border-[#7F1D1D] bg-[#450A0A] px-5 py-3 text-sm font-black uppercase text-[#FCA5A5] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:bg-[#5F1010] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-60"
               >
-                {isPending ? "Подтверждение..." : "Подтвердить"}
+                {isSubmitting ? "Подтверждение..." : "Подтвердить"}
               </button>
             </div>
           </div>

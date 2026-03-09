@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { notifyOpponentLobbyReady } from "@/app/matches/actions";
 
@@ -18,38 +18,54 @@ export function NotifyButton({
   const router = useRouter();
   const [isNotified, setIsNotified] = useState(initialIsNotified);
   const [errorMessage, setErrorMessage] = useState("");
-  const [isPending, startTransition] = useTransition();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setIsNotified(initialIsNotified);
   }, [initialIsNotified]);
 
-  function handleNotifyOpponent() {
-    if (isNotified || isPending) {
+  async function handleNotifyOpponent() {
+    if (isNotified || isSubmitting) {
       return;
     }
 
+    const normalizedMatchId = matchId.trim();
+    const normalizedCurrentTeamId = currentTeamId.trim();
+
+    if (!normalizedMatchId) {
+      setErrorMessage("Матч не найден.");
+      return;
+    }
+
+    if (!normalizedCurrentTeamId) {
+      setErrorMessage("Не удалось определить текущую команду.");
+      return;
+    }
+
+    setIsSubmitting(true);
     setErrorMessage("");
+    const result = await notifyOpponentLobbyReady(
+      normalizedMatchId,
+      normalizedCurrentTeamId
+    );
 
-    startTransition(async () => {
-      const result = await notifyOpponentLobbyReady(matchId, currentTeamId);
+    if (result.error) {
+      setErrorMessage(result.error);
+      setIsSubmitting(false);
+      return;
+    }
 
-      if (result.error) {
-        setErrorMessage(result.error);
-        return;
-      }
-
-      setIsNotified(true);
-      router.refresh();
-    });
+    setIsNotified(true);
+    setIsSubmitting(false);
+    router.refresh();
   }
 
   return (
     <div className="mt-4">
       <button
         type="button"
-        onClick={handleNotifyOpponent}
-        disabled={isNotified || isPending}
+        onClick={() => void handleNotifyOpponent()}
+        disabled={isNotified || isSubmitting}
         className={
           isNotified
             ? "border-[3px] border-[#061726] bg-gray-700 px-5 py-3 text-sm font-black uppercase text-gray-300 shadow-[4px_4px_0px_0px_#061726] opacity-90"
@@ -58,7 +74,7 @@ export function NotifyButton({
       >
         {isNotified
           ? "Уведомление отправлено"
-          : isPending
+          : isSubmitting
             ? "Отправка..."
             : "Уведомить соперника"}
       </button>

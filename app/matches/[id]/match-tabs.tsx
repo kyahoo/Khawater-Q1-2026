@@ -423,7 +423,7 @@ export function MatchTabs({
                   </div>
                 </div>
 
-                {isCurrentUserParticipant && (
+                {isCurrentUserNonHostCaptain && (
                   <div className="border-[4px] border-[#061726] bg-[#123C4D] p-5 shadow-[6px_6px_0px_0px_#061726]">
                     <input
                       ref={screenshotInputRef}
@@ -440,23 +440,16 @@ export function MatchTabs({
                     <h3 className="mt-2 text-2xl font-black uppercase text-white">
                       ФОТО ЛОББИ
                     </h3>
-                    {isCurrentUserNonHostCaptain ? (
-                      <div className="mt-4 border-[3px] border-[#CD9C3E] bg-[#061726] p-4 shadow-[4px_4px_0px_0px_#061726]">
-                        <p className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
-                          Капитан гостевой команды
-                        </p>
-                        <p className="mt-3 max-w-2xl text-sm font-bold text-white/90">
-                          Хост создает лобби, а вы подтверждаете готовность:
-                          загрузите скриншот, где видно всех игроков, ваше имя и
-                          имя хоста.
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="mt-3 max-w-2xl text-sm text-white/80">
-                        Обязательно сделайте фото лобби. На нем должно быть видно
-                        ваше имя, а также имя хоста.
+                    <div className="mt-4 border-[3px] border-[#CD9C3E] bg-[#061726] p-4 shadow-[4px_4px_0px_0px_#061726]">
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
+                        Капитан гостевой команды
                       </p>
-                    )}
+                      <p className="mt-3 max-w-2xl text-sm font-bold text-white/90">
+                        Хост создает лобби, а вы подтверждаете готовность:
+                        загрузите скриншот, где видно всех игроков, ваше имя и
+                        имя хоста.
+                      </p>
+                    </div>
                     {isCurrentUserLobbyConfirmed ? (
                       <>
                         <div className="mt-5 border-[3px] border-[#061726] bg-[#163f1d] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#D9F99D] shadow-[4px_4px_0px_0px_#061726]">
