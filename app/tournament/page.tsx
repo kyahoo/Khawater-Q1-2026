@@ -702,7 +702,15 @@ export default function TournamentPage() {
           console.error("Tournament session load failed:", authError);
         }
 
-        const nextActiveTournament = await getActiveTournament();
+        let nextActiveTournament: Tournament | null = null;
+
+        try {
+          nextActiveTournament = await getActiveTournament();
+        } catch (error) {
+          console.error("Tournament Fetch Error:", error);
+          throw error;
+        }
+
         let membership: { team_id: string } | null = null;
 
         if (currentUserId && nextActiveTournament) {
@@ -758,6 +766,7 @@ export default function TournamentPage() {
           setMatches(matchesResult);
         }
       } catch (error) {
+        console.error("Tournament Fetch Error:", error);
         setErrorMessage(
           error instanceof Error
             ? error.message
