@@ -1,7 +1,22 @@
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getTeamMembers } from "@/lib/supabase/teams";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+
+function createLiveSupabaseBrowserClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl) {
+    throw new Error("Missing env.NEXT_PUBLIC_SUPABASE_URL");
+  }
+
+  if (!supabaseAnonKey) {
+    throw new Error("Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  }
+
+  return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
+}
 
 export type MatchRoomTeam = {
   id: string;
@@ -92,11 +107,11 @@ export type UserTeamMatch = {
 };
 
 async function getMatchRoomTeam(params: {
+  supabase: SupabaseClient<Database>;
   teamId: string;
   fallbackName: string;
 }) {
-  const supabase = getSupabaseBrowserClient();
-  const { data: teamRow, error: teamError } = await supabase
+  const { data: teamRow, error: teamError } = await params.supabase
     .from("teams")
     .select("id, name")
     .eq("id", params.teamId)
@@ -109,12 +124,47 @@ async function getMatchRoomTeam(params: {
   let roster = [] as MatchRoomTeam["roster"];
 
   try {
-    const teamMembers = await getTeamMembers(params.teamId);
-    roster = teamMembers.map((member) => ({
-      userId: member.userId,
-      nickname: member.nickname,
-      isCaptain: member.isCaptain,
-    }));
+    const { data: memberships, error: membershipError } = await params.supabase
+      .from("team_members")
+      .select("team_id, user_id, is_captain, created_at")
+      .eq("team_id", params.teamId)
+      .order("created_at", { ascending: true });
+
+    if (membershipError) {
+      throw membershipError;
+    }
+
+    const memberRows = (memberships ?? []) as Array<{
+      user_id: string;
+      is_captain: boolean;
+    }>;
+
+    if (memberRows.length > 0) {
+      const { data: profiles, error: profileError } = await params.supabase
+        .from("profiles")
+        .select("id, nickname")
+        .in(
+          "id",
+          memberRows.map((membership) => membership.user_id)
+        );
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      const nicknameById = new Map(
+        (profiles ?? []).map((profile) => [
+          profile.id as string,
+          profile.nickname as string,
+        ])
+      );
+
+      roster = memberRows.map((membership) => ({
+        userId: membership.user_id,
+        nickname: nicknameById.get(membership.user_id) ?? "Player",
+        isCaptain: membership.is_captain,
+      }));
+    }
   } catch (rosterError) {
     console.error("Match roster fetch failed:", rosterError);
   }
@@ -127,7 +177,13 @@ async function getMatchRoomTeam(params: {
 }
 
 export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchResult> {
-  const supabase = getSupabaseBrowserClient();
+  if (typeof window === "undefined") {
+    throw new Error(
+      "getMatchRoomData must be called from the browser to perform a live Supabase query."
+    );
+  }
+
+  const supabase = createLiveSupabaseBrowserClient();
 
   const initialMatchResult = await supabase
     .from("tournament_matches")
@@ -282,10 +338,12 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
 
   const [teamA, teamB] = await Promise.all([
     getMatchRoomTeam({
+      supabase,
       teamId: teamAId,
       fallbackName: "Team A",
     }),
     getMatchRoomTeam({
+      supabase,
       teamId: teamBId,
       fallbackName: "Team B",
     }),
