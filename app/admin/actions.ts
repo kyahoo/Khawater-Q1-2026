@@ -806,25 +806,45 @@ export async function deleteMatch(
     }
   );
 
-  const { error: deleteCheckInsError } = await adminClient
-    .from("match_check_ins")
-    .delete()
-    .eq("match_id", normalizedMatchId);
+  try {
+    const { error: deletePhotosError } = await adminClient
+      .from("match_lobby_photos")
+      .delete()
+      .eq("match_id", normalizedMatchId);
 
-  if (deleteCheckInsError) {
+    if (deletePhotosError) {
+      return {
+        error: `Could not delete lobby photos for this match: ${deletePhotosError.message}`,
+      };
+    }
+
+    const { error: deleteCheckInsError } = await adminClient
+      .from("match_check_ins")
+      .delete()
+      .eq("match_id", normalizedMatchId);
+
+    if (deleteCheckInsError) {
+      return {
+        error: `Could not delete check-ins for this match: ${deleteCheckInsError.message}`,
+      };
+    }
+
+    const { error: deleteMatchError } = await adminClient
+      .from("tournament_matches")
+      .delete()
+      .eq("id", normalizedMatchId);
+
+    if (deleteMatchError) {
+      return {
+        error: `Could not delete the match: ${deleteMatchError.message}`,
+      };
+    }
+  } catch (error) {
     return {
-      error: deleteCheckInsError.message,
-    };
-  }
-
-  const { error: deleteMatchError } = await adminClient
-    .from("tournament_matches")
-    .delete()
-    .eq("id", normalizedMatchId);
-
-  if (deleteMatchError) {
-    return {
-      error: deleteMatchError.message,
+      error:
+        error instanceof Error
+          ? `Could not delete this match: ${error.message}`
+          : "Could not delete this match.",
     };
   }
 
@@ -871,25 +891,45 @@ export async function deleteMultipleMatches(
     }
   );
 
-  const { error: deleteCheckInsError } = await adminClient
-    .from("match_check_ins")
-    .delete()
-    .in("match_id", normalizedMatchIds);
+  try {
+    const { error: deletePhotosError } = await adminClient
+      .from("match_lobby_photos")
+      .delete()
+      .in("match_id", normalizedMatchIds);
 
-  if (deleteCheckInsError) {
+    if (deletePhotosError) {
+      return {
+        error: `Could not delete lobby photos for the selected matches: ${deletePhotosError.message}`,
+      };
+    }
+
+    const { error: deleteCheckInsError } = await adminClient
+      .from("match_check_ins")
+      .delete()
+      .in("match_id", normalizedMatchIds);
+
+    if (deleteCheckInsError) {
+      return {
+        error: `Could not delete check-ins for the selected matches: ${deleteCheckInsError.message}`,
+      };
+    }
+
+    const { error: deleteMatchesError } = await adminClient
+      .from("tournament_matches")
+      .delete()
+      .in("id", normalizedMatchIds);
+
+    if (deleteMatchesError) {
+      return {
+        error: `Could not delete the selected matches: ${deleteMatchesError.message}`,
+      };
+    }
+  } catch (error) {
     return {
-      error: deleteCheckInsError.message,
-    };
-  }
-
-  const { error: deleteMatchesError } = await adminClient
-    .from("tournament_matches")
-    .delete()
-    .in("id", normalizedMatchIds);
-
-  if (deleteMatchesError) {
-    return {
-      error: deleteMatchesError.message,
+      error:
+        error instanceof Error
+          ? `Could not delete the selected matches: ${error.message}`
+          : "Could not delete the selected matches.",
     };
   }
 
