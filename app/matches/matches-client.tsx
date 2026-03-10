@@ -65,6 +65,24 @@ function EmptyStateBlock({ message }: { message: string }) {
   );
 }
 
+function getMatchFetchErrorMessage(error: unknown) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message.trim()
+  ) {
+    return error.message;
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
 export function MatchesClient() {
   const router = useRouter();
   const [matches, setMatches] = useState<UserTeamMatch[]>([]);
@@ -103,8 +121,9 @@ export function MatchesClient() {
 
         const userMatches = await getMatchesForUserTeam(user.id);
         setMatches(userMatches);
-      } catch {
-        setErrorMessage("Не удалось загрузить матчи.");
+      } catch (error) {
+        console.error("Match Fetch Error:", error);
+        setErrorMessage(getMatchFetchErrorMessage(error));
       } finally {
         setIsLoading(false);
       }
