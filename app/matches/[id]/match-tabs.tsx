@@ -445,15 +445,6 @@ export function MatchTabs({
                     <h3 className="mt-2 text-2xl font-black uppercase text-white">
                       ФОТО ЛОББИ ПО КАРТАМ
                     </h3>
-                    <div className="mt-4 border-[3px] border-[#CD9C3E] bg-[#061726] p-4 shadow-[4px_4px_0px_0px_#061726]">
-                      <p className="mt-3 max-w-3xl text-sm font-bold text-white/90">
-                        Для каждой карты сначала подтвердите устройство через
-                        passkey, затем сделайте фото лобби. OCR-проверка ниже
-                        сохранена без изменений и запускается отдельно для
-                        каждой загруженной карты.
-                      </p>
-                    </div>
-
                     <div className="mt-5 grid gap-4 xl:grid-cols-3">
                       {LOBBY_MAP_NUMBERS.map((mapNumber) => {
                         const uploadedPhotoUrl = uploadedLobbyPhotoUrlByMap[mapNumber];
@@ -550,39 +541,41 @@ export function MatchTabs({
                               </div>
                             ) : (
                               <>
-                                <button
-                                  type="button"
-                                  onClick={() => onConfirmLobby(mapNumber)}
-                                  disabled={
-                                    !isCurrentUserCheckedIn ||
-                                    (!isCurrentMap &&
-                                      !isConfirmingCurrentMap &&
-                                      !isWaitingCurrentMap &&
-                                      !isUploadingCurrentMap)
-                                  }
-                                  className="mt-5 border-[3px] border-[#061726] bg-[#CD9C3E] px-6 py-3 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70 disabled:shadow-[4px_4px_0px_0px_#061726]"
-                                >
-                                  {isConfirmingCurrentMap
-                                    ? "Проверка..."
-                                    : isUploadingCurrentMap
-                                      ? "Загрузка..."
-                                      : `СДЕЛАТЬ ФОТО ЛОББИ (КАРТА ${mapNumber})`}
-                                </button>
-
                                 {!isCurrentUserCheckedIn && (
                                   <p className="mt-3 text-sm text-white/80">
                                     Сначала завершите пре-матч чек-ин.
                                   </p>
                                 )}
 
-                                {isWaitingCurrentMap && !isUploadingCurrentMap && (
+                                {!isUploadingCurrentMap && (
                                   <button
                                     type="button"
-                                    onClick={() => onOpenLobbyScreenshotPicker(mapNumber)}
-                                    className="mt-3 block border-[3px] border-[#061726] bg-white px-5 py-2 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+                                    onClick={() =>
+                                      isWaitingCurrentMap
+                                        ? onOpenLobbyScreenshotPicker(mapNumber)
+                                        : onConfirmLobby(mapNumber)
+                                    }
+                                    disabled={
+                                      !isCurrentUserCheckedIn ||
+                                      isConfirmingCurrentMap ||
+                                      (!isCurrentMap && !isWaitingCurrentMap)
+                                    }
+                                    className="mt-5 block border-[3px] border-[#061726] bg-white px-5 py-2 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
                                   >
                                     ОТКРЫТЬ КАМЕРУ
                                   </button>
+                                )}
+
+                                {isConfirmingCurrentMap && (
+                                  <p className="mt-3 text-sm text-white/80">
+                                    Проверка...
+                                  </p>
+                                )}
+
+                                {isUploadingCurrentMap && (
+                                  <p className="mt-5 text-sm text-white/80">
+                                    Загрузка...
+                                  </p>
                                 )}
                               </>
                             )}
