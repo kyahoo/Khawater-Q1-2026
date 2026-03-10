@@ -807,6 +807,17 @@ export async function deleteMatch(
   );
 
   try {
+    const { error: deleteBehaviorLogsError } = await adminClient
+      .from("behavior_logs")
+      .delete()
+      .eq("match_id", normalizedMatchId);
+
+    if (deleteBehaviorLogsError) {
+      return {
+        error: deleteBehaviorLogsError.message,
+      };
+    }
+
     const { error: deletePhotosError } = await adminClient
       .from("match_lobby_photos")
       .delete()
@@ -892,6 +903,17 @@ export async function deleteMultipleMatches(
   );
 
   try {
+    const { error: deleteBehaviorLogsError } = await adminClient
+      .from("behavior_logs")
+      .delete()
+      .in("match_id", normalizedMatchIds);
+
+    if (deleteBehaviorLogsError) {
+      return {
+        error: deleteBehaviorLogsError.message,
+      };
+    }
+
     const { error: deletePhotosError } = await adminClient
       .from("match_lobby_photos")
       .delete()
