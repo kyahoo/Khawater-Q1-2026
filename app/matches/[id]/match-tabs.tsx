@@ -14,8 +14,7 @@ const LOBBY_MAP_NUMBERS = [1, 2, 3] as const;
 type LobbyMapNumber = (typeof LOBBY_MAP_NUMBERS)[number];
 
 type LobbyScreenshotVerificationData = {
-  is_host_found: boolean;
-  is_uploader_found: boolean;
+  extracted_players: string[];
 };
 
 type ResultScreenshotSlotState = {
@@ -56,7 +55,7 @@ type MatchTabsProps = {
     ocrDataByMap: Record<LobbyMapNumber, LobbyScreenshotVerificationData | null>;
     screenshotInputRef: RefObject<HTMLInputElement | null>;
     onCheckIn: () => void;
-    onConfirmLobby: (mapNumber: LobbyMapNumber) => void;
+    onConfirmLobby: (mapNumber: LobbyMapNumber) => Promise<boolean>;
     onOpenLobbyScreenshotPicker: (mapNumber: LobbyMapNumber) => void;
     onLobbyScreenshotChange: (event: ChangeEvent<HTMLInputElement>) => void;
     onAnalyze: (mapNumber: LobbyMapNumber) => void;
@@ -133,6 +132,68 @@ function PlayerRow({
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+type LobbyPhotoActionsProps = {
+  mapNumber: LobbyMapNumber;
+  isCurrentUserCheckedIn: boolean;
+  isCurrentMap: boolean;
+  isWaitingCurrentMap: boolean;
+  isConfirmingCurrentMap: boolean;
+  onConfirmLobby: (mapNumber: LobbyMapNumber) => Promise<boolean>;
+  onOpenLobbyScreenshotPicker: (mapNumber: LobbyMapNumber) => void;
+};
+
+function LobbyPhotoActions({
+  mapNumber,
+  isCurrentUserCheckedIn,
+  isCurrentMap,
+  isWaitingCurrentMap,
+  isConfirmingCurrentMap,
+  onConfirmLobby,
+  onOpenLobbyScreenshotPicker,
+}: LobbyPhotoActionsProps) {
+  const [isBiometricsPassed, setIsBiometricsPassed] = useState(false);
+
+  const hasBiometricsAccess = isBiometricsPassed || isWaitingCurrentMap;
+  const isLockedForMap =
+    !isCurrentUserCheckedIn || (!isCurrentMap && !isWaitingCurrentMap);
+  const actionButtonClass =
+    "w-full border-[3px] border-[#0B3A4A] bg-[#CD9C3E] px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-[#0B3A4A] shadow-[4px_4px_0px_0px_#0B3A4A] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#0B3A4A] disabled:translate-y-0 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+
+  async function handleBiometricsClick() {
+    const passed = await onConfirmLobby(mapNumber);
+
+    if (passed) {
+      setIsBiometricsPassed(true);
+    }
+  }
+
+  return (
+    <div className="mt-5 flex flex-col gap-3">
+      <button
+        type="button"
+        onClick={() => void handleBiometricsClick()}
+        disabled={isLockedForMap || isConfirmingCurrentMap || hasBiometricsAccess}
+        className={actionButtonClass}
+      >
+        {hasBiometricsAccess
+          ? "БИОМЕТРИЯ ПРОЙДЕНА ✅"
+          : isConfirmingCurrentMap
+            ? "ПРОВЕРКА..."
+            : "ПРОЙТИ БИОМЕТРИЮ"}
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onOpenLobbyScreenshotPicker(mapNumber)}
+        disabled={isLockedForMap || isConfirmingCurrentMap || !hasBiometricsAccess}
+        className={actionButtonClass}
+      >
+        ОТКРЫТЬ КАМЕРУ
+      </button>
     </div>
   );
 }
@@ -493,35 +554,26 @@ export function MatchTabs({
                                     : "АНАЛИЗ СЕКРЕТНЫХ ДАННЫХ"}
                                 </button>
                                 {ocrData && (
-                                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                                    <div className="border-[3px] border-[#061726] bg-black p-4 text-xs font-mono text-[#39FF14] shadow-[4px_4px_0px_0px_#061726]">
-                                      <p className="uppercase tracking-[0.18em] text-white/70">
-                                        Host Match
+                                  <div className="mt-4 border-[3px] border-[#061726] bg-black p-4 shadow-[4px_4px_0px_0px_#061726]">
+                                    <p className="text-xs font-mono uppercase tracking-[0.18em] text-white/70">
+                                      Распознанные игроки
+                                    </p>
+                                    {ocrData.extracted_players.length > 0 ? (
+                                      <div className="mt-3 flex flex-wrap gap-2">
+                                        {ocrData.extracted_players.map((player, index) => (
+                                          <span
+                                            key={`${mapNumber}-${player}-${index}`}
+                                            className="border-[2px] border-[#061726] bg-[#061726] px-3 py-1 text-xs font-mono font-bold text-[#39FF14]"
+                                          >
+                                            {player}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="mt-3 text-sm font-mono text-[#F87171]">
+                                        Игроки не распознаны.
                                       </p>
-                                      <p
-                                        className={`mt-3 text-2xl font-black uppercase ${
-                                          ocrData.is_host_found
-                                            ? "text-[#39FF14]"
-                                            : "text-[#F87171]"
-                                        }`}
-                                      >
-                                        {String(ocrData.is_host_found)}
-                                      </p>
-                                    </div>
-                                    <div className="border-[3px] border-[#061726] bg-black p-4 text-xs font-mono text-[#39FF14] shadow-[4px_4px_0px_0px_#061726]">
-                                      <p className="uppercase tracking-[0.18em] text-white/70">
-                                        Uploader Match
-                                      </p>
-                                      <p
-                                        className={`mt-3 text-2xl font-black uppercase ${
-                                          ocrData.is_uploader_found
-                                            ? "text-[#39FF14]"
-                                            : "text-[#F87171]"
-                                        }`}
-                                      >
-                                        {String(ocrData.is_uploader_found)}
-                                      </p>
-                                    </div>
+                                    )}
                                   </div>
                                 )}
                                 {uploadedPhotoUrl && (
@@ -548,28 +600,17 @@ export function MatchTabs({
                                 )}
 
                                 {!isUploadingCurrentMap && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      isWaitingCurrentMap
-                                        ? onOpenLobbyScreenshotPicker(mapNumber)
-                                        : onConfirmLobby(mapNumber)
+                                  <LobbyPhotoActions
+                                    mapNumber={mapNumber}
+                                    isCurrentUserCheckedIn={isCurrentUserCheckedIn}
+                                    isCurrentMap={isCurrentMap}
+                                    isWaitingCurrentMap={isWaitingCurrentMap}
+                                    isConfirmingCurrentMap={isConfirmingCurrentMap}
+                                    onConfirmLobby={onConfirmLobby}
+                                    onOpenLobbyScreenshotPicker={
+                                      onOpenLobbyScreenshotPicker
                                     }
-                                    disabled={
-                                      !isCurrentUserCheckedIn ||
-                                      isConfirmingCurrentMap ||
-                                      (!isCurrentMap && !isWaitingCurrentMap)
-                                    }
-                                    className="mt-5 block border-[3px] border-[#061726] bg-white px-5 py-2 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
-                                  >
-                                    ОТКРЫТЬ КАМЕРУ
-                                  </button>
-                                )}
-
-                                {isConfirmingCurrentMap && (
-                                  <p className="mt-3 text-sm text-white/80">
-                                    Проверка...
-                                  </p>
+                                  />
                                 )}
 
                                 {isUploadingCurrentMap && (

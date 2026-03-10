@@ -36,8 +36,7 @@ const LOBBY_MAP_NUMBERS = [1, 2, 3] as const;
 type LobbyMapNumber = (typeof LOBBY_MAP_NUMBERS)[number];
 
 type LobbyScreenshotVerificationData = {
-  is_host_found: boolean;
-  is_uploader_found: boolean;
+  extracted_players: string[];
 };
 
 type ResultScreenshotSlotState = {
@@ -593,7 +592,7 @@ export default function MatchRoomPage() {
 
   async function handleConfirmLobby(mapNumber: LobbyMapNumber) {
     if (!matchId) {
-      return;
+      return false;
     }
 
     setConfirmingLobbyMapNumber(mapNumber);
@@ -605,7 +604,7 @@ export default function MatchRoomPage() {
 
       if (!accessToken) {
         setLobbyMapError(mapNumber, "Войдите в аккаунт для подтверждения лобби.");
-        return;
+        return false;
       }
 
       const biometricErrorMessage =
@@ -613,16 +612,17 @@ export default function MatchRoomPage() {
 
       if (biometricErrorMessage) {
         setLobbyMapError(mapNumber, biometricErrorMessage);
-        return;
+        return false;
       }
 
       setWaitingLobbyMapNumber(mapNumber);
-      openLobbyScreenshotPicker(mapNumber);
+      return true;
     } catch (error) {
       setLobbyMapError(
         mapNumber,
         getErrorMessage(error, "Не удалось подтвердить лобби.")
       );
+      return false;
     } finally {
       setConfirmingLobbyMapNumber(null);
     }

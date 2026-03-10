@@ -39,8 +39,7 @@ type ConfirmMatchResultResult = {
 };
 
 type LobbyScreenshotVerificationData = {
-  is_host_found: boolean;
-  is_uploader_found: boolean;
+  extracted_players: string[];
 };
 
 type AnalyzeLobbyScreenshotResult = {
@@ -531,38 +530,34 @@ function parseLobbyScreenshotVerificationData(
     return null;
   }
 
-  const { is_host_found: isHostFound, is_uploader_found: isUploaderFound } = data as {
-    is_host_found?: unknown;
-    is_uploader_found?: unknown;
+  const { extracted_players: extractedPlayers } = data as {
+    extracted_players?: unknown;
   };
 
   if (
-    typeof isHostFound !== "boolean" ||
-    typeof isUploaderFound !== "boolean"
+    !Array.isArray(extractedPlayers) ||
+    !extractedPlayers.every((player) => typeof player === "string")
   ) {
     return null;
   }
 
   return {
-    is_host_found: isHostFound,
-    is_uploader_found: isUploaderFound,
+    extracted_players: extractedPlayers
+      .map((player) => player.trim())
+      .filter((player) => player.length > 0),
   };
 }
 
-function buildLobbyVerificationPrompt(
-  expectedHostName: string,
-  expectedPlayerName: string
-) {
-  return `You are an OCR assistant for a Dota 2 tournament. Look at the provided screenshot of the lobby.
-Your only job is to find two specific names:
-1. The host name: '${expectedHostName}'
-2. The player name: '${expectedPlayerName}'
-Respond ONLY with a JSON object containing two boolean values indicating if you found them.
-
-Return this exact JSON structure:
+function buildLobbyVerificationPrompt() {
+  return `You are an OCR extraction assistant for a Dota 2 tournament lobby screenshot.
+Extract only the player nicknames visible in the Radiant and Dire team slots.
+Do not evaluate whether the lobby is valid.
+Do not return booleans.
+Do not infer or guess unreadable names.
+Ignore all other text, including chat, headers, MMR, medals, spectators, timers, and lobby metadata.
+Respond ONLY with valid JSON using this exact structure:
 {
-  "is_host_found": boolean,
-  "is_uploader_found": boolean
+  "extracted_players": ["player1", "player2"]
 }`;
 }
 
@@ -648,27 +643,64 @@ async function getLobbyHostForMatch(params: {
   };
 }
 
-async function getExpectedLobbyVerificationNames(params: {
+function normalizeLobbyPlayerName(value: string) {
+  return value
+    .normalize("NFKC")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase();
+}
+
+async function getLobbyVerificationRosters(params: {
   adminClient: SupabaseClient<Database>;
   match: MatchActionMatchRow;
   userId: string;
+  participantTeamId: string;
 }) {
-  const { adminClient, match, userId } = params;
-  const lobbyHostResult = await getLobbyHostForMatch({
-    adminClient,
-    match,
-  });
+  const { adminClient, match, userId, participantTeamId } = params;
+  const teamIds = [match.team_a_id, match.team_b_id];
+  const opponentTeamId =
+    participantTeamId === match.team_a_id
+      ? match.team_b_id
+      : participantTeamId === match.team_b_id
+        ? match.team_a_id
+        : null;
 
-  if (lobbyHostResult.error || !lobbyHostResult.hostCaptainUserId) {
+  if (!opponentTeamId) {
     return {
-      error: lobbyHostResult.error ?? "Не удалось определить ожидаемого хоста лобби.",
-      expectedHostName: null,
-      expectedPlayerName: null,
+      error: "Не удалось определить команду соперника для OCR-проверки.",
+      currentUserNickname: null,
+      opponentRosterNicknames: null,
+    };
+  }
+
+  const { data: memberships, error: membershipsError } = await adminClient
+    .from("team_members")
+    .select("team_id, user_id")
+    .in("team_id", teamIds);
+
+  if (membershipsError) {
+    return {
+      error: "Не удалось загрузить составы команд для OCR-проверки.",
+      currentUserNickname: null,
+      opponentRosterNicknames: null,
+    };
+  }
+
+  if (!memberships || memberships.length === 0) {
+    return {
+      error: "Составы команд для OCR-проверки не найдены.",
+      currentUserNickname: null,
+      opponentRosterNicknames: null,
     };
   }
 
   const profileIds = Array.from(
-    new Set([lobbyHostResult.hostCaptainUserId, userId])
+    new Set(
+      ((memberships ?? []) as Array<{ team_id: string; user_id: string }>).map(
+        (membership) => membership.user_id
+      )
+    )
   );
   const { data: profiles, error: profilesError } = await adminClient
     .from("profiles")
@@ -677,9 +709,9 @@ async function getExpectedLobbyVerificationNames(params: {
 
   if (profilesError) {
     return {
-      error: "Не удалось загрузить ожидаемые никнеймы для проверки.",
-      expectedHostName: null,
-      expectedPlayerName: null,
+      error: "Не удалось загрузить никнеймы игроков для OCR-проверки.",
+      currentUserNickname: null,
+      opponentRosterNicknames: null,
     };
   }
 
@@ -689,22 +721,92 @@ async function getExpectedLobbyVerificationNames(params: {
     )
   );
 
-  const expectedHostName =
-    nicknameById.get(lobbyHostResult.hostCaptainUserId) ?? "";
-  const expectedPlayerName = nicknameById.get(userId) ?? "";
+  const rosterNicknamesByTeamId = new Map<string, string[]>(
+    teamIds.map((teamId) => [teamId, []])
+  );
 
-  if (!expectedHostName || !expectedPlayerName) {
+  for (const membership of (memberships ?? []) as Array<{
+    team_id: string;
+    user_id: string;
+  }>) {
+    const nickname = nicknameById.get(membership.user_id)?.trim() ?? "";
+
+    if (!nickname) {
+      continue;
+    }
+
+    rosterNicknamesByTeamId.get(membership.team_id)?.push(nickname);
+  }
+
+  const currentUserNickname = nicknameById.get(userId)?.trim() ?? "";
+  const opponentRosterNicknames =
+    rosterNicknamesByTeamId.get(opponentTeamId)?.filter(isNonEmptyString) ?? [];
+
+  if (!currentUserNickname) {
     return {
-      error: "Не удалось определить ожидаемые имена для OCR-проверки.",
-      expectedHostName: null,
-      expectedPlayerName: null,
+      error: "Не удалось определить ваш никнейм для OCR-проверки.",
+      currentUserNickname: null,
+      opponentRosterNicknames: null,
+    };
+  }
+
+  if (opponentRosterNicknames.length === 0) {
+    return {
+      error: "Не удалось определить состав соперника для OCR-проверки.",
+      currentUserNickname: null,
+      opponentRosterNicknames: null,
     };
   }
 
   return {
     error: null,
-    expectedHostName,
-    expectedPlayerName,
+    currentUserNickname,
+    opponentRosterNicknames,
+  };
+}
+
+function validateExtractedLobbyPlayers(params: {
+  extractedPlayers: string[];
+  currentUserNickname: string;
+  opponentRosterNicknames: string[];
+}) {
+  const normalizedCurrentUserNickname = normalizeLobbyPlayerName(
+    params.currentUserNickname
+  );
+  const extractedPlayerCounts = params.extractedPlayers
+    .map(normalizeLobbyPlayerName)
+    .filter(Boolean)
+    .reduce<Map<string, number>>((counts, playerName) => {
+      counts.set(playerName, (counts.get(playerName) ?? 0) + 1);
+      return counts;
+    }, new Map());
+  const isCurrentUserFound =
+    (extractedPlayerCounts.get(normalizedCurrentUserNickname) ?? 0) > 0;
+  const isOpponentFound = params.opponentRosterNicknames.some((nickname) =>
+    (extractedPlayerCounts.get(normalizeLobbyPlayerName(nickname)) ?? 0) >=
+    (normalizeLobbyPlayerName(nickname) === normalizedCurrentUserNickname ? 2 : 1)
+  );
+
+  if (!isCurrentUserFound && !isOpponentFound) {
+    return {
+      error: "Ваш никнейм и игрок противника не найдены в лобби.",
+    };
+  }
+
+  if (!isCurrentUserFound) {
+    return {
+      error: "Ваш никнейм не найден в лобби.",
+    };
+  }
+
+  if (!isOpponentFound) {
+    return {
+      error: "Игрок противника не найден в лобби.",
+    };
+  }
+
+  return {
+    error: null,
   };
 }
 
@@ -1502,20 +1604,21 @@ export async function analyzeLobbyScreenshot(
     };
   }
 
-  const expectedNamesResult = await getExpectedLobbyVerificationNames({
+  const rosterValidationResult = await getLobbyVerificationRosters({
     adminClient: authResult.context.adminClient,
     match: authResult.context.match,
     userId: authResult.context.user.id,
+    participantTeamId: authResult.context.participantTeamId,
   });
 
   if (
-    expectedNamesResult.error ||
-    !expectedNamesResult.expectedHostName ||
-    !expectedNamesResult.expectedPlayerName
+    rosterValidationResult.error ||
+    !rosterValidationResult.currentUserNickname ||
+    !rosterValidationResult.opponentRosterNicknames
   ) {
     return {
       data: null,
-      error: expectedNamesResult.error ?? "Не удалось подготовить OCR-проверку.",
+      error: rosterValidationResult.error ?? "Не удалось подготовить OCR-проверку.",
     };
   }
 
@@ -1588,17 +1691,14 @@ export async function analyzeLobbyScreenshot(
         messages: [
           {
             role: "system",
-            content: buildLobbyVerificationPrompt(
-              expectedNamesResult.expectedHostName,
-              expectedNamesResult.expectedPlayerName
-            ),
+            content: buildLobbyVerificationPrompt(),
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Check whether the expected host and uploader names are visible anywhere in the screenshot.",
+                text: "Extract all player nicknames that are visible in the Radiant and Dire team slots.",
               },
               {
                 type: "image_url",
@@ -1675,7 +1775,13 @@ export async function analyzeLobbyScreenshot(
       };
     }
 
-    if (!parsedData.is_host_found || !parsedData.is_uploader_found) {
+    const validationResult = validateExtractedLobbyPlayers({
+      extractedPlayers: parsedData.extracted_players,
+      currentUserNickname: rosterValidationResult.currentUserNickname,
+      opponentRosterNicknames: rosterValidationResult.opponentRosterNicknames,
+    });
+
+    if (validationResult.error) {
       await applyBehaviorPenalty({
         adminClient: authResult.context.adminClient,
         userId: authResult.context.user.id,
@@ -1683,6 +1789,11 @@ export async function analyzeLobbyScreenshot(
         penalty: INVALID_LOBBY_SCREENSHOT_PENALTY,
         reason: INVALID_LOBBY_SCREENSHOT_REASON,
       });
+
+      return {
+        data: null,
+        error: validationResult.error,
+      };
     }
 
     return {
