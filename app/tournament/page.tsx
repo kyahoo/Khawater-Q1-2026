@@ -27,9 +27,6 @@ const TOURNAMENT_TABS = [
 ] as const;
 
 type TournamentTabId = (typeof TOURNAMENT_TABS)[number]["id"];
-const TOURNAMENT_BG_IMAGE_URL =
-  "https://modqcliamlxgykrzacbp.supabase.co/storage/v1/object/public/khawater-assets/esports-bg.png";
-
 type BracketParticipant = {
   id: string;
   name: string;
@@ -773,16 +770,20 @@ export default function TournamentPage() {
         ) : (
           <div className="space-y-6">
             <section className="relative mb-8 overflow-hidden border-[3px] border-[#061726] bg-[#0B3A4A] p-8 shadow-[6px_6px_0px_0px_#061726]">
-              <Image
-                src={TOURNAMENT_BG_IMAGE_URL}
-                alt="Фон турнира Khawater"
-                fill
-                priority={true}
-                sizes="100vw"
-                style={{ objectFit: "cover" }}
-                className="z-0"
-              />
-              <div className="absolute inset-0 z-0 bg-[#061726]/60" />
+              {activeTournament?.banner_url && (
+                <>
+                  <Image
+                    src={activeTournament.banner_url}
+                    alt={`Баннер турнира ${activeTournament.name}`}
+                    fill
+                    priority={true}
+                    sizes="100vw"
+                    style={{ objectFit: "cover" }}
+                    className="z-0"
+                  />
+                  <div className="absolute inset-0 z-0 bg-[#061726]/60" />
+                </>
+              )}
               <div className="relative z-10">
                 <div className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[#CD9C3E]">
                   Активный турнир
