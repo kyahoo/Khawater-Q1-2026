@@ -904,9 +904,9 @@ export default function AdminPage() {
       await refreshAdminData();
       router.refresh();
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Could not delete match."
-      );
+      const message = error instanceof Error ? error.message : "Could not delete match.";
+      setErrorMessage(message);
+      window.alert(message);
     } finally {
       setIsDeletingMatchId(null);
     }
@@ -944,9 +944,10 @@ export default function AdminPage() {
       await refreshAdminData();
       router.refresh();
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Could not delete selected matches."
-      );
+      const message =
+        error instanceof Error ? error.message : "Could not delete selected matches.";
+      setErrorMessage(message);
+      window.alert(message);
     } finally {
       setIsDeletingMatchId(null);
     }

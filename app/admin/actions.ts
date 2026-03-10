@@ -814,7 +814,7 @@ export async function deleteMatch(
 
     if (deletePhotosError) {
       return {
-        error: `Could not delete lobby photos for this match: ${deletePhotosError.message}`,
+        error: deletePhotosError.message,
       };
     }
 
@@ -825,7 +825,7 @@ export async function deleteMatch(
 
     if (deleteCheckInsError) {
       return {
-        error: `Could not delete check-ins for this match: ${deleteCheckInsError.message}`,
+        error: deleteCheckInsError.message,
       };
     }
 
@@ -836,22 +836,22 @@ export async function deleteMatch(
 
     if (deleteMatchError) {
       return {
-        error: `Could not delete the match: ${deleteMatchError.message}`,
+        error: deleteMatchError.message,
       };
     }
   } catch (error) {
     return {
       error:
         error instanceof Error
-          ? `Could not delete this match: ${error.message}`
+          ? error.message
           : "Could not delete this match.",
     };
   }
 
-  revalidatePath("/admin");
   revalidatePath("/tournament");
   revalidatePath("/matches");
   revalidatePath(`/matches/${normalizedMatchId}`);
+  revalidatePath("/admin");
 
   return {
     error: null,
@@ -899,7 +899,7 @@ export async function deleteMultipleMatches(
 
     if (deletePhotosError) {
       return {
-        error: `Could not delete lobby photos for the selected matches: ${deletePhotosError.message}`,
+        error: deletePhotosError.message,
       };
     }
 
@@ -910,7 +910,7 @@ export async function deleteMultipleMatches(
 
     if (deleteCheckInsError) {
       return {
-        error: `Could not delete check-ins for the selected matches: ${deleteCheckInsError.message}`,
+        error: deleteCheckInsError.message,
       };
     }
 
@@ -921,14 +921,14 @@ export async function deleteMultipleMatches(
 
     if (deleteMatchesError) {
       return {
-        error: `Could not delete the selected matches: ${deleteMatchesError.message}`,
+        error: deleteMatchesError.message,
       };
     }
   } catch (error) {
     return {
       error:
         error instanceof Error
-          ? `Could not delete the selected matches: ${error.message}`
+          ? error.message
           : "Could not delete the selected matches.",
     };
   }
