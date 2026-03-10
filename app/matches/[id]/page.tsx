@@ -132,11 +132,17 @@ function getErrorMessage(error: unknown, fallbackMessage: string) {
 }
 
 function getMatchRoomLoadErrorMessage(error: unknown) {
-  const message = getErrorMessage(error, "Не удалось загрузить данные матча.");
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message.trim()
+  ) {
+    return error.message;
+  }
 
-  return message.startsWith("No tournament match found")
-    ? "Матч не найден."
-    : message;
+  return String(error);
 }
 
 function getFileExtension(file: File) {
@@ -249,6 +255,7 @@ export default function MatchRoomPage() {
         setData(result.data);
 
         if (!result.data) {
+          console.error("Live Match Fetch Error:", result.error);
           setFetchError(result.error);
           setErrorMessage(getMatchRoomLoadErrorMessage(result.error));
           return;
@@ -257,8 +264,9 @@ export default function MatchRoomPage() {
         setFetchError(null);
         setErrorMessage("");
       } catch (error) {
+        console.error("Live Match Fetch Error:", error);
         setFetchError(error);
-        setErrorMessage("Не удалось загрузить данные матча.");
+        setErrorMessage(getMatchRoomLoadErrorMessage(error));
       } finally {
         if (options?.showLoading) {
           setIsLoading(false);
@@ -906,7 +914,7 @@ export default function MatchRoomPage() {
 
   if (!data) {
     if (fetchError) {
-      console.error("Match fetch failed:", fetchError);
+      console.error("Live Match Fetch Error:", fetchError);
     }
 
     return (
