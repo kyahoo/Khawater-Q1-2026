@@ -44,6 +44,7 @@ import {
   listAdminTournamentEntryTeams,
   listTournaments,
   setActiveTournament,
+  updateTournamentCheckInThreshold,
   type AdminTournamentEntryTeam,
   type TournamentMatch,
   type Tournament,
@@ -319,6 +320,8 @@ export default function AdminPage() {
   const [isSwitchingTournamentId, setIsSwitchingTournamentId] = useState<
     string | null
   >(null);
+  const [isSavingCheckInThresholdTournamentId, setIsSavingCheckInThresholdTournamentId] =
+    useState<string | null>(null);
   const [isEnteringTeamId, setIsEnteringTeamId] = useState<string | null>(null);
   const [isForceConfirmingTeamId, setIsForceConfirmingTeamId] = useState<
     string | null
@@ -378,6 +381,8 @@ export default function AdminPage() {
   >(null);
   const [selectedMatches, setSelectedMatches] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<AdminTabId>("players");
+  const [activeTournamentCheckInThresholdInput, setActiveTournamentCheckInThresholdInput] =
+    useState("10");
 
   async function getCurrentAdminAccessToken() {
     const supabase = getSupabaseBrowserClient();
@@ -579,6 +584,12 @@ export default function AdminPage() {
       };
     });
   }, [activeTournament?.id, tournaments]);
+
+  useEffect(() => {
+    setActiveTournamentCheckInThresholdInput(
+      String(activeTournament?.check_in_threshold ?? 10)
+    );
+  }, [activeTournament?.check_in_threshold, activeTournament?.id]);
 
   useEffect(() => {
     if (!groupStageForm.tournamentId) {
@@ -957,6 +968,40 @@ export default function AdminPage() {
       );
     } finally {
       setIsSwitchingTournamentId(null);
+    }
+  }
+
+  async function handleSaveActiveTournamentCheckInThreshold() {
+    if (!activeTournament) {
+      setErrorMessage("No active tournament selected yet.");
+      return;
+    }
+
+    const parsedThreshold = Number.parseInt(
+      activeTournamentCheckInThresholdInput.trim(),
+      10
+    );
+
+    if (!Number.isInteger(parsedThreshold) || parsedThreshold < 1) {
+      setErrorMessage("Check-in threshold must be a whole number greater than 0.");
+      return;
+    }
+
+    setIsSavingCheckInThresholdTournamentId(activeTournament.id);
+    setErrorMessage("");
+
+    try {
+      await updateTournamentCheckInThreshold(activeTournament.id, parsedThreshold);
+      await loadAdminData();
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not update the active tournament check-in threshold."
+      );
+    } finally {
+      setIsSavingCheckInThresholdTournamentId(null);
     }
   }
 
@@ -2449,6 +2494,58 @@ export default function AdminPage() {
                 </div>
               </section>
 
+              <section className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
+                <h2 className="text-lg font-black uppercase tracking-[0.18em] text-[#CD9C3E]">
+                  Active Check-In Threshold
+                </h2>
+                {activeTournament ? (
+                  <div className="mt-4 space-y-4">
+                    <p className="text-sm font-bold uppercase tracking-[0.12em] text-white/85">
+                      Active tournament: {activeTournament.name}
+                    </p>
+                    <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                      <label className="flex-1">
+                        <span className="text-xs font-black uppercase tracking-[0.2em] text-[#CD9C3E]">
+                          Players required for lobby unlock
+                        </span>
+                        <input
+                          type="number"
+                          min={1}
+                          step={1}
+                          inputMode="numeric"
+                          value={activeTournamentCheckInThresholdInput}
+                          onChange={(event) =>
+                            setActiveTournamentCheckInThresholdInput(event.target.value)
+                          }
+                          className="mt-3 w-full border-[4px] border-[#061726] bg-white px-4 py-3 text-lg font-black text-[#0B3A4A] outline-none shadow-[4px_4px_0px_0px_#061726] placeholder:text-[#0B3A4A]/45"
+                          placeholder="10"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => void handleSaveActiveTournamentCheckInThreshold()}
+                        disabled={
+                          isSavingCheckInThresholdTournamentId === activeTournament.id
+                        }
+                        className="border-[4px] border-[#061726] bg-[#CD9C3E] px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70 disabled:shadow-[4px_4px_0px_0px_#061726]"
+                      >
+                        {isSavingCheckInThresholdTournamentId === activeTournament.id
+                          ? "Saving..."
+                          : "Save Threshold"}
+                      </button>
+                    </div>
+                    <p className="text-sm text-white/80">
+                      This value controls when match check-in is considered complete
+                      and when lobby details unlock.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-4 text-sm font-medium text-white/80">
+                    No active tournament selected yet.
+                  </p>
+                )}
+              </section>
+
               <section className="border border-zinc-300 bg-white p-5 shadow-md">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                   Tournaments
@@ -2465,6 +2562,9 @@ export default function AdminPage() {
                             <div className="font-medium">{tournament.name}</div>
                             <div className="mt-1 text-sm text-zinc-500">
                               Status: {tournament.is_active ? "Active" : "Inactive"}
+                            </div>
+                            <div className="text-sm text-zinc-500">
+                              Check-in threshold: {tournament.check_in_threshold}
                             </div>
                             <div className="text-sm text-zinc-500">
                               {tournament.banner_url ? "Баннер загружен" : "Баннер не загружен"}

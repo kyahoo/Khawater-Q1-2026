@@ -954,12 +954,9 @@ export default function MatchRoomPage() {
   const isCurrentUserCheckedIn = Boolean(
     currentUserId && data.checkedInUserIds.includes(currentUserId)
   );
-  const totalPlayers = Math.max(
-    data.teamA.roster.length + data.teamB.roster.length,
-    1
-  );
-  const checkInCount = Math.min(data.checkedInUserIds.length, totalPlayers);
-  const allCheckedIn = checkInCount >= totalPlayers;
+  const checkInThreshold = Math.max(data.match.checkInThreshold, 1);
+  const checkInCount = data.checkedInUserIds.length;
+  const allCheckedIn = checkInCount >= checkInThreshold;
 
   const hostTeam = data.teamA;
   const hostCaptain = hostTeam.roster.find((player) => player.isCaptain);
@@ -1096,7 +1093,7 @@ export default function MatchRoomPage() {
             teamB={data.teamB}
             checkedInUserIds={data.checkedInUserIds}
             hostLabel={hostLabel}
-            totalPlayers={totalPlayers}
+            checkInThreshold={checkInThreshold}
             roundLabelDisplay={roundLabelDisplay}
             scheduledAtDisplay={scheduledAtDisplay}
             lobbyStatusLabel={lobbyStatusLabel}

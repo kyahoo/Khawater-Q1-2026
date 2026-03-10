@@ -1,4 +1,4 @@
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getCachedSupabaseUser, getSupabaseServerClient } from "@/lib/supabase/server";
 import { SiteHeaderClient } from "./site-header-client";
 
 export async function SiteHeader() {
@@ -9,7 +9,7 @@ export async function SiteHeader() {
     const supabase = await getSupabaseServerClient();
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getCachedSupabaseUser();
 
     currentUserId = user?.id ?? null;
 

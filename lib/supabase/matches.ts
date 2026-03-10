@@ -17,6 +17,7 @@ export type MatchRoomData = {
     id: string;
     roundLabel: string;
     format: string;
+    checkInThreshold: number;
     scheduledAt: string | null;
     status: string;
     teamAScore: number | null;
@@ -184,6 +185,31 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
   }
 
   const typedMatch = matchRow as MatchRoomQueryRow;
+  let checkInThreshold = 10;
+
+  const tournamentThresholdResult = await supabase
+    .from("tournaments")
+    .select("check_in_threshold")
+    .eq("id", typedMatch.tournament_id)
+    .maybeSingle();
+
+  if (
+    tournamentThresholdResult.error?.message.includes(
+      "column tournaments.check_in_threshold does not exist"
+    )
+  ) {
+    console.warn(
+      "Tournament fetch is falling back to the legacy tournaments schema:",
+      tournamentThresholdResult.error.message
+    );
+  } else if (tournamentThresholdResult.error) {
+    console.error("Tournament threshold fetch failed:", tournamentThresholdResult.error);
+  } else if (
+    tournamentThresholdResult.data &&
+    typeof tournamentThresholdResult.data.check_in_threshold === "number"
+  ) {
+    checkInThreshold = Math.max(tournamentThresholdResult.data.check_in_threshold, 1);
+  }
 
   const { data: checkIns, error: checkInsError } = await supabase
     .from("match_check_ins")
@@ -270,6 +296,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
         id: typedMatch.id,
         roundLabel: typedMatch.round_label,
         format: typedMatch.format,
+        checkInThreshold,
         scheduledAt: typedMatch.scheduled_at,
         status: typedMatch.status,
         teamAScore: typedMatch.team_a_score,

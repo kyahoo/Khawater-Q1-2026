@@ -183,6 +183,7 @@ export type Database = {
           number_of_groups: number;
           teams_eliminated_per_group: number;
           playoff_format: string;
+          check_in_threshold: number;
           created_at: string;
         };
         Insert: {
@@ -193,6 +194,7 @@ export type Database = {
           number_of_groups?: number;
           teams_eliminated_per_group?: number;
           playoff_format?: string;
+          check_in_threshold?: number;
           created_at?: string;
         };
         Update: {
@@ -203,6 +205,7 @@ export type Database = {
           number_of_groups?: number;
           teams_eliminated_per_group?: number;
           playoff_format?: string;
+          check_in_threshold?: number;
           created_at?: string;
         };
         Relationships: [];

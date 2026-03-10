@@ -21,7 +21,7 @@ type CheckInGateProps = {
   isCheckedIn: boolean;
   isCheckingIn: boolean;
   checkedInCount: number;
-  totalPlayers: number;
+  checkInThreshold: number;
   onCheckIn: () => void;
 };
 
@@ -31,7 +31,7 @@ export function CheckInGate({
   isCheckedIn,
   isCheckingIn,
   checkedInCount,
-  totalPlayers,
+  checkInThreshold,
   onCheckIn,
 }: CheckInGateProps) {
   const [currentTimeMs, setCurrentTimeMs] = useState(() => Date.now());
@@ -54,10 +54,7 @@ export function CheckInGate({
     return null;
   }
 
-  const counterLabel = `ОЖИДАНИЕ ИГРОКОВ (${Math.min(
-    checkedInCount,
-    totalPlayers
-  )}/${totalPlayers})`;
+  const counterLabel = `ОЖИДАНИЕ ИГРОКОВ (${checkedInCount}/${checkInThreshold})`;
 
   if (isCheckedIn) {
     return (

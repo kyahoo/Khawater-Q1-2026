@@ -32,7 +32,7 @@ type MatchTabsProps = {
   teamB: MatchRoomData["teamB"];
   checkedInUserIds: string[];
   hostLabel: string;
-  totalPlayers: number;
+  checkInThreshold: number;
   roundLabelDisplay: string;
   scheduledAtDisplay: string | null;
   lobbyStatusLabel: string;
@@ -144,7 +144,7 @@ export function MatchTabs({
   teamB,
   checkedInUserIds,
   hostLabel,
-  totalPlayers,
+  checkInThreshold,
   roundLabelDisplay,
   scheduledAtDisplay,
   lobbyStatusLabel,
@@ -300,7 +300,7 @@ export function MatchTabs({
               isCheckedIn={isCurrentUserCheckedIn}
               isCheckingIn={isCheckingIn}
               checkedInCount={checkInCount}
-              totalPlayers={totalPlayers}
+              checkInThreshold={checkInThreshold}
               onCheckIn={onCheckIn}
             />
           )}
@@ -381,11 +381,11 @@ export function MatchTabs({
                   Ожидание лобби
                 </h2>
                 <p className="mt-4 text-sm font-bold uppercase tracking-[0.18em] text-[#CD9C3E]">
-                  ОЖИДАНИЕ ИГРОКОВ ({checkInCount}/{totalPlayers})
+                  ОЖИДАНИЕ ИГРОКОВ ({checkInCount}/{checkInThreshold})
                 </p>
                 <p className="mt-3 max-w-2xl text-sm text-white/80">
-                  Детали лобби откроются сразу после того, как все 10 игроков
-                  завершат первый чек-ин.
+                  Детали лобби откроются сразу после того, как чек-ин завершат{" "}
+                  {checkInThreshold} игроков.
                 </p>
               </div>
             ) : (

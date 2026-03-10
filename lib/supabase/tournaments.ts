@@ -2,6 +2,11 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 import { listTeamsWithMeta } from "@/lib/supabase/teams";
 
+const TOURNAMENT_SELECT_COLUMNS =
+  "id, name, banner_url, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, check_in_threshold, created_at";
+const LEGACY_TOURNAMENT_SELECT_COLUMNS =
+  "id, name, banner_url, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, created_at";
+
 type TournamentConfirmationInsert =
   Database["public"]["Tables"]["tournament_confirmations"]["Insert"];
 type TournamentTeamEntryInsert =
@@ -11,6 +16,18 @@ type TournamentMatchInsert =
 type TournamentMatchUpdate =
   Database["public"]["Tables"]["tournament_matches"]["Update"];
 
+type TournamentSelectRow = {
+  id: string;
+  name: string;
+  banner_url: string | null;
+  is_active: boolean;
+  number_of_groups: number;
+  teams_eliminated_per_group: number;
+  playoff_format: string;
+  check_in_threshold?: number | null;
+  created_at: string;
+};
+
 export type Tournament = {
   id: string;
   name: string;
@@ -19,6 +36,7 @@ export type Tournament = {
   number_of_groups: number;
   teams_eliminated_per_group: number;
   playoff_format: string;
+  check_in_threshold: number;
   created_at: string;
 };
 
@@ -76,14 +94,75 @@ export type AdminTournamentEntryTeam = {
 
 type TournamentInsert = Database["public"]["Tables"]["tournaments"]["Insert"];
 
+function isMissingTournamentThresholdColumnError(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message.includes("column tournaments.check_in_threshold does not exist")
+  );
+}
+
+function normalizeTournament(row: TournamentSelectRow): Tournament {
+  return {
+    id: row.id,
+    name: row.name,
+    banner_url: row.banner_url,
+    is_active: row.is_active,
+    number_of_groups: row.number_of_groups,
+    teams_eliminated_per_group: row.teams_eliminated_per_group,
+    playoff_format: row.playoff_format,
+    check_in_threshold: Math.max(row.check_in_threshold ?? 10, 1),
+    created_at: row.created_at,
+  };
+}
+
+async function getTournamentById(tournamentId: string) {
+  const supabase = getSupabaseBrowserClient();
+  const result = await supabase
+    .from("tournaments")
+    .select(TOURNAMENT_SELECT_COLUMNS)
+    .eq("id", tournamentId)
+    .maybeSingle();
+
+  if (result.error && isMissingTournamentThresholdColumnError(result.error)) {
+    const legacyResult = await supabase
+      .from("tournaments")
+      .select(LEGACY_TOURNAMENT_SELECT_COLUMNS)
+      .eq("id", tournamentId)
+      .maybeSingle();
+
+    if (legacyResult.error) {
+      throw legacyResult.error;
+    }
+
+    return legacyResult.data ? normalizeTournament(legacyResult.data) : null;
+  }
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return result.data ? normalizeTournament(result.data as TournamentSelectRow) : null;
+}
+
 export async function getActiveTournament() {
   const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase
+  const result = await supabase
     .from("tournaments")
-    .select(
-      "id, name, banner_url, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, created_at"
-    )
+    .select(TOURNAMENT_SELECT_COLUMNS)
     .eq("is_active", true);
+
+  let data = result.data as TournamentSelectRow[] | null;
+  let error = result.error;
+
+  if (error && isMissingTournamentThresholdColumnError(error)) {
+    const legacyResult = await supabase
+      .from("tournaments")
+      .select(LEGACY_TOURNAMENT_SELECT_COLUMNS)
+      .eq("is_active", true);
+
+    data = legacyResult.data as TournamentSelectRow[] | null;
+    error = legacyResult.error;
+  }
 
   if (error) {
     throw error;
@@ -97,24 +176,36 @@ export async function getActiveTournament() {
     throw new Error("Multiple active tournaments detected.");
   }
 
-  return data[0] as Tournament;
+  return normalizeTournament(data[0]);
 }
 
 export async function listTournaments() {
   const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase
+  const result = await supabase
     .from("tournaments")
-    .select(
-      "id, name, banner_url, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, created_at"
-    )
+    .select(TOURNAMENT_SELECT_COLUMNS)
     .order("is_active", { ascending: false })
     .order("created_at", { ascending: false });
+
+  let data = result.data as TournamentSelectRow[] | null;
+  let error = result.error;
+
+  if (error && isMissingTournamentThresholdColumnError(error)) {
+    const legacyResult = await supabase
+      .from("tournaments")
+      .select(LEGACY_TOURNAMENT_SELECT_COLUMNS)
+      .order("is_active", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    data = legacyResult.data as TournamentSelectRow[] | null;
+    error = legacyResult.error;
+  }
 
   if (error) {
     throw error;
   }
 
-  return (data ?? []) as Tournament[];
+  return (data ?? []).map(normalizeTournament);
 }
 
 export async function createTournament(params: {
@@ -134,16 +225,20 @@ export async function createTournament(params: {
   const { data, error } = await supabase
     .from("tournaments")
     .insert(payload)
-    .select(
-      "id, name, banner_url, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, created_at"
-    )
+    .select("id")
     .single();
 
   if (error) {
     throw error;
   }
 
-  return data as Tournament;
+  const tournament = await getTournamentById((data as { id: string }).id);
+
+  if (!tournament) {
+    throw new Error("Created tournament could not be reloaded.");
+  }
+
+  return tournament;
 }
 
 export async function setActiveTournament(tournamentId: string) {
@@ -158,20 +253,48 @@ export async function setActiveTournament(tournamentId: string) {
     throw deactivateError;
   }
 
-  const { data, error: activateError } = await supabase
+  const { error: activateError } = await supabase
     .from("tournaments")
     .update({ is_active: true })
     .eq("id", tournamentId)
-    .select(
-      "id, name, banner_url, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, created_at"
-    )
+    .select("id")
     .single();
 
   if (activateError) {
     throw activateError;
   }
 
-  return data as Tournament;
+  const tournament = await getTournamentById(tournamentId);
+
+  if (!tournament) {
+    throw new Error("Active tournament could not be reloaded.");
+  }
+
+  return tournament;
+}
+
+export async function updateTournamentCheckInThreshold(
+  tournamentId: string,
+  checkInThreshold: number
+) {
+  const supabase = getSupabaseBrowserClient();
+  const normalizedThreshold = Math.max(1, Math.floor(checkInThreshold));
+  const { error } = await supabase
+    .from("tournaments")
+    .update({ check_in_threshold: normalizedThreshold })
+    .eq("id", tournamentId);
+
+  if (error) {
+    throw error;
+  }
+
+  const tournament = await getTournamentById(tournamentId);
+
+  if (!tournament) {
+    throw new Error("Tournament could not be reloaded after updating the threshold.");
+  }
+
+  return tournament;
 }
 
 export async function getTournamentConfirmation(
