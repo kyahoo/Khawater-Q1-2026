@@ -507,6 +507,19 @@ export function MatchTabs({
                       ФОТО ЛОББИ ПО КАРТАМ
                     </h3>
                     <div className="mt-5 grid gap-4 xl:grid-cols-3">
+                      <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726] xl:col-span-3">
+                        <Image
+                          src="/images/lobby_example.png"
+                          alt="Пример правильного кадра лобби для OCR"
+                          width={1600}
+                          height={900}
+                          className="w-full object-contain"
+                        />
+                        <div className="text-xs lowercase text-white/70 mt-2 text-center mb-4">
+                          внимание: сфокусируйте камеру на слоты radiant и dire
+                          в самом лобби.
+                        </div>
+                      </div>
                       {LOBBY_MAP_NUMBERS.map((mapNumber) => {
                         const uploadedPhotoUrl = uploadedLobbyPhotoUrlByMap[mapNumber];
                         const ocrData = ocrDataByMap[mapNumber];
