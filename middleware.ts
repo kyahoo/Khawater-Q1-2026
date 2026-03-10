@@ -51,6 +51,7 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  // Refresh auth state in middleware so routes like /tournament don't race in layouts/pages.
   await supabase.auth.getUser();
 
   return response;

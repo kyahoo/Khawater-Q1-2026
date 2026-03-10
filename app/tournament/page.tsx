@@ -691,21 +691,37 @@ export default function TournamentPage() {
         setCurrentUserTeamId(null);
 
         const supabase = getSupabaseBrowserClient();
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const currentUserId = session?.user?.id ?? null;
+        let currentUserId: string | null = null;
+
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          currentUserId = session?.user?.id ?? null;
+        } catch (authError) {
+          console.error("Tournament session load failed:", authError);
+        }
+
         const nextActiveTournament = await getActiveTournament();
-        const {
-          data: membership,
-        } =
-          currentUserId && nextActiveTournament
-            ? await supabase
-                .from("team_members")
-                .select("team_id")
-                .eq("user_id", currentUserId)
-                .maybeSingle()
-            : { data: null };
+        let membership: { team_id: string } | null = null;
+
+        if (currentUserId && nextActiveTournament) {
+          try {
+            const { data: membershipData, error: membershipError } = await supabase
+              .from("team_members")
+              .select("team_id")
+              .eq("user_id", currentUserId)
+              .maybeSingle();
+
+            if (membershipError) {
+              console.error("Tournament membership load failed:", membershipError);
+            } else {
+              membership = membershipData as { team_id: string } | null;
+            }
+          } catch (membershipLoadError) {
+            console.error("Tournament membership load failed:", membershipLoadError);
+          }
+        }
 
         if (!nextActiveTournament) {
           setActiveTournament(null);
@@ -715,7 +731,7 @@ export default function TournamentPage() {
         }
 
         setActiveTournament(nextActiveTournament);
-        const membershipTeamId = (membership as { team_id: string } | null)?.team_id ?? null;
+        const membershipTeamId = membership?.team_id ?? null;
 
         const [enteredTeamsResult, matchesResult, tournamentEntryResult] = await Promise.all([
           getEnteredTeamsForTournament(nextActiveTournament.id),
