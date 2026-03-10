@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/supabase/database.types";
 
-function getSupabaseMiddlewareEnv() {
+function getSupabaseProxyEnv() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabasePublishableKey =
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
@@ -24,8 +24,8 @@ function getSupabaseMiddlewareEnv() {
   };
 }
 
-export async function middleware(request: NextRequest) {
-  const { supabaseUrl, supabasePublishableKey } = getSupabaseMiddlewareEnv();
+export async function proxy(request: NextRequest) {
+  const { supabaseUrl, supabasePublishableKey } = getSupabaseProxyEnv();
   let response = NextResponse.next({
     request,
   });
@@ -51,7 +51,7 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  // Refresh auth state in middleware so routes like /tournament don't race in layouts/pages.
+  // Refresh auth state at the proxy boundary so server components don't race.
   await supabase.auth.getUser();
 
   return response;
