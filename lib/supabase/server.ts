@@ -1,23 +1,34 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { cache } from "react";
 import type { Database } from "@/lib/supabase/database.types";
 
-export async function getSupabaseServerClient() {
+function getSupabaseServerEnv() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabasePublishableKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl) {
     throw new Error("Missing env.NEXT_PUBLIC_SUPABASE_URL");
   }
 
-  if (!supabaseAnonKey) {
-    throw new Error("Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  if (!supabasePublishableKey) {
+    throw new Error(
+      "Missing env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or env.NEXT_PUBLIC_SUPABASE_ANON_KEY"
+    );
   }
 
+  return {
+    supabaseUrl,
+    supabasePublishableKey,
+  };
+}
+
+export async function getSupabaseServerClient() {
+  const { supabaseUrl, supabasePublishableKey } = getSupabaseServerEnv();
   const cookieStore = await cookies();
 
-  return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+  return createServerClient<Database>(supabaseUrl, supabasePublishableKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -34,8 +45,3 @@ export async function getSupabaseServerClient() {
     },
   });
 }
-
-export const getCachedSupabaseUser = cache(async () => {
-  const supabase = await getSupabaseServerClient();
-  return supabase.auth.getUser();
-});

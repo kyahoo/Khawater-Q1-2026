@@ -155,6 +155,9 @@ export function SiteHeaderClient({
           <Link href="/rules" className={navLinkClass("/rules")}>
             Правила
           </Link>
+          <Link href="/news" className={navLinkClass("/news")}>
+            Новости
+          </Link>
           <Link href="/history" className={navLinkClass("/history")}>
             Зал славы
           </Link>

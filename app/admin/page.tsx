@@ -397,11 +397,10 @@ export default function AdminPage() {
     return session.access_token;
   }
 
-  async function loadAdminData() {
+  async function loadAdminData(accessToken: string) {
     setPageErrorMessage("");
     setEntrySectionErrorMessage("");
     setMatchesSectionErrorMessage("");
-    const accessToken = await getCurrentAdminAccessToken();
 
     const [nextTournaments, nextTeams, nextProfiles, nextPlayersResult] = await Promise.all([
       listTournaments(),
@@ -453,6 +452,11 @@ export default function AdminPage() {
     }
   }
 
+  async function refreshAdminData() {
+    const accessToken = await getCurrentAdminAccessToken();
+    await loadAdminData(accessToken);
+  }
+
   async function loadSelectedTeamMembers(teamId: string) {
     try {
       const nextTeamMembers = await getTeamMembers(teamId);
@@ -483,10 +487,13 @@ export default function AdminPage() {
       setErrorMessage("");
       const supabase = getSupabaseBrowserClient();
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      if (!user) {
+      const user = session?.user ?? null;
+      const accessToken = session?.access_token ?? null;
+
+      if (!user || !accessToken) {
         router.replace("/auth");
         return;
       }
@@ -498,7 +505,7 @@ export default function AdminPage() {
         return;
       }
 
-      await loadAdminData();
+      await loadAdminData(accessToken);
     } catch (error) {
       setPageErrorMessage(
         error instanceof Error ? error.message : "Could not load admin page."
@@ -679,7 +686,7 @@ export default function AdminPage() {
         throw new Error(result.error);
       }
 
-      await loadAdminData();
+      await refreshAdminData();
       setNewPlayerEmail("");
       setNewPlayerNickname("");
       setNewPlayerPassword("");
@@ -713,7 +720,7 @@ export default function AdminPage() {
         throw new Error(result.error);
       }
 
-      await loadAdminData();
+      await refreshAdminData();
       router.refresh();
     } catch (error) {
       setErrorMessage(
@@ -744,7 +751,7 @@ export default function AdminPage() {
         throw new Error(result.error);
       }
 
-      await loadAdminData();
+      await refreshAdminData();
       window.alert("Устройство успешно сброшено");
       router.refresh();
     } catch (error) {
@@ -773,7 +780,7 @@ export default function AdminPage() {
         throw new Error(result.error);
       }
 
-      await loadAdminData();
+      await refreshAdminData();
       router.refresh();
     } catch (error) {
       setErrorMessage(
@@ -795,7 +802,7 @@ export default function AdminPage() {
         throw new Error(result.error);
       }
 
-      await loadAdminData();
+      await refreshAdminData();
       router.refresh();
     } catch (error) {
       setErrorMessage(
@@ -820,7 +827,7 @@ export default function AdminPage() {
         throw new Error(result.error);
       }
 
-      await loadAdminData();
+      await refreshAdminData();
       router.refresh();
     } catch (error) {
       setErrorMessage(
@@ -861,7 +868,7 @@ export default function AdminPage() {
         setSelectedLogoFile(null);
       }
 
-      await loadAdminData();
+      await refreshAdminData();
       router.refresh();
     } catch (error) {
       setErrorMessage(
@@ -894,7 +901,7 @@ export default function AdminPage() {
         resetMatchForm();
       }
 
-      await loadAdminData();
+      await refreshAdminData();
       router.refresh();
     } catch (error) {
       setErrorMessage(
@@ -934,7 +941,7 @@ export default function AdminPage() {
       }
 
       setSelectedMatches([]);
-      await loadAdminData();
+      await refreshAdminData();
       router.refresh();
     } catch (error) {
       setErrorMessage(
@@ -959,7 +966,7 @@ export default function AdminPage() {
 
     try {
       await setActiveTournament(tournamentId);
-      await loadAdminData();
+      await refreshAdminData();
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -992,7 +999,7 @@ export default function AdminPage() {
 
     try {
       await updateTournamentCheckInThreshold(activeTournament.id, parsedThreshold);
-      await loadAdminData();
+      await refreshAdminData();
       router.refresh();
     } catch (error) {
       setErrorMessage(
@@ -1027,7 +1034,7 @@ export default function AdminPage() {
         name: trimmedName,
       });
 
-      await loadAdminData();
+      await refreshAdminData();
       setSelectedTeamId(createdTeam.id);
       setNewTeamName("");
     } catch (error) {
@@ -1106,7 +1113,7 @@ export default function AdminPage() {
         throw updateError;
       }
 
-      await loadAdminData();
+      await refreshAdminData();
       setEditingLogoTeamId(null);
       setSelectedLogoFile(null);
       router.refresh();
@@ -1173,7 +1180,7 @@ export default function AdminPage() {
         throw updateError;
       }
 
-      await loadAdminData();
+      await refreshAdminData();
       setEditingBannerTournamentId(null);
       setSelectedBannerFile(null);
       window.alert("Баннер успешно загружен");
@@ -1404,7 +1411,7 @@ export default function AdminPage() {
         teamId: selectedTeamId,
         userId: selectedProfileIdToAdd,
       });
-      await loadAdminData();
+      await refreshAdminData();
       await loadSelectedTeamMembers(selectedTeamId);
       setSelectedProfileIdToAdd("");
     } catch (error) {
@@ -1429,7 +1436,7 @@ export default function AdminPage() {
         teamId: selectedTeamId,
         userId,
       });
-      await loadAdminData();
+      await refreshAdminData();
       await loadSelectedTeamMembers(selectedTeamId);
     } catch (error) {
       setErrorMessage(
@@ -1467,7 +1474,7 @@ export default function AdminPage() {
 
       setErrorMessage("");
       setAdminOverridePlayerIdentifier("");
-      await loadAdminData();
+      await refreshAdminData();
       await loadSelectedTeamMembers(selectedTeamId);
       router.refresh();
     } catch (error) {
@@ -1495,7 +1502,7 @@ export default function AdminPage() {
       }
 
       setErrorMessage("");
-      await loadAdminData();
+      await refreshAdminData();
       await loadSelectedTeamMembers(selectedTeamId);
       router.refresh();
     } catch (error) {
@@ -1522,7 +1529,7 @@ export default function AdminPage() {
         teamId,
         enteredBy: profile.id,
       });
-      await loadAdminData();
+      await refreshAdminData();
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -1563,7 +1570,7 @@ export default function AdminPage() {
         throw new Error(result.error);
       }
 
-      await loadAdminData();
+      await refreshAdminData();
       router.refresh();
     } catch (error) {
       setErrorMessage(
@@ -1597,7 +1604,7 @@ export default function AdminPage() {
       }
 
       setErrorMessage("");
-      await loadAdminData();
+      await refreshAdminData();
       router.refresh();
     } catch (error) {
       setErrorMessage(
@@ -1720,7 +1727,7 @@ export default function AdminPage() {
         });
       }
 
-      await loadAdminData();
+      await refreshAdminData();
       resetMatchForm();
     } catch (error) {
       console.error("Supabase Match Creation Error:", error);
@@ -1815,7 +1822,7 @@ export default function AdminPage() {
         throw new Error(result.error);
       }
 
-      await loadAdminData();
+      await refreshAdminData();
       setGroupStageSuccessMessage(
         `Created ${result.matchCount} group stage matches in BO3 format.`
       );
