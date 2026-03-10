@@ -1,6 +1,34 @@
 import { MatchesClient } from "@/app/matches/matches-client";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getMatchesForUserTeamWithClient, type UserTeamMatch } from "@/lib/supabase/matches";
 
-export default function MyMatchesPage() {
+export const dynamic = "force-dynamic";
+
+export default async function MyMatchesPage() {
+  let initialMatches: UserTeamMatch[] = [];
+  let initialErrorMessage = "";
+
+  try {
+    const supabase = await getSupabaseServerClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError) {
+      console.error("Match Fetch Error:", userError);
+      initialErrorMessage = userError.message;
+    } else if (user) {
+      initialMatches = await getMatchesForUserTeamWithClient(supabase, user.id);
+    }
+  } catch (error) {
+    console.error("Match Fetch Error:", error);
+    initialErrorMessage =
+      error instanceof Error && error.message.trim()
+        ? error.message
+        : String(error);
+  }
+
   return (
     <div className="min-h-screen text-white">
       <div className="min-h-screen">
@@ -17,7 +45,10 @@ export default function MyMatchesPage() {
           </section>
 
           <section className="mt-6">
-            <MatchesClient />
+            <MatchesClient
+              initialMatches={initialMatches}
+              initialErrorMessage={initialErrorMessage}
+            />
           </section>
         </main>
       </div>

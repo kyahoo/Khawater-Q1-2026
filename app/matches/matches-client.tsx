@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import { MatchCard } from "@/app/matches/match-card";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { getMatchesForUserTeam, type UserTeamMatch } from "@/lib/supabase/matches";
+import type { UserTeamMatch } from "@/lib/supabase/matches";
 
 const LIVE_STATUS_REFRESH_MS = 60 * 1000;
 
@@ -65,36 +63,20 @@ function EmptyStateBlock({ message }: { message: string }) {
   );
 }
 
-function getMatchFetchErrorMessage(error: unknown) {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof error.message === "string" &&
-    error.message.trim()
-  ) {
-    return error.message;
-  }
+type MatchesClientProps = {
+  initialMatches: UserTeamMatch[];
+  initialErrorMessage?: string;
+};
 
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-
-  return String(error);
-}
-
-export function MatchesClient() {
-  const router = useRouter();
-  const [matches, setMatches] = useState<UserTeamMatch[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [currentTimeMs, setCurrentTimeMs] = useState<number | null>(null);
-  const [hasMounted, setHasMounted] = useState(false);
+export function MatchesClient({
+  initialMatches,
+  initialErrorMessage = "",
+}: MatchesClientProps) {
+  const [currentTimeMs, setCurrentTimeMs] = useState<number | null>(() =>
+    typeof window === "undefined" ? null : getCurrentAlmatyWallClockTimeMs()
+  );
 
   useEffect(() => {
-    setHasMounted(true);
-    setCurrentTimeMs(getCurrentAlmatyWallClockTimeMs());
-
     const intervalId = window.setInterval(() => {
       setCurrentTimeMs(getCurrentAlmatyWallClockTimeMs());
     }, LIVE_STATUS_REFRESH_MS);
@@ -104,53 +86,23 @@ export function MatchesClient() {
     };
   }, []);
 
-  useEffect(() => {
-    const loadMatches = async () => {
-      try {
-        setErrorMessage("");
+  const hasMounted = currentTimeMs !== null;
 
-        const supabase = getSupabaseBrowserClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (!user) {
-          router.replace("/auth");
-          return;
-        }
-
-        const userMatches = await getMatchesForUserTeam(user.id);
-        setMatches(userMatches);
-      } catch (error) {
-        console.error("Match Fetch Error:", error);
-        setErrorMessage(getMatchFetchErrorMessage(error));
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    void loadMatches();
-  }, [router]);
-
-  if (isLoading) {
-    return <StatePanel tone="default">Загрузка матчей...</StatePanel>;
-  }
-
-  if (errorMessage) {
-    return <StatePanel tone="danger">{errorMessage}</StatePanel>;
+  if (initialErrorMessage) {
+    return <StatePanel tone="danger">{initialErrorMessage}</StatePanel>;
   }
 
   const isCompletedMatch = (match: UserTeamMatch) =>
     match.status === "finished" || match.status === "completed";
 
-  if (matches.length === 0) {
-    return <EmptyStateBlock message="У вас пока нет матчей" />;
+  if (initialMatches.length === 0) {
+    return <EmptyStateBlock message="У ВАС ПОКА НЕТ ЗАПЛАНИРОВАННЫХ МАТЧЕЙ" />;
   }
 
-  const upcomingMatches = matches.filter(
+  const upcomingMatches = initialMatches.filter(
     (match) => !isCompletedMatch(match)
   );
-  const finishedMatches = matches.filter((match) => isCompletedMatch(match));
+  const finishedMatches = initialMatches.filter((match) => isCompletedMatch(match));
 
   return (
     <div>

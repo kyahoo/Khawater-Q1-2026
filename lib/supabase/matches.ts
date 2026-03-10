@@ -1,5 +1,6 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getTeamMembers } from "@/lib/supabase/teams";
 
 export type MatchRoomTeam = {
@@ -328,16 +329,21 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
   };
 }
 
-export async function getMatchesForUserTeam(userId: string): Promise<UserTeamMatch[]> {
-  const supabase = getSupabaseBrowserClient();
-
+export async function getMatchesForUserTeamWithClient(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<UserTeamMatch[]> {
   const { data: membership, error: membershipError } = await supabase
     .from("team_members")
     .select("team_id")
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (membershipError || !membership) {
+  if (membershipError) {
+    throw membershipError;
+  }
+
+  if (!membership) {
     return [];
   }
 
@@ -349,7 +355,11 @@ export async function getMatchesForUserTeam(userId: string): Promise<UserTeamMat
     .eq("is_active", true)
     .maybeSingle();
 
-  if (tournamentError || !activeTournament) {
+  if (tournamentError) {
+    throw tournamentError;
+  }
+
+  if (!activeTournament) {
     return [];
   }
 
@@ -364,7 +374,11 @@ export async function getMatchesForUserTeam(userId: string): Promise<UserTeamMat
     .or(`team_a_id.eq.${teamId},team_b_id.eq.${teamId}`)
     .order("scheduled_at", { ascending: true });
 
-  if (matchesError || !matches?.length) {
+  if (matchesError) {
+    throw matchesError;
+  }
+
+  if (!matches?.length) {
     return [];
   }
 
@@ -376,10 +390,14 @@ export async function getMatchesForUserTeam(userId: string): Promise<UserTeamMat
     )
   );
 
-  const { data: teams } = await supabase
+  const { data: teams, error: teamsError } = await supabase
     .from("teams")
     .select("id, name, logo_url")
     .in("id", teamIds);
+
+  if (teamsError) {
+    throw teamsError;
+  }
 
   const teamNameById = new Map(
     (
@@ -418,4 +436,9 @@ export async function getMatchesForUserTeam(userId: string): Promise<UserTeamMat
     teamAId: m.team_a_id,
     teamBId: m.team_b_id,
   }));
+}
+
+export async function getMatchesForUserTeam(userId: string): Promise<UserTeamMatch[]> {
+  const supabase = getSupabaseBrowserClient();
+  return getMatchesForUserTeamWithClient(supabase, userId);
 }
