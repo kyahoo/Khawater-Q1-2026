@@ -31,6 +31,30 @@ export type TeamListItem = {
   isLockedForActiveTournament: boolean;
 };
 
+type TeamMembershipProfileRow = {
+  user_id: string;
+  is_captain: boolean;
+  created_at: string;
+  profiles:
+    | {
+        id: string;
+        nickname: string;
+      }
+    | Array<{
+        id: string;
+        nickname: string;
+      }>
+    | null;
+};
+
+type TeamWithMembersRow = {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  created_at: string;
+  team_members: TeamMembershipProfileRow[] | null;
+};
+
 function toTeamMutationError(error: unknown, fallbackMessage: string) {
   if (
     typeof error === "object" &&
@@ -79,41 +103,28 @@ export async function getTeamById(teamId: string) {
 
 export async function getTeamMembers(teamId: string) {
   const supabase = getSupabaseBrowserClient();
-  const { data: memberships, error: membershipError } = await supabase
+  const { data: memberships, error: membershipsError } = await supabase
     .from("team_members")
-    .select("team_id, user_id, is_captain, created_at")
+    .select("user_id, is_captain, created_at, profiles(id, nickname)")
     .eq("team_id", teamId)
     .order("created_at", { ascending: true });
 
-  if (membershipError) {
-    throw membershipError;
+  if (membershipsError) {
+    throw membershipsError;
   }
 
-  const memberRows = (memberships ?? []) as TeamMembership[];
+  const memberRows = (memberships ?? []) as unknown as TeamMembershipProfileRow[];
 
   if (memberRows.length === 0) {
     return [] as TeamMember[];
   }
 
-  const { data: profiles, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, nickname")
-    .in(
-      "id",
-      memberRows.map((membership) => membership.user_id)
-    );
-
-  if (profileError) {
-    throw profileError;
-  }
-
-  const nicknameById = new Map(
-    (profiles ?? []).map((profile) => [profile.id as string, profile.nickname as string])
-  );
-
   return memberRows.map((membership) => ({
     userId: membership.user_id,
-    nickname: nicknameById.get(membership.user_id) ?? "Player",
+    nickname:
+      (Array.isArray(membership.profiles)
+        ? membership.profiles[0]?.nickname
+        : membership.profiles?.nickname) ?? "Player",
     isCaptain: membership.is_captain,
   }));
 }
@@ -141,24 +152,16 @@ export async function listTeamsWithMeta() {
   const supabase = getSupabaseBrowserClient();
   const { data: teams, error: teamsError } = await supabase
     .from("teams")
-    .select("id, name, logo_url, tagline, created_by, created_at")
+    .select(
+      "id, name, logo_url, created_at, team_members(user_id, is_captain, created_at, profiles(id, nickname))"
+    )
     .order("created_at", { ascending: true });
 
   if (teamsError) {
     throw teamsError;
   }
 
-  const teamRows = (teams ?? []) as Team[];
-
-  const { data: memberships, error: membershipError } = await supabase
-    .from("team_members")
-    .select("team_id, user_id, is_captain, created_at");
-
-  if (membershipError) {
-    throw membershipError;
-  }
-
-  const memberRows = (memberships ?? []) as TeamMembership[];
+  const teamRows = (teams ?? []) as unknown as TeamWithMembersRow[];
   const { data: activeTournament, error: activeTournamentError } = await supabase
     .from("tournaments")
     .select("id")
@@ -186,7 +189,7 @@ export async function listTeamsWithMeta() {
     );
   }
 
-  if (memberRows.length === 0) {
+  if (teamRows.every((team) => (team.team_members ?? []).length === 0)) {
     return teamRows.map((team) => ({
       id: team.id,
       name: team.name,
@@ -197,37 +200,24 @@ export async function listTeamsWithMeta() {
     })) as TeamListItem[];
   }
 
-  const { data: profiles, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, nickname")
-    .in(
-      "id",
-      memberRows.map((membership) => membership.user_id)
-    );
-
-  if (profileError) {
-    throw profileError;
-  }
-
-  const nicknameById = new Map(
-    (profiles ?? []).map((profile) => [profile.id as string, profile.nickname as string])
-  );
-
   return teamRows.map((team) => {
-    const teamMemberships = memberRows.filter(
-      (membership) => membership.team_id === team.id
+    const teamMemberships = (team.team_members ?? []).slice().sort(
+      (membershipA, membershipB) =>
+        new Date(membershipA.created_at).getTime() -
+        new Date(membershipB.created_at).getTime()
     );
-    const captainMembership = teamMemberships.find(
-      (membership) => membership.is_captain
-    );
+    const captainMembership = teamMemberships.find((membership) => membership.is_captain);
+    const captainProfile = captainMembership
+      ? Array.isArray(captainMembership.profiles)
+        ? captainMembership.profiles[0]
+        : captainMembership.profiles
+      : null;
 
     return {
       id: team.id,
       name: team.name,
       logoUrl: team.logo_url,
-      captainName: captainMembership
-        ? nicknameById.get(captainMembership.user_id) ?? "Captain"
-        : "No captain",
+      captainName: captainProfile?.nickname ?? "No captain",
       memberCount: teamMemberships.length,
       isLockedForActiveTournament: lockedTeamIds.has(team.id),
     };

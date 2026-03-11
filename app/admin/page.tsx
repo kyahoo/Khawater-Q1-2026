@@ -427,26 +427,25 @@ export default function AdminPage() {
       return;
     }
 
-    try {
-      const nextEntryTeams = await listAdminTournamentEntryTeams(
-        nextActiveTournament.id
-      );
-      setEntryTeams(nextEntryTeams);
+    const [entryTeamsResult, matchesResult] = await Promise.allSettled([
+      listAdminTournamentEntryTeams(nextActiveTournament.id),
+      getTournamentMatchesForTournament(nextActiveTournament.id),
+    ]);
+
+    if (entryTeamsResult.status === "fulfilled") {
+      setEntryTeams(entryTeamsResult.value);
       setEntrySectionErrorMessage("");
-    } catch {
+    } else {
       setEntryTeams([]);
       setEntrySectionErrorMessage(
         "Tournament entry data is unavailable right now."
       );
     }
 
-    try {
-      const nextMatches = await getTournamentMatchesForTournament(
-        nextActiveTournament.id
-      );
-      setMatches(nextMatches);
+    if (matchesResult.status === "fulfilled") {
+      setMatches(matchesResult.value);
       setMatchesSectionErrorMessage("");
-    } catch {
+    } else {
       setMatches([]);
       setMatchesSectionErrorMessage("Match data is unavailable right now.");
     }

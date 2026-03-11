@@ -90,6 +90,28 @@ type MatchRoomQueryRow = MatchRoomBaseRow & {
   is_forfeit: boolean | null;
 };
 
+type MatchRoomTeamQueryRow = {
+  id: string;
+  name: string;
+  team_members:
+    | Array<{
+        user_id: string;
+        is_captain: boolean;
+        created_at: string;
+        profiles:
+          | {
+              id: string;
+              nickname: string;
+            }
+          | Array<{
+              id: string;
+              nickname: string;
+            }>
+          | null;
+      }>
+    | null;
+};
+
 export type UserTeamMatch = {
   id: string;
   roundLabel: string;
@@ -106,72 +128,31 @@ export type UserTeamMatch = {
   teamBId: string;
 };
 
-async function getMatchRoomTeam(params: {
-  supabase: SupabaseClient<Database>;
+function normalizeMatchRoomTeam(params: {
+  teamRow: MatchRoomTeamQueryRow | null;
   teamId: string;
   fallbackName: string;
 }) {
-  const { data: teamRow, error: teamError } = await params.supabase
-    .from("teams")
-    .select("id, name")
-    .eq("id", params.teamId)
-    .maybeSingle();
+  const sortedMemberships = (params.teamRow?.team_members ?? []).slice().sort(
+    (membershipA, membershipB) =>
+      new Date(membershipA.created_at).getTime() -
+      new Date(membershipB.created_at).getTime()
+  );
+  const roster = sortedMemberships.map((membership) => {
+    const profile = Array.isArray(membership.profiles)
+      ? membership.profiles[0]
+      : membership.profiles;
 
-  if (teamError) {
-    console.error("Match team fetch failed:", teamError);
-  }
-
-  let roster = [] as MatchRoomTeam["roster"];
-
-  try {
-    const { data: memberships, error: membershipError } = await params.supabase
-      .from("team_members")
-      .select("team_id, user_id, is_captain, created_at")
-      .eq("team_id", params.teamId)
-      .order("created_at", { ascending: true });
-
-    if (membershipError) {
-      throw membershipError;
-    }
-
-    const memberRows = (memberships ?? []) as Array<{
-      user_id: string;
-      is_captain: boolean;
-    }>;
-
-    if (memberRows.length > 0) {
-      const { data: profiles, error: profileError } = await params.supabase
-        .from("profiles")
-        .select("id, nickname")
-        .in(
-          "id",
-          memberRows.map((membership) => membership.user_id)
-        );
-
-      if (profileError) {
-        throw profileError;
-      }
-
-      const nicknameById = new Map(
-        (profiles ?? []).map((profile) => [
-          profile.id as string,
-          profile.nickname as string,
-        ])
-      );
-
-      roster = memberRows.map((membership) => ({
-        userId: membership.user_id,
-        nickname: nicknameById.get(membership.user_id) ?? "Player",
-        isCaptain: membership.is_captain,
-      }));
-    }
-  } catch (rosterError) {
-    console.error("Match roster fetch failed:", rosterError);
-  }
+    return {
+      userId: membership.user_id,
+      nickname: profile?.nickname ?? "Player",
+      isCaptain: membership.is_captain,
+    };
+  });
 
   return {
-    id: teamRow?.id ?? params.teamId,
-    name: teamRow?.name ?? params.fallbackName,
+    id: params.teamRow?.id ?? params.teamId,
+    name: params.teamRow?.name ?? params.fallbackName,
     roster,
   };
 }
@@ -244,11 +225,30 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
   const typedMatch = matchRow as MatchRoomQueryRow;
   let checkInThreshold = 10;
 
-  const tournamentThresholdResult = await supabase
-    .from("tournaments")
-    .select("check_in_threshold")
-    .eq("id", typedMatch.tournament_id)
-    .maybeSingle();
+  const [tournamentThresholdResult, checkInsResult, lobbyPhotosResult, teamsResult] =
+    await Promise.all([
+      supabase
+        .from("tournaments")
+        .select("check_in_threshold")
+        .eq("id", typedMatch.tournament_id)
+        .maybeSingle(),
+      supabase
+        .from("match_check_ins")
+        .select(
+          "player_id, biometric_verified, is_checked_in, is_ready, lobby_screenshot_url"
+        )
+        .eq("match_id", matchId),
+      supabase
+        .from("match_lobby_photos")
+        .select("player_id, map_number, photo_url")
+        .eq("match_id", matchId),
+      supabase
+        .from("teams")
+        .select(
+          "id, name, team_members(user_id, is_captain, created_at, profiles(id, nickname))"
+        )
+        .in("id", [typedMatch.team_a_id, typedMatch.team_b_id]),
+    ]);
 
   if (
     tournamentThresholdResult.error?.message.includes(
@@ -268,12 +268,8 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
     checkInThreshold = Math.max(tournamentThresholdResult.data.check_in_threshold, 1);
   }
 
-  const { data: checkIns, error: checkInsError } = await supabase
-    .from("match_check_ins")
-    .select(
-      "player_id, biometric_verified, is_checked_in, is_ready, lobby_screenshot_url"
-    )
-    .eq("match_id", matchId);
+  const checkIns = checkInsResult.data;
+  const checkInsError = checkInsResult.error;
 
   if (checkInsError) {
     console.error("Match check-ins fetch failed:", checkInsError);
@@ -299,10 +295,8 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
     photo_url: string;
   }>;
 
-  const { data: lobbyPhotos, error: lobbyPhotosError } = await supabase
-    .from("match_lobby_photos")
-    .select("player_id, map_number, photo_url")
-    .eq("match_id", matchId);
+  const lobbyPhotos = lobbyPhotosResult.data;
+  const lobbyPhotosError = lobbyPhotosResult.error;
 
   if (lobbyPhotosError) {
     console.error("Match lobby photos fetch failed:", lobbyPhotosError);
@@ -330,24 +324,28 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
 
   const teamAId = typedMatch.team_a_id;
   const teamBId = typedMatch.team_b_id;
+  const teamRows = (teamsResult.data ?? []) as unknown as MatchRoomTeamQueryRow[];
+  const teamById = new Map(teamRows.map((team) => [team.id, team]));
+
+  if (teamsResult.error) {
+    console.error("Match teams fetch failed:", teamsResult.error);
+  }
+
   const resultScreenshotUrls = Array.isArray(typedMatch.result_screenshot_urls)
     ? typedMatch.result_screenshot_urls.filter(
         (url): url is string => typeof url === "string" && url.trim().length > 0
       )
     : [];
-
-  const [teamA, teamB] = await Promise.all([
-    getMatchRoomTeam({
-      supabase,
-      teamId: teamAId,
-      fallbackName: "Team A",
-    }),
-    getMatchRoomTeam({
-      supabase,
-      teamId: teamBId,
-      fallbackName: "Team B",
-    }),
-  ]);
+  const teamA = normalizeMatchRoomTeam({
+    teamRow: teamById.get(teamAId) ?? null,
+    teamId: teamAId,
+    fallbackName: "Team A",
+  });
+  const teamB = normalizeMatchRoomTeam({
+    teamRow: teamById.get(teamBId) ?? null,
+    teamId: teamBId,
+    fallbackName: "Team B",
+  });
 
   return {
     data: {

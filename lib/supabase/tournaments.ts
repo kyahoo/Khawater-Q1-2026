@@ -1,6 +1,5 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
-import { listTeamsWithMeta } from "@/lib/supabase/teams";
 
 const TOURNAMENT_SELECT_COLUMNS =
   "id, name, banner_url, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, check_in_threshold, created_at";
@@ -93,6 +92,24 @@ export type AdminTournamentEntryTeam = {
 };
 
 type TournamentInsert = Database["public"]["Tables"]["tournaments"]["Insert"];
+
+type TeamProfileJoin = {
+  id: string;
+  nickname: string;
+};
+
+type TeamMembershipJoin = {
+  user_id: string;
+  is_captain: boolean;
+  created_at: string;
+  profiles: TeamProfileJoin | TeamProfileJoin[] | null;
+};
+
+type TeamMetaJoinRow = {
+  id: string;
+  name: string;
+  team_members: TeamMembershipJoin[] | null;
+};
 
 function isMissingTournamentThresholdColumnError(error: unknown) {
   return (
@@ -510,7 +527,7 @@ export async function getTournamentMatchesForTournament(
   const { data: matches, error: matchesError } = await supabase
     .from("tournament_matches")
     .select(
-      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at"
+      "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at, team_a:teams!tournament_matches_team_a_id_fkey(id, name, logo_url), team_b:teams!tournament_matches_team_b_id_fkey(id, name, logo_url)"
     )
     .eq("tournament_id", tournamentId)
     .order("scheduled_at", { ascending: true })
@@ -520,48 +537,58 @@ export async function getTournamentMatchesForTournament(
     throw matchesError;
   }
 
-  const typedMatches =
-    (matches ?? []) as Database["public"]["Tables"]["tournament_matches"]["Row"][];
+  const typedMatches = (matches ?? []) as unknown as Array<{
+    id: string;
+    team_a_id: string;
+    team_b_id: string;
+    round_label: string;
+    scheduled_at: string | null;
+    status: string;
+    team_a_score: number | null;
+    team_b_score: number | null;
+    display_order: number;
+    format: string;
+    team_a:
+      | {
+          id: string;
+          name: string;
+          logo_url: string | null;
+        }
+      | Array<{
+          id: string;
+          name: string;
+          logo_url: string | null;
+        }>
+      | null;
+    team_b:
+      | {
+          id: string;
+          name: string;
+          logo_url: string | null;
+        }
+      | Array<{
+          id: string;
+          name: string;
+          logo_url: string | null;
+        }>
+      | null;
+  }>;
 
   if (typedMatches.length === 0) {
     return [];
   }
-
-  const teamIds = Array.from(
-    new Set(
-      typedMatches.flatMap((match) => [match.team_a_id, match.team_b_id])
-    )
-  );
-  const { data: teams, error: teamsError } = await supabase
-    .from("teams")
-    .select("id, name, logo_url")
-    .in("id", teamIds);
-
-  if (teamsError) {
-    throw teamsError;
-  }
-
-  const teamMetaById = new Map(
-    ((teams ?? []) as Array<{ id: string; name: string; logo_url: string | null }>).map(
-      (team) => [
-        team.id,
-        {
-          name: team.name,
-          logoUrl: team.logo_url,
-        },
-      ]
-    )
-  );
 
   return typedMatches.map((match) => ({
     id: match.id,
     roundLabel: match.round_label,
     teamAId: match.team_a_id,
     teamBId: match.team_b_id,
-    teamAName: teamMetaById.get(match.team_a_id)?.name ?? "Team A",
-    teamALogoUrl: teamMetaById.get(match.team_a_id)?.logoUrl ?? null,
-    teamBName: teamMetaById.get(match.team_b_id)?.name ?? "Team B",
-    teamBLogoUrl: teamMetaById.get(match.team_b_id)?.logoUrl ?? null,
+    teamAName: (Array.isArray(match.team_a) ? match.team_a[0] : match.team_a)?.name ?? "Team A",
+    teamALogoUrl:
+      (Array.isArray(match.team_a) ? match.team_a[0] : match.team_a)?.logo_url ?? null,
+    teamBName: (Array.isArray(match.team_b) ? match.team_b[0] : match.team_b)?.name ?? "Team B",
+    teamBLogoUrl:
+      (Array.isArray(match.team_b) ? match.team_b[0] : match.team_b)?.logo_url ?? null,
     scheduledAt: match.scheduled_at,
     status: match.status,
     teamAScore: match.team_a_score,
@@ -740,26 +767,28 @@ export async function listAdminTournamentEntryTeams(
   tournamentId: string
 ): Promise<AdminTournamentEntryTeam[]> {
   const supabase = getSupabaseBrowserClient();
-  const teams = await listTeamsWithMeta();
+  const { data: teams, error: teamsError } = await supabase
+    .from("teams")
+    .select(
+      "id, name, team_members(user_id, is_captain, created_at, profiles(id, nickname))"
+    )
+    .order("created_at", { ascending: true });
 
-  if (teams.length === 0) {
+  if (teamsError) {
+    throw teamsError;
+  }
+
+  const teamRows = (teams ?? []) as unknown as TeamMetaJoinRow[];
+
+  if (teamRows.length === 0) {
     return [];
   }
 
-  const teamIds = teams.map((team) => team.id);
-  const { data: memberships, error: membershipsError } = await supabase
-    .from("team_members")
-    .select("team_id, user_id, is_captain, created_at")
-    .in("team_id", teamIds);
-
-  if (membershipsError) {
-    throw membershipsError;
-  }
-
-  const typedMemberships =
-    (memberships ?? []) as Database["public"]["Tables"]["team_members"]["Row"][];
+  const teamIds = teamRows.map((team) => team.id);
   const memberUserIds = Array.from(
-    new Set(typedMemberships.map((membership) => membership.user_id))
+    new Set(
+      teamRows.flatMap((team) => (team.team_members ?? []).map((membership) => membership.user_id))
+    )
   );
 
   let confirmedUserIdSet = new Set<string>();
@@ -799,21 +828,30 @@ export async function listAdminTournamentEntryTeams(
       .map((entry) => entry.team_id)
   );
 
-  return teams.map((team) => {
-    const teamMemberships = typedMemberships.filter(
-      (membership) => membership.team_id === team.id
+  return teamRows.map((team) => {
+    const teamMemberships = (team.team_members ?? []).slice().sort(
+      (membershipA, membershipB) =>
+        new Date(membershipA.created_at).getTime() -
+        new Date(membershipB.created_at).getTime()
     );
     const confirmedCount = teamMemberships.filter((membership) =>
       confirmedUserIdSet.has(membership.user_id)
     ).length;
     const hasEntered = enteredTeamIds.has(team.id);
-    const canEnter = !hasEntered && team.memberCount >= 5 && confirmedCount >= 5;
+    const captainMembership = teamMemberships.find((membership) => membership.is_captain);
+    const captainProfile = captainMembership
+      ? Array.isArray(captainMembership.profiles)
+        ? captainMembership.profiles[0]
+        : captainMembership.profiles
+      : null;
+    const memberCount = teamMemberships.length;
+    const canEnter = !hasEntered && memberCount >= 5 && confirmedCount >= 5;
 
     return {
       id: team.id,
       name: team.name,
-      captainName: team.captainName,
-      memberCount: team.memberCount,
+      captainName: captainProfile?.nickname ?? "No captain",
+      memberCount,
       confirmedCount,
       hasEntered,
       isSuspended: suspendedTeamIds.has(team.id),
