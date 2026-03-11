@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent, FormEvent, RefObject } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ForfeitClaimButton } from "@/components/matches/ForfeitClaimButton";
@@ -143,6 +143,7 @@ function PlayerRow({
 }
 
 type LobbyPhotoActionsProps = {
+  matchStatus: string;
   mapNumber: LobbyMapNumber;
   isCurrentUserCheckedIn: boolean;
   isCurrentMap: boolean;
@@ -154,6 +155,7 @@ type LobbyPhotoActionsProps = {
 };
 
 function LobbyPhotoActions({
+  matchStatus,
   mapNumber,
   isCurrentUserCheckedIn,
   isCurrentMap,
@@ -164,6 +166,17 @@ function LobbyPhotoActions({
   onOpenLobbyScreenshotPicker,
 }: LobbyPhotoActionsProps) {
   const [isBiometricsPassed, setIsBiometricsPassed] = useState(false);
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   const hasBiometricsAccess =
     isBiometricsPassed || isWaitingCurrentMap || isCurrentUserBiometricallyVerified;
@@ -183,6 +196,17 @@ function LobbyPhotoActions({
 
   return (
     <div className="mt-5 flex flex-col gap-3">
+      {matchStatus === "finished" ? (
+        <div className="border-[3px] border-red-900 bg-[#061726] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-red-300 shadow-[4px_4px_0px_0px_#061726]">
+          ПРИЕМ ФОТО ЗАКРЫТ (МАТЧ ЗАВЕРШЕН)
+        </div>
+      ) : isMobile === false ? (
+        <div className="border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726]">
+          ДЛЯ ПРОХОЖДЕНИЯ БИОМЕТРИИ И ЗАГРУЗКИ ФОТО ЛОББИ, ОТКРОЙТЕ САЙТ НА
+          ТЕЛЕФОНЕ.
+        </div>
+      ) : isMobile === null ? null : (
+        <>
       <button
         type="button"
         onClick={() => void handleBiometricsClick()}
@@ -210,6 +234,8 @@ function LobbyPhotoActions({
       >
         ОТКРЫТЬ КАМЕРУ
       </button>
+        </>
+      )}
     </div>
   );
 }
@@ -638,6 +664,7 @@ export function MatchTabs({
 
                                 {!isUploadingCurrentMap && (
                                   <LobbyPhotoActions
+                                    matchStatus={match.status}
                                     mapNumber={mapNumber}
                                     isCurrentUserCheckedIn={isCurrentUserCheckedIn}
                                     isCurrentMap={isCurrentMap}
