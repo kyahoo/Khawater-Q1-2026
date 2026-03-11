@@ -52,7 +52,19 @@ export async function proxy(request: NextRequest) {
   });
 
   // Refresh auth state at the proxy boundary so server components don't race.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user && (request.nextUrl.pathname === "/" || request.nextUrl.pathname === "/auth")) {
+    const redirectResponse = NextResponse.redirect(new URL("/tournament", request.url));
+
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie);
+    });
+
+    return redirectResponse;
+  }
 
   return response;
 }

@@ -1,33 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
-async function routeUserAfterAuth(router: ReturnType<typeof useRouter>) {
-  router.replace("/tournament");
-}
-
 export default function AuthPage() {
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-
-  useEffect(() => {
-    const checkSession = async () => {
-      const supabase = getSupabaseBrowserClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        await routeUserAfterAuth(router);
-      }
-    };
-
-    void checkSession();
-  }, [router]);
 
   async function handleDiscordLogin() {
     setIsLoading(true);

@@ -1,32 +1,15 @@
-"use client";
+import { redirect } from "next/navigation";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+export default async function Home() {
+  const supabase = await getSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-export default function Home() {
-  const router = useRouter();
-  const supabase = getSupabaseBrowserClient();
-
-  useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (session) {
-          router.push("/tournament");
-        }
-      }
-    );
-
-    void supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        router.push("/tournament");
-      }
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [router, supabase]);
+  if (user) {
+    redirect("/tournament");
+  }
 
   return (
     <div className="min-h-screen bg-transparent text-white">
