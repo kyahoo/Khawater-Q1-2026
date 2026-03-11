@@ -62,10 +62,13 @@ type MatchTabsProps = {
     isCheckingIn: boolean;
     opponentNotified: boolean;
     isLateCheckInLockout: boolean;
+    isCurrentUserBiometricallyVerified: boolean;
+    hasPendingLobbyPhotoAction: boolean;
   };
   results: {
     isCurrentUserLobbyHost: boolean;
     hasReportedMatchResult: boolean;
+    isScorePending: boolean;
     reportedWinnerName: string | null;
     safeResultScreenshotUrls: string[];
     reportedResultScreenshotSlots: Array<{
@@ -99,6 +102,9 @@ type MatchTabsProps = {
     onOpenResultScreenshotPicker: (index: number) => void;
   };
 };
+
+const urgentActionBadgeClassName =
+  "absolute -right-2 -top-2 h-4 w-4 rounded-full border-2 border-[#7F1D1D] bg-[#DC2626]";
 
 function PlayerRow({
   nickname,
@@ -142,6 +148,7 @@ type LobbyPhotoActionsProps = {
   isCurrentMap: boolean;
   isWaitingCurrentMap: boolean;
   isConfirmingCurrentMap: boolean;
+  isCurrentUserBiometricallyVerified: boolean;
   onConfirmLobby: (mapNumber: LobbyMapNumber) => Promise<boolean>;
   onOpenLobbyScreenshotPicker: (mapNumber: LobbyMapNumber) => void;
 };
@@ -152,16 +159,19 @@ function LobbyPhotoActions({
   isCurrentMap,
   isWaitingCurrentMap,
   isConfirmingCurrentMap,
+  isCurrentUserBiometricallyVerified,
   onConfirmLobby,
   onOpenLobbyScreenshotPicker,
 }: LobbyPhotoActionsProps) {
   const [isBiometricsPassed, setIsBiometricsPassed] = useState(false);
 
-  const hasBiometricsAccess = isBiometricsPassed || isWaitingCurrentMap;
+  const hasBiometricsAccess =
+    isBiometricsPassed || isWaitingCurrentMap || isCurrentUserBiometricallyVerified;
   const isLockedForMap =
     !isCurrentUserCheckedIn || (!isCurrentMap && !isWaitingCurrentMap);
+  const isBiometricsPending = !isLockedForMap && !hasBiometricsAccess;
   const actionButtonClass =
-    "w-full border-[3px] border-[#0B3A4A] bg-[#CD9C3E] px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-[#0B3A4A] shadow-[4px_4px_0px_0px_#0B3A4A] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#0B3A4A] disabled:translate-y-0 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
+    "relative w-full overflow-visible border-[3px] border-[#0B3A4A] bg-[#CD9C3E] px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-[#0B3A4A] shadow-[4px_4px_0px_0px_#0B3A4A] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#0B3A4A] disabled:translate-y-0 disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50";
 
   async function handleBiometricsClick() {
     const passed = await onConfirmLobby(mapNumber);
@@ -179,6 +189,12 @@ function LobbyPhotoActions({
         disabled={isLockedForMap || isConfirmingCurrentMap || hasBiometricsAccess}
         className={actionButtonClass}
       >
+        {isBiometricsPending ? (
+          <>
+            <span aria-hidden="true" className={urgentActionBadgeClassName} />
+            <span className="sr-only">Требуется пройти биометрию</span>
+          </>
+        ) : null}
         {hasBiometricsAccess
           ? "БИОМЕТРИЯ ПРОЙДЕНА ✅"
           : isConfirmingCurrentMap
@@ -242,6 +258,8 @@ export function MatchTabs({
     isCheckingIn,
     opponentNotified,
     isLateCheckInLockout,
+    isCurrentUserBiometricallyVerified,
+    hasPendingLobbyPhotoAction,
   } = lobby;
 
   const showTieError =
@@ -259,7 +277,7 @@ export function MatchTabs({
     ) !== results.seriesMaxWins;
 
   const tabButtonClass = (tab: "lobby" | "management" | "results") =>
-    `border-[3px] px-5 py-3 text-sm font-black uppercase tracking-[0.18em] shadow-[4px_4px_0px_0px_#061726] transition-all ${
+    `relative overflow-visible border-[3px] px-5 py-3 text-sm font-black uppercase tracking-[0.18em] shadow-[4px_4px_0px_0px_#061726] transition-all ${
       activeTab === tab
         ? "border-[#CD9C3E] bg-[#CD9C3E] text-[#061726]"
         : "border-[#061726] bg-[#0B3A4A] text-white hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
@@ -321,6 +339,9 @@ export function MatchTabs({
           onClick={() => setActiveTab("lobby")}
           className={tabButtonClass("lobby")}
         >
+          {hasPendingLobbyPhotoAction ? (
+            <span aria-hidden="true" className={urgentActionBadgeClassName} />
+          ) : null}
           ЛОББИ
         </button>
         <button
@@ -335,6 +356,9 @@ export function MatchTabs({
           onClick={() => setActiveTab("results")}
           className={tabButtonClass("results")}
         >
+          {results.isScorePending ? (
+            <span aria-hidden="true" className={urgentActionBadgeClassName} />
+          ) : null}
           РЕЗУЛЬТАТЫ
         </button>
       </div>
@@ -619,6 +643,9 @@ export function MatchTabs({
                                     isCurrentMap={isCurrentMap}
                                     isWaitingCurrentMap={isWaitingCurrentMap}
                                     isConfirmingCurrentMap={isConfirmingCurrentMap}
+                                    isCurrentUserBiometricallyVerified={
+                                      isCurrentUserBiometricallyVerified
+                                    }
                                     onConfirmLobby={onConfirmLobby}
                                     onOpenLobbyScreenshotPicker={
                                       onOpenLobbyScreenshotPicker
@@ -997,8 +1024,14 @@ export function MatchTabs({
               <button
                 type="submit"
                 disabled={results.isResultSubmitDisabled}
-                className="border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-6 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:bg-[#145268] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
+                className="relative overflow-visible border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-6 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:bg-[#145268] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
               >
+                {results.isScorePending ? (
+                  <>
+                    <span aria-hidden="true" className={urgentActionBadgeClassName} />
+                    <span className="sr-only">Требуется подтвердить результат</span>
+                  </>
+                ) : null}
                 {results.isSubmittingMatchResult
                   ? "ПОДТВЕРЖДЕНИЕ..."
                   : "ПОДТВЕРДИТЬ РЕЗУЛЬТАТ"}

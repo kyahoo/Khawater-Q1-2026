@@ -960,6 +960,9 @@ export default function MatchRoomPage() {
   const isCurrentUserCheckedIn = Boolean(
     currentUserId && data.checkedInUserIds.includes(currentUserId)
   );
+  const isCurrentUserBiometricallyVerified = Boolean(
+    currentUserId && data.biometricVerifiedUserIds.includes(currentUserId)
+  );
   const checkInThreshold = Math.max(data.match.checkInThreshold, 1);
   const checkInCount = data.checkedInUserIds.length;
   const allCheckedIn = checkInCount >= checkInThreshold;
@@ -1003,6 +1006,13 @@ export default function MatchRoomPage() {
     LOBBY_MAP_NUMBERS.find(
       (mapNumber) => !currentUserLobbyPhotoUrlByMap[mapNumber]
     ) ?? null;
+  const hasPendingLobbyPhotoAction = Boolean(
+    isCurrentUserParticipant &&
+      isCurrentUserCheckedIn &&
+      !isLateCheckInLockout &&
+      currentLobbyMapNumber !== null &&
+      !currentUserLobbyPhotoUrlByMap[currentLobbyMapNumber]
+  );
   const parsedReportedTeamAScore = reportedTeamAScore
     ? Number.parseInt(reportedTeamAScore, 10)
     : 0;
@@ -1042,6 +1052,7 @@ export default function MatchRoomPage() {
     data.match.teamAScore !== null &&
     data.match.teamBScore !== null &&
     safeResultScreenshotUrls.length > 0;
+  const isScorePending = Boolean(isCurrentUserLobbyHost && !hasReportedMatchResult);
   const hasInvalidResultSeriesLength =
     seriesLength !== null && totalGames > seriesLength;
   const hasInvalidResultWinner =
@@ -1130,10 +1141,13 @@ export default function MatchRoomPage() {
               isCheckingIn,
               opponentNotified: data.match.opponentNotified,
               isLateCheckInLockout,
+              isCurrentUserBiometricallyVerified,
+              hasPendingLobbyPhotoAction,
             }}
             results={{
               isCurrentUserLobbyHost,
               hasReportedMatchResult,
+              isScorePending,
               reportedWinnerName,
               safeResultScreenshotUrls,
               reportedResultScreenshotSlots,
