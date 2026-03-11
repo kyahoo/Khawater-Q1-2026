@@ -1,5 +1,17 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
+function normalizeJoinedRows<T>(value: unknown): T[] {
+  if (Array.isArray(value)) {
+    return value as T[];
+  }
+
+  if (value && typeof value === "object") {
+    return [value as T];
+  }
+
+  return [];
+}
+
 export type Profile = {
   id: string;
   nickname: string;
@@ -102,11 +114,26 @@ export async function listProfilesWithTeamMeta() {
   }
 
   return profileRows.map((profile) => {
-    const latestMembership = (profile.team_members ?? []).slice().sort(
+    const latestMembership = normalizeJoinedRows<{
+      team_id: string;
+      created_at: string;
+      teams:
+        | {
+            id: string;
+            name: string;
+          }
+        | Array<{
+            id: string;
+            name: string;
+          }>
+        | null;
+    }>(profile.team_members)
+      .slice()
+      .sort(
       (membershipA, membershipB) =>
         new Date(membershipB.created_at).getTime() -
         new Date(membershipA.created_at).getTime()
-    )[0];
+      )[0];
     const currentTeam = latestMembership
       ? Array.isArray(latestMembership.teams)
         ? latestMembership.teams[0]

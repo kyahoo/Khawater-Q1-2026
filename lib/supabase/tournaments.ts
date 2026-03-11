@@ -111,6 +111,18 @@ type TeamMetaJoinRow = {
   team_members: TeamMembershipJoin[] | null;
 };
 
+function normalizeJoinedRows<T>(value: unknown): T[] {
+  if (Array.isArray(value)) {
+    return value as T[];
+  }
+
+  if (value && typeof value === "object") {
+    return [value as T];
+  }
+
+  return [];
+}
+
 function isMissingTournamentThresholdColumnError(error: unknown) {
   return (
     error instanceof Error &&
@@ -487,11 +499,13 @@ export async function getEnteredTeamsForTournament(
         return null;
       }
 
-      const teamMemberships = (team.team_members ?? []).slice().sort(
+      const teamMemberships = normalizeJoinedRows<TeamMembershipJoin>(team.team_members)
+        .slice()
+        .sort(
         (membershipA, membershipB) =>
           new Date(membershipA.created_at).getTime() -
           new Date(membershipB.created_at).getTime()
-      );
+        );
       const roster = teamMemberships
         .map((membership) => {
           const profile = Array.isArray(membership.profiles)
@@ -787,7 +801,11 @@ export async function listAdminTournamentEntryTeams(
   const teamIds = teamRows.map((team) => team.id);
   const memberUserIds = Array.from(
     new Set(
-      teamRows.flatMap((team) => (team.team_members ?? []).map((membership) => membership.user_id))
+      teamRows.flatMap((team) =>
+        normalizeJoinedRows<TeamMembershipJoin>(team.team_members).map(
+          (membership) => membership.user_id
+        )
+      )
     )
   );
 
@@ -829,11 +847,13 @@ export async function listAdminTournamentEntryTeams(
   );
 
   return teamRows.map((team) => {
-    const teamMemberships = (team.team_members ?? []).slice().sort(
+    const teamMemberships = normalizeJoinedRows<TeamMembershipJoin>(team.team_members)
+      .slice()
+      .sort(
       (membershipA, membershipB) =>
         new Date(membershipA.created_at).getTime() -
         new Date(membershipB.created_at).getTime()
-    );
+      );
     const confirmedCount = teamMemberships.filter((membership) =>
       confirmedUserIdSet.has(membership.user_id)
     ).length;

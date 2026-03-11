@@ -55,6 +55,18 @@ type TeamWithMembersRow = {
   team_members: TeamMembershipProfileRow[] | null;
 };
 
+function normalizeJoinedRows<T>(value: unknown): T[] {
+  if (Array.isArray(value)) {
+    return value as T[];
+  }
+
+  if (value && typeof value === "object") {
+    return [value as T];
+  }
+
+  return [];
+}
+
 function toTeamMutationError(error: unknown, fallbackMessage: string) {
   if (
     typeof error === "object" &&
@@ -113,7 +125,7 @@ export async function getTeamMembers(teamId: string) {
     throw membershipsError;
   }
 
-  const memberRows = (memberships ?? []) as unknown as TeamMembershipProfileRow[];
+  const memberRows = normalizeJoinedRows<TeamMembershipProfileRow>(memberships);
 
   if (memberRows.length === 0) {
     return [] as TeamMember[];
@@ -189,7 +201,7 @@ export async function listTeamsWithMeta() {
     );
   }
 
-  if (teamRows.every((team) => (team.team_members ?? []).length === 0)) {
+  if (teamRows.every((team) => normalizeJoinedRows<TeamMembershipProfileRow>(team.team_members).length === 0)) {
     return teamRows.map((team) => ({
       id: team.id,
       name: team.name,
@@ -201,11 +213,15 @@ export async function listTeamsWithMeta() {
   }
 
   return teamRows.map((team) => {
-    const teamMemberships = (team.team_members ?? []).slice().sort(
+    const teamMemberships = normalizeJoinedRows<TeamMembershipProfileRow>(
+      team.team_members
+    )
+      .slice()
+      .sort(
       (membershipA, membershipB) =>
         new Date(membershipA.created_at).getTime() -
         new Date(membershipB.created_at).getTime()
-    );
+      );
     const captainMembership = teamMemberships.find((membership) => membership.is_captain);
     const captainProfile = captainMembership
       ? Array.isArray(captainMembership.profiles)
