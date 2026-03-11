@@ -200,6 +200,7 @@ export async function listActiveTasksForUsers(
     const matchCheckIns = checkInsByMatchId.get(match.id) ?? [];
     const checkedInRows = matchCheckIns.filter((checkInRow) => checkInRow.is_checked_in);
     const normalizedStatus = match.status.trim().toLowerCase();
+    const isFinishedMatch = normalizedStatus === "finished";
     const hasReachedLobbyPhase =
       checkedInRows.length > 0 ||
       Boolean(match.lobby_name?.trim()) ||
@@ -268,6 +269,10 @@ export async function listActiveTasksForUsers(
     }
 
     for (const checkInRow of checkedInRows) {
+      if (isFinishedMatch) {
+        continue;
+      }
+
       if (checkInRow.lobby_screenshot_url?.trim()) {
         continue;
       }
