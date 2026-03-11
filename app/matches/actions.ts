@@ -1300,16 +1300,29 @@ export async function uploadMatchResultGameScreenshot(
       publicUrl: resultScreenshotUrl,
     });
 
-    const { error: updateError } = await authResult.context.adminClient
-      .from("tournament_matches")
-      .update({
-        result_screenshot_urls: nextScreenshotUrls,
-      })
-      .eq("id", trimmedMatchId);
+    try {
+      const { error: updateError } = await authResult.context.adminClient
+        .from("tournament_matches")
+        .update({
+          result_screenshot_urls: nextScreenshotUrls,
+        })
+        .eq("id", trimmedMatchId);
 
-    if (updateError) {
+      if (updateError) {
+        console.error(updateError);
+        return {
+          error: updateError.message,
+          publicUrl: null,
+          slotIndex,
+        };
+      }
+    } catch (error) {
+      console.error(error);
       return {
-        error: updateError.message,
+        error:
+          error instanceof Error && error.message
+            ? error.message
+            : "Не удалось сохранить ссылку на скриншот игры.",
         publicUrl: null,
         slotIndex,
       };
