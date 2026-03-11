@@ -46,7 +46,7 @@ export function OnboardingChecklist({
       completed: hasSteam,
     },
     {
-      label: "Привязать устройство (для входа)",
+      label: "Подключить биометрию (для входа)",
       completed: hasDevice,
     },
     {

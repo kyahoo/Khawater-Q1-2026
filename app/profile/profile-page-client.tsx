@@ -31,15 +31,15 @@ import {
 function getWebAuthnErrorMessage(error: unknown) {
   if (error instanceof Error) {
     if (error.name === "AbortError" || error.name === "NotAllowedError") {
-      return "Регистрация устройства была отменена или время ожидания истекло.";
+      return "Подключение биометрии было отменено или время ожидания истекло.";
     }
 
     if (error.name === "InvalidStateError") {
-      return "Это устройство уже привязано к вашему аккаунту.";
+      return "Биометрия уже подключена к вашему аккаунту.";
     }
 
     if (error.name === "SecurityError") {
-      return "Passkeys недоступны для текущего адреса сайта.";
+      return "Биометрия (Passkeys) недоступна для текущего адреса сайта.";
     }
 
     if (error.message) {
@@ -47,7 +47,7 @@ function getWebAuthnErrorMessage(error: unknown) {
     }
   }
 
-  return "Не удалось привязать устройство.";
+  return "Не удалось подключить биометрию.";
 }
 
 function sanitizeProfileErrorMessage(message: string | null) {
@@ -86,8 +86,6 @@ export function ProfilePageClient({
 }: ProfilePageClientProps) {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [localOwnerId, setLocalOwnerId] = useState<string | null>(null);
   const [teamData, setTeamData] = useState<Awaited<
     ReturnType<typeof getCurrentTeamDetails>
   > | null>(null);
@@ -120,18 +118,13 @@ export function ProfilePageClient({
   const bodyTextClassName = "text-base font-medium text-white md:text-lg";
   const mutedStatusButtonClassName =
     "w-fit cursor-not-allowed border-[3px] border-[#061726] bg-gray-700 px-6 py-2 text-center text-sm font-bold uppercase text-gray-300";
+  const disabledDestructiveActionButtonClassName =
+    "w-fit cursor-not-allowed border-[3px] border-[#061726] bg-gray-600 px-6 py-2 font-extrabold uppercase text-gray-400 shadow-[4px_4px_0px_0px_#061726]";
   const primaryActionButtonClassName =
     "w-fit border-[3px] border-[#061726] bg-white px-6 py-2 text-sm font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]";
   const destructiveActionButtonClassName =
     "w-fit border-[3px] border-[#061726] bg-red-600 px-6 py-2 font-extrabold uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]";
-  const blockedDeviceButtonClassName =
-    "bg-red-900 text-red-200 font-bold uppercase px-6 py-2 border-[3px] border-[#061726] shadow-[4px_4px_0px_0px_#061726] opacity-90 cursor-not-allowed w-fit text-sm text-center";
   const hasPasskey = isDeviceBound;
-  const isReadyToBind = !hasPasskey && (!localOwnerId || localOwnerId === currentUserId);
-  const isBoundElsewhere =
-    hasPasskey && Boolean(currentUserId) && localOwnerId !== currentUserId;
-  const isDeviceOccupied =
-    !hasPasskey && Boolean(localOwnerId) && Boolean(currentUserId) && localOwnerId !== currentUserId;
   const displayName = profile?.username ?? profile?.nickname ?? "Игрок";
   const behaviorScore = profile?.behaviorScore ?? 5;
   const behaviorScoreLabel =
@@ -164,8 +157,6 @@ export function ProfilePageClient({
         router.replace("/auth");
         return;
       }
-
-      setCurrentUserId(user.id);
 
       if (!session?.access_token) {
         router.replace("/auth");
@@ -223,11 +214,6 @@ export function ProfilePageClient({
   }, [router]);
 
   useEffect(() => {
-    const localOwner = localStorage.getItem("khawater_device_owner");
-    setLocalOwnerId(localOwner);
-  }, []);
-
-  useEffect(() => {
     setHasPendingSteamLink(initialHasPendingSteamLink);
   }, [initialHasPendingSteamLink]);
 
@@ -242,21 +228,14 @@ export function ProfilePageClient({
   }, [isTournamentLocked]);
 
   useEffect(() => {
-    if (!hasLoadedDeviceBinding || hasPasskey || !currentUserId) {
-      return;
-    }
-
-    if (localOwnerId === currentUserId) {
-      localStorage.removeItem("khawater_device_owner");
-      setLocalOwnerId(null);
-    }
-  }, [currentUserId, hasLoadedDeviceBinding, hasPasskey, localOwnerId]);
-
-  useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
 
   async function handleLeaveTeam() {
+    if (isParticipationConfirmed) {
+      return;
+    }
+
     setIsMutatingTeam(true);
     setErrorMessage(null);
 
@@ -284,6 +263,10 @@ export function ProfilePageClient({
   }
 
   async function handleDeleteTeam() {
+    if (isParticipationConfirmed) {
+      return;
+    }
+
     setIsMutatingTeam(true);
     setErrorMessage(null);
 
@@ -349,13 +332,8 @@ export function ProfilePageClient({
   }
 
   async function handleRegisterDevice() {
-    if (isDeviceOccupied) {
-      setDeviceMessage("Это устройство уже занято другим игроком.");
-      return;
-    }
-
-    if (!hasLoadedDeviceBinding || !isReadyToBind) {
-      setDeviceMessage(hasPasskey ? "" : "Не удалось проверить привязку устройства.");
+    if (!hasLoadedDeviceBinding || hasPasskey) {
+      setDeviceMessage(hasPasskey ? "" : "Не удалось проверить статус биометрии.");
       return;
     }
 
@@ -365,7 +343,7 @@ export function ProfilePageClient({
 
     try {
       if (!browserSupportsWebAuthn()) {
-        setDeviceMessage("Ваше устройство или браузер не поддерживает Passkeys.");
+        setDeviceMessage("Ваше устройство или браузер не поддерживает биометрию.");
         return;
       }
 
@@ -389,7 +367,7 @@ export function ProfilePageClient({
           return;
         }
 
-        setDeviceMessage(beginResult.error ?? "Не удалось начать регистрацию устройства.");
+        setDeviceMessage(beginResult.error ?? "Не удалось начать подключение биометрии.");
         return;
       }
 
@@ -417,10 +395,6 @@ export function ProfilePageClient({
       setIsDeviceBound(true);
       setHasLoadedDeviceBinding(true);
       setDeviceMessage("");
-      if (currentUserId) {
-        localStorage.setItem("khawater_device_owner", currentUserId);
-        setLocalOwnerId(currentUserId);
-      }
       router.refresh();
     } catch (error) {
       setDeviceMessage(getWebAuthnErrorMessage(error));
@@ -697,34 +671,20 @@ export function ProfilePageClient({
                   <button
                     type="button"
                     onClick={() => void handleRegisterDevice()}
-                    disabled={
-                      isRegisteringDevice ||
-                      !hasLoadedDeviceBinding ||
-                      isBoundElsewhere ||
-                      isDeviceOccupied ||
-                      !isReadyToBind
-                    }
+                    disabled={isRegisteringDevice || !hasLoadedDeviceBinding}
                     className={
                       isRegisteringDevice
                         ? mutedStatusButtonClassName
-                        : isBoundElsewhere || isDeviceOccupied
-                          ? blockedDeviceButtonClassName
-                          : !hasLoadedDeviceBinding
-                            ? mutedStatusButtonClassName
-                            : primaryActionButtonClassName
+                        : !hasLoadedDeviceBinding
+                          ? mutedStatusButtonClassName
+                          : primaryActionButtonClassName
                     }
                   >
-                  {isRegisteringDevice
-                    ? "Привязка..."
-                    : isBoundElsewhere
-                      ? "Привязано к другому устройству"
-                      : isDeviceOccupied
-                        ? "Устройство занято другим игроком"
-                        : isReadyToBind
-                          ? "Привязать устройство"
-                          : !hasLoadedDeviceBinding
-                            ? "Проверяю привязку..."
-                            : "Привязать устройство"}
+                    {isRegisteringDevice
+                      ? "ПОДКЛЮЧЕНИЕ..."
+                      : !hasLoadedDeviceBinding
+                        ? "ПРОВЕРЯЮ БИОМЕТРИЮ..."
+                        : "ПОДКЛЮЧИТЬ БИОМЕТРИЮ"}
                   </button>
                 )}
                 {deviceMessage && (
@@ -822,18 +782,34 @@ export function ProfilePageClient({
                   {isCaptain && isLastMember ? (
                     <button
                       type="button"
-                      onClick={() => void handleDeleteTeam()}
-                      disabled={isMutatingTeam}
-                      className={destructiveActionButtonClassName}
+                      onClick={
+                        isParticipationConfirmed
+                          ? undefined
+                          : () => void handleDeleteTeam()
+                      }
+                      disabled={isMutatingTeam || isParticipationConfirmed}
+                      className={
+                        isParticipationConfirmed
+                          ? disabledDestructiveActionButtonClassName
+                          : destructiveActionButtonClassName
+                      }
                     >
                       {isMutatingTeam ? "Обработка..." : "Удалить команду"}
                     </button>
                   ) : (
                     <button
                       type="button"
-                      onClick={() => void handleLeaveTeam()}
-                      disabled={isMutatingTeam}
-                      className={destructiveActionButtonClassName}
+                      onClick={
+                        isParticipationConfirmed
+                          ? undefined
+                          : () => void handleLeaveTeam()
+                      }
+                      disabled={isMutatingTeam || isParticipationConfirmed}
+                      className={
+                        isParticipationConfirmed
+                          ? disabledDestructiveActionButtonClassName
+                          : destructiveActionButtonClassName
+                      }
                     >
                       {isMutatingTeam ? "Обработка..." : "Покинуть команду"}
                     </button>
