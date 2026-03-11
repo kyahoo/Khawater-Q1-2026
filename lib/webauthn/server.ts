@@ -454,7 +454,7 @@ export async function beginProfilePasskeyRegistration(params: {
   try {
     if ((await getUserPasskeyCount(adminClient, user.id)) > 0) {
       return {
-        error: "Аккаунт уже привязан к устройству",
+        error: "К этому аккаунту уже привязана биометрия.",
       };
     }
 
@@ -495,7 +495,7 @@ export async function completeProfilePasskeyRegistration(params: {
 }): Promise<CompleteProfilePasskeyRegistrationResult> {
   if ((await getUserPasskeyCount(params.adminClient, params.userId)) > 0) {
     return {
-      error: "Аккаунт уже привязан к устройству",
+      error: "К этому аккаунту уже привязана биометрия.",
     };
   }
 

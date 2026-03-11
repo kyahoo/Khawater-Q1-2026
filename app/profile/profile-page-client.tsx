@@ -109,13 +109,10 @@ export function ProfilePageClient({
     "w-fit border-[3px] border-[#061726] bg-white px-6 py-2 text-sm font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]";
   const destructiveActionButtonClassName =
     "w-fit border-[3px] border-[#061726] bg-red-600 px-6 py-2 font-extrabold uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]";
-  const successDeviceButtonClassName =
-    "bg-green-800 text-green-200 font-bold uppercase px-6 py-2 border-[3px] border-[#061726] shadow-[4px_4px_0px_0px_#061726] opacity-90 cursor-not-allowed w-fit text-sm text-center";
   const blockedDeviceButtonClassName =
     "bg-red-900 text-red-200 font-bold uppercase px-6 py-2 border-[3px] border-[#061726] shadow-[4px_4px_0px_0px_#061726] opacity-90 cursor-not-allowed w-fit text-sm text-center";
   const hasPasskey = isDeviceBound;
   const isReadyToBind = !hasPasskey && (!localOwnerId || localOwnerId === currentUserId);
-  const isBoundHere = hasPasskey && Boolean(currentUserId) && localOwnerId === currentUserId;
   const isBoundElsewhere =
     hasPasskey && Boolean(currentUserId) && localOwnerId !== currentUserId;
   const isDeviceOccupied =
@@ -366,7 +363,7 @@ export function ProfilePageClient({
       const beginResult = await getProfilePasskeyRegistrationOptions(session.access_token);
 
       if (beginResult.error || !beginResult.options) {
-        if (beginResult.error === "Аккаунт уже привязан к устройству") {
+        if (beginResult.error === "К этому аккаунту уже привязана биометрия.") {
           setIsDeviceBound(true);
           setHasLoadedDeviceBinding(true);
           setDeviceMessage("");
@@ -387,7 +384,7 @@ export function ProfilePageClient({
       );
 
       if (finishResult.error) {
-        if (finishResult.error === "Аккаунт уже привязан к устройству") {
+        if (finishResult.error === "К этому аккаунту уже привязана биометрия.") {
           setIsDeviceBound(true);
           setHasLoadedDeviceBinding(true);
           setDeviceMessage("");
@@ -673,45 +670,44 @@ export function ProfilePageClient({
                 </div>
               )}
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <button
-                  type="button"
-                  onClick={() => void handleRegisterDevice()}
-                  disabled={
-                    isRegisteringDevice ||
-                    !hasLoadedDeviceBinding ||
-                    isBoundHere ||
-                    isBoundElsewhere ||
-                    isDeviceOccupied ||
-                    !isReadyToBind
-                  }
-                  className={
-                    isRegisteringDevice
-                      ? mutedStatusButtonClassName
-                      : isBoundHere
-                        ? successDeviceButtonClassName
+                {hasPasskey ? (
+                  <div className="w-fit border-[3px] border-[#061726] bg-green-800 px-6 py-2 text-sm font-extrabold uppercase text-green-200 shadow-[4px_4px_0px_0px_#061726]">
+                    БИОМЕТРИЯ ПОДКЛЮЧЕНА
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void handleRegisterDevice()}
+                    disabled={
+                      isRegisteringDevice ||
+                      !hasLoadedDeviceBinding ||
+                      isBoundElsewhere ||
+                      isDeviceOccupied ||
+                      !isReadyToBind
+                    }
+                    className={
+                      isRegisteringDevice
+                        ? mutedStatusButtonClassName
                         : isBoundElsewhere || isDeviceOccupied
                           ? blockedDeviceButtonClassName
                           : !hasLoadedDeviceBinding
                             ? mutedStatusButtonClassName
                             : primaryActionButtonClassName
-                  }
-                >
+                    }
+                  >
                   {isRegisteringDevice
                     ? "Привязка..."
-                    : isBoundHere
-                      ? "Устройство привязано"
-                      : isBoundElsewhere
-                        ? "Привязано к другому устройству"
-                        : isDeviceOccupied
-                          ? "Устройство занято другим игроком"
-                          : isReadyToBind
-                            ? "Привязать устройство"
-                            : !hasLoadedDeviceBinding
-                              ? "Проверяю привязку..."
-                              : hasPasskey
-                                ? "Устройство привязано"
-                                : "Привязать устройство"}
-                </button>
+                    : isBoundElsewhere
+                      ? "Привязано к другому устройству"
+                      : isDeviceOccupied
+                        ? "Устройство занято другим игроком"
+                        : isReadyToBind
+                          ? "Привязать устройство"
+                          : !hasLoadedDeviceBinding
+                            ? "Проверяю привязку..."
+                            : "Привязать устройство"}
+                  </button>
+                )}
                 {deviceMessage && (
                   <p className="text-sm text-white/80">{deviceMessage}</p>
                 )}
