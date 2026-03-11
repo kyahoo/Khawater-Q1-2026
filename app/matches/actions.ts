@@ -1317,28 +1317,49 @@ export async function uploadMatchResultGameScreenshot(
     const filePath = `${trimmedMatchId}/game-${slotIndex}/${Date.now()}-result.${getUploadFileExtension(
       imageFileEntry
     )}`;
-    const imageBytes = new Uint8Array(await imageFileEntry.arrayBuffer());
-    const { error: uploadError } = await authResult.context.adminClient.storage
-      .from("match-results")
-      .upload(filePath, imageBytes, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: imageFileEntry.type || undefined,
-      });
+    let publicUrl: string | null = null;
 
-    if (uploadError) {
+    try {
+      const imageBytes = new Uint8Array(await imageFileEntry.arrayBuffer());
+      const { error: uploadError } = await authResult.context.adminClient.storage
+        .from("match-results")
+        .upload(filePath, imageBytes, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: imageFileEntry.type || undefined,
+        });
+
+      if (uploadError) {
+        return {
+          error: uploadError.message,
+          publicUrl: null,
+          slotIndex,
+        };
+      }
+
+      const {
+        data: { publicUrl: nextPublicUrl },
+      } = authResult.context.adminClient.storage
+        .from("match-results")
+        .getPublicUrl(filePath);
+
+      publicUrl = nextPublicUrl;
+    } catch (error) {
+      console.error(error);
+      console.error("Match result screenshot storage upload failed:", error);
+
       return {
-        error: uploadError.message,
+        error:
+          error instanceof Error && error.message
+            ? error.message
+            : getActionErrorMessage(
+                error,
+                "Не удалось загрузить скриншот результата матча."
+              ),
         publicUrl: null,
         slotIndex,
       };
     }
-
-    const {
-      data: { publicUrl },
-    } = authResult.context.adminClient.storage
-      .from("match-results")
-      .getPublicUrl(filePath);
 
     if (!publicUrl) {
       return {
@@ -1390,13 +1411,17 @@ export async function uploadMatchResultGameScreenshot(
       slotIndex,
     };
   } catch (error) {
+    console.error(error);
     console.error("Match result screenshot upload failed:", error);
 
     return {
-      error: getActionErrorMessage(
-        error,
-        "Не удалось загрузить скриншот результата матча."
-      ),
+      error:
+        error instanceof Error && error.message
+          ? error.message
+          : getActionErrorMessage(
+              error,
+              "Не удалось загрузить скриншот результата матча."
+            ),
       publicUrl: null,
       slotIndex,
     };
