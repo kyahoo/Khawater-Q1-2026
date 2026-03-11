@@ -187,23 +187,6 @@ function generateLobbyName(params: {
   return `Match ${fallbackLabel}`;
 }
 
-function getUploadFileExtension(file: File) {
-  const extensionByType: Record<string, string> = {
-    "image/png": "png",
-    "image/jpeg": "jpg",
-    "image/webp": "webp",
-    "image/heic": "heic",
-    "image/heif": "heif",
-  };
-
-  const extension =
-    extensionByType[file.type] ??
-    file.name.split(".").pop()?.toLowerCase()?.replace(/[^a-z0-9]/g, "") ??
-    "jpg";
-
-  return extension || "jpg";
-}
-
 function getSeriesLength(format: string | null | undefined) {
   const normalizedFormat = format?.trim().toUpperCase() ?? "";
   const match = normalizedFormat.match(/^BO(\d+)$/);
@@ -1252,9 +1235,11 @@ export async function uploadMatchResultGameScreenshot(
   try {
     const trimmedMatchId = matchId.trim();
     const accessTokenEntry = formData.get("accessToken");
-    const imageFileEntry = formData.get("resultScreenshot");
+    const resultScreenshotUrlEntry = formData.get("resultScreenshotUrl");
     const accessToken =
       typeof accessTokenEntry === "string" ? accessTokenEntry.trim() : "";
+    const resultScreenshotUrl =
+      typeof resultScreenshotUrlEntry === "string" ? resultScreenshotUrlEntry.trim() : "";
 
     slotIndex = parseNonNegativeInteger(
       formData.get("slotIndex"),
@@ -1285,17 +1270,9 @@ export async function uploadMatchResultGameScreenshot(
       };
     }
 
-    if (!(imageFileEntry instanceof File) || imageFileEntry.size === 0) {
+    if (!resultScreenshotUrl) {
       return {
-        error: "Выберите скриншот игры.",
-        publicUrl: null,
-        slotIndex,
-      };
-    }
-
-    if (!imageFileEntry.type.startsWith("image/")) {
-      return {
-        error: "Файл результата должен быть изображением.",
+        error: "Не удалось получить ссылку на скриншот игры.",
         publicUrl: null,
         slotIndex,
       };
@@ -1314,68 +1291,13 @@ export async function uploadMatchResultGameScreenshot(
       };
     }
 
-    const filePath = `${trimmedMatchId}/game-${slotIndex}/${Date.now()}-result.${getUploadFileExtension(
-      imageFileEntry
-    )}`;
-    let publicUrl: string | null = null;
-
-    try {
-      const imageBytes = new Uint8Array(await imageFileEntry.arrayBuffer());
-      const { error: uploadError } = await authResult.context.adminClient.storage
-        .from("match-results")
-        .upload(filePath, imageBytes, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: imageFileEntry.type || undefined,
-        });
-
-      if (uploadError) {
-        return {
-          error: uploadError.message,
-          publicUrl: null,
-          slotIndex,
-        };
-      }
-
-      const {
-        data: { publicUrl: nextPublicUrl },
-      } = authResult.context.adminClient.storage
-        .from("match-results")
-        .getPublicUrl(filePath);
-
-      publicUrl = nextPublicUrl;
-    } catch (error) {
-      console.error(error);
-      console.error("Match result screenshot storage upload failed:", error);
-
-      return {
-        error:
-          error instanceof Error && error.message
-            ? error.message
-            : getActionErrorMessage(
-                error,
-                "Не удалось загрузить скриншот результата матча."
-              ),
-        publicUrl: null,
-        slotIndex,
-      };
-    }
-
-    if (!publicUrl) {
-      return {
-        error: "Не удалось получить публичную ссылку на скриншот игры.",
-        publicUrl: null,
-        slotIndex,
-      };
-    }
-
     const existingScreenshotUrls = normalizeStoredResultScreenshotUrls(
       authResult.context.match.result_screenshot_urls
     );
     const nextScreenshotUrls = appendOrReplaceResultScreenshotUrl({
       existingUrls: existingScreenshotUrls,
       slotIndex,
-      publicUrl,
+      publicUrl: resultScreenshotUrl,
     });
 
     const { error: updateError } = await authResult.context.adminClient
@@ -1407,7 +1329,7 @@ export async function uploadMatchResultGameScreenshot(
 
     return {
       error: null,
-      publicUrl,
+      publicUrl: resultScreenshotUrl,
       slotIndex,
     };
   } catch (error) {

@@ -762,10 +762,34 @@ export default function MatchRoomPage() {
         return;
       }
 
+      const supabase = getSupabaseBrowserClient();
+      const filePath = `${matchId}/game-${slotIndex + 1}/${Date.now()}-${crypto.randomUUID()}.${getFileExtension(
+        nextFile
+      )}`;
+      const { error: uploadError } = await supabase.storage
+        .from("match-results")
+        .upload(filePath, nextFile, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: nextFile.type || undefined,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("match-results").getPublicUrl(filePath);
+
+      if (!publicUrl) {
+        throw new Error("Не удалось получить публичную ссылку на скриншот игры.");
+      }
+
       const formData = new FormData();
       formData.append("accessToken", accessToken);
       formData.append("slotIndex", String(slotIndex + 1));
-      formData.append("resultScreenshot", nextFile);
+      formData.append("resultScreenshotUrl", publicUrl);
 
       const uploadResult = await uploadMatchResultGameScreenshot(matchId, formData);
 
