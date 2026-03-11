@@ -13,6 +13,7 @@ export type ActiveTask = {
   matchId: string;
   href: string;
   type: ActiveTaskType;
+  requiresImmediateAction: boolean;
   label: string;
   title: string;
   description: string;
@@ -221,6 +222,7 @@ export async function listActiveTasksForUsers(
           matchId: match.id,
           href: `/matches/${match.id}`,
           type: "enter_score",
+          requiresImmediateAction: true,
           label: "Пост-матч",
           title: "Введите счет серии",
           description: `Хост лобби должен зафиксировать итог матча ${teamAName} vs ${teamBName}.`,
@@ -251,6 +253,7 @@ export async function listActiveTasksForUsers(
           matchId: match.id,
           href: `/matches/${match.id}`,
           type: "upload_result_screenshots",
+          requiresImmediateAction: true,
           label: "Пост-матч",
           title: "Загрузите скриншоты серии",
           description: `Не хватает ${missingScreenshotCount} скриншотов для матча ${teamAName} vs ${teamBName}.`,
@@ -278,6 +281,7 @@ export async function listActiveTasksForUsers(
           matchId: match.id,
           href: `/matches/${match.id}`,
           type: "complete_stage_two",
+          requiresImmediateAction: true,
           label: "Этап 2",
           title: "Загрузите фото лобби",
           description: `Для матча ${teamAName} vs ${teamBName} не хватает фото лобби.`,

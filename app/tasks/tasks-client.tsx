@@ -22,6 +22,9 @@ function formatScheduledAt(scheduledAt: string | null) {
   return almatyDateTimeFormatter.format(new Date(scheduledAt));
 }
 
+const urgentActionBadgeClassName =
+  "absolute -right-2 -top-2 h-4 w-4 rounded-full border-2 border-[#7F1D1D] bg-[#DC2626]";
+
 function StatePanel({
   tone,
   children,
@@ -85,8 +88,14 @@ function TaskCard({ task }: { task: ActiveTask }) {
       <div className="mt-5">
         <Link
           href={task.href}
-          className="inline-flex border-[3px] border-[#061726] bg-[#CD9C3E] px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+          className="relative inline-flex overflow-visible border-[3px] border-[#061726] bg-[#CD9C3E] px-5 py-3 text-sm font-black uppercase tracking-[0.18em] text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
         >
+          {task.requiresImmediateAction ? (
+            <>
+              <span aria-hidden="true" className={urgentActionBadgeClassName} />
+              <span className="sr-only">Требуется срочное действие</span>
+            </>
+          ) : null}
           {task.actionLabel}
         </Link>
       </div>
