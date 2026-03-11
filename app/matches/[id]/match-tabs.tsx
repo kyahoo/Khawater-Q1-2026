@@ -166,6 +166,7 @@ function LobbyPhotoActions({
   onOpenLobbyScreenshotPicker,
 }: LobbyPhotoActionsProps) {
   const [isBiometricsPassed, setIsBiometricsPassed] = useState(false);
+  const [isBiometricsWarningOpen, setIsBiometricsWarningOpen] = useState(false);
   const [isMobile, setIsMobile] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -207,33 +208,58 @@ function LobbyPhotoActions({
         </div>
       ) : isMobile === null ? null : (
         <>
-      <button
-        type="button"
-        onClick={() => void handleBiometricsClick()}
-        disabled={isLockedForMap || isConfirmingCurrentMap || hasBiometricsAccess}
-        className={actionButtonClass}
-      >
-        {isBiometricsPending ? (
-          <>
-            <span aria-hidden="true" className={urgentActionBadgeClassName} />
-            <span className="sr-only">Требуется пройти биометрию</span>
-          </>
-        ) : null}
-        {hasBiometricsAccess
-          ? "БИОМЕТРИЯ ПРОЙДЕНА ✅"
-          : isConfirmingCurrentMap
-            ? "ПРОВЕРКА..."
-            : "ПРОЙТИ БИОМЕТРИЮ"}
-      </button>
+          <div>
+            <div className="flex items-start gap-2">
+              <button
+                type="button"
+                onClick={() => void handleBiometricsClick()}
+                disabled={
+                  isLockedForMap || isConfirmingCurrentMap || hasBiometricsAccess
+                }
+                className={`${actionButtonClass} flex-1`}
+              >
+                {isBiometricsPending ? (
+                  <>
+                    <span aria-hidden="true" className={urgentActionBadgeClassName} />
+                    <span className="sr-only">Требуется пройти биометрию</span>
+                  </>
+                ) : null}
+                {hasBiometricsAccess
+                  ? "БИОМЕТРИЯ ПРОЙДЕНА ✅"
+                  : isConfirmingCurrentMap
+                    ? "ПРОВЕРКА..."
+                    : "ПРОЙТИ БИОМЕТРИЮ"}
+              </button>
 
-      <button
-        type="button"
-        onClick={() => onOpenLobbyScreenshotPicker(mapNumber)}
-        disabled={isLockedForMap || isConfirmingCurrentMap || !hasBiometricsAccess}
-        className={actionButtonClass}
-      >
-        ОТКРЫТЬ КАМЕРУ
-      </button>
+              <button
+                type="button"
+                aria-expanded={isBiometricsWarningOpen}
+                aria-label="Показать предупреждение о биометрии"
+                onClick={() =>
+                  setIsBiometricsWarningOpen((currentValue) => !currentValue)
+                }
+                className="flex h-[54px] w-[54px] shrink-0 items-center justify-center border-[3px] border-gray-700 bg-[#061726] text-sm font-black text-gray-400 shadow-[4px_4px_0px_0px_#0B3A4A] transition-all hover:translate-y-[2px] hover:text-white hover:shadow-[2px_2px_0px_0px_#0B3A4A]"
+              >
+                [ ? ]
+              </button>
+            </div>
+
+            {isBiometricsWarningOpen ? (
+              <div className="mt-2 border-[3px] border-yellow-600 bg-[#061726] p-2 text-xs font-black uppercase tracking-[0.12em] text-yellow-500">
+                ВНИМАНИЕ: ПРОХОДИТЕ БИОМЕТРИЮ С ТОГО ЖЕ УСТРОЙСТВА, НА КОТОРОМ
+                ВЫ ЕЕ ПРИВЯЗАЛИ. ЕСЛИ ПОЯВИЛСЯ QR-КОД — ВЫ С ДРУГОГО УСТРОЙСТВА.
+              </div>
+            ) : null}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onOpenLobbyScreenshotPicker(mapNumber)}
+            disabled={isLockedForMap || isConfirmingCurrentMap || !hasBiometricsAccess}
+            className={actionButtonClass}
+          >
+            ОТКРЫТЬ КАМЕРУ
+          </button>
         </>
       )}
     </div>
