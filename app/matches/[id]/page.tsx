@@ -30,6 +30,7 @@ import {
 import { MatchTabs } from "./match-tabs";
 
 const LOBBY_MAP_NUMBERS = [1, 2, 3] as const;
+const MAX_SERVER_ACTION_FILE_SIZE_BYTES = 4.5 * 1024 * 1024;
 
 type LobbyMapNumber = (typeof LOBBY_MAP_NUMBERS)[number];
 
@@ -728,6 +729,16 @@ export default function MatchRoomPage() {
       updateResultScreenshotSlot(slotIndex, (slot) => ({
         ...slot,
         errorMessage: "Загрузите изображение скриншота игры.",
+      }));
+      return;
+    }
+
+    if (nextFile.size > MAX_SERVER_ACTION_FILE_SIZE_BYTES) {
+      event.target.value = "";
+      updateResultScreenshotSlot(slotIndex, (slot) => ({
+        ...slot,
+        isUploading: false,
+        errorMessage: "Файл слишком большой. Максимальный размер: 4.5 МБ.",
       }));
       return;
     }
