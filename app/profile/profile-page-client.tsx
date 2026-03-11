@@ -50,6 +50,21 @@ function getWebAuthnErrorMessage(error: unknown) {
   return "Не удалось привязать устройство.";
 }
 
+function sanitizeProfileErrorMessage(message: string | null) {
+  if (!message) {
+    return null;
+  }
+
+  if (
+    message.includes("Lock broken by another request") ||
+    message.includes("steal")
+  ) {
+    return null;
+  }
+
+  return message;
+}
+
 type ProfilePageClientProps = {
   hasPendingSteamLink: boolean;
 };
@@ -78,7 +93,7 @@ export function ProfilePageClient({
   > | null>(null);
   const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isMutatingTeam, setIsMutatingTeam] = useState(false);
   const [isConfirmingParticipation, setIsConfirmingParticipation] = useState(false);
   const [isParticipationConfirmed, setIsParticipationConfirmed] = useState(false);
@@ -128,6 +143,10 @@ export function ProfilePageClient({
   const hasTeam = Boolean(teamData?.team.id);
   const isConfirmed = Boolean(teamData && activeTournament && isParticipationConfirmed);
   const isTournamentLocked = Boolean(activeTournament && isParticipationConfirmed);
+
+  function setVisibleErrorMessage(message: string | null) {
+    setErrorMessage(sanitizeProfileErrorMessage(message));
+  }
 
   const loadProfile = useCallback(async () => {
     setIsLoading(true);
@@ -195,7 +214,7 @@ export function ProfilePageClient({
         setIsParticipationConfirmed(false);
       }
     } catch (error) {
-      setErrorMessage(
+      setVisibleErrorMessage(
         error instanceof Error ? error.message : "Не удалось загрузить профиль."
       );
     } finally {
@@ -239,7 +258,7 @@ export function ProfilePageClient({
 
   async function handleLeaveTeam() {
     setIsMutatingTeam(true);
-    setErrorMessage("");
+    setErrorMessage(null);
 
     try {
       const supabase = getSupabaseBrowserClient();
@@ -256,7 +275,7 @@ export function ProfilePageClient({
       setTeamData(null);
       setIsParticipationConfirmed(false);
     } catch (error) {
-      setErrorMessage(
+      setVisibleErrorMessage(
         error instanceof Error ? error.message : "Could not leave team."
       );
     } finally {
@@ -266,7 +285,7 @@ export function ProfilePageClient({
 
   async function handleDeleteTeam() {
     setIsMutatingTeam(true);
-    setErrorMessage("");
+    setErrorMessage(null);
 
     try {
       const supabase = getSupabaseBrowserClient();
@@ -283,7 +302,7 @@ export function ProfilePageClient({
       setTeamData(null);
       setIsParticipationConfirmed(false);
     } catch (error) {
-      setErrorMessage(
+      setVisibleErrorMessage(
         error instanceof Error ? error.message : "Could not delete team."
       );
     } finally {
@@ -293,7 +312,7 @@ export function ProfilePageClient({
 
   async function handleConfirmParticipation() {
     setIsConfirmingParticipation(true);
-    setErrorMessage("");
+    setErrorMessage(null);
 
     try {
       const supabase = getSupabaseBrowserClient();
@@ -319,7 +338,7 @@ export function ProfilePageClient({
       await confirmTournamentParticipation(activeTournament.id, user.id);
       setIsParticipationConfirmed(true);
     } catch (error) {
-      setErrorMessage(
+      setVisibleErrorMessage(
         error instanceof Error
           ? error.message
           : "Не удалось подтвердить участие."
@@ -342,7 +361,7 @@ export function ProfilePageClient({
 
     setIsRegisteringDevice(true);
     setDeviceMessage("");
-    setErrorMessage("");
+    setErrorMessage(null);
 
     try {
       if (!browserSupportsWebAuthn()) {
@@ -412,7 +431,7 @@ export function ProfilePageClient({
 
   async function handleSignOut() {
     setIsSigningOut(true);
-    setErrorMessage("");
+    setErrorMessage(null);
 
     try {
       const supabase = getSupabaseBrowserClient();
@@ -420,7 +439,7 @@ export function ProfilePageClient({
       router.replace("/");
       router.refresh();
     } catch (error) {
-      setErrorMessage(
+      setVisibleErrorMessage(
         error instanceof Error ? error.message : "Не удалось выполнить выход."
       );
     } finally {
@@ -430,12 +449,12 @@ export function ProfilePageClient({
 
   async function handleLinkSteam() {
     setIsLinkingSteam(true);
-    setErrorMessage("");
+    setErrorMessage(null);
 
     try {
       window.location.href = "/api/steam/login";
     } catch (error) {
-      setErrorMessage(
+      setVisibleErrorMessage(
         error instanceof Error ? error.message : "Не удалось привязать Steam."
       );
       setIsLinkingSteam(false);
@@ -444,7 +463,7 @@ export function ProfilePageClient({
 
   async function handleFinalizeSteam() {
     setIsFinalizingSteam(true);
-    setErrorMessage("");
+    setErrorMessage(null);
 
     try {
       const supabase = getSupabaseBrowserClient();
@@ -452,7 +471,7 @@ export function ProfilePageClient({
       const result = await finalizeSteamLink(data.session?.access_token || "");
 
       if (result.error) {
-        setErrorMessage(result.error);
+        setVisibleErrorMessage(result.error);
         return;
       }
 
@@ -461,7 +480,7 @@ export function ProfilePageClient({
       await loadProfile();
       router.refresh();
     } catch (error) {
-      setErrorMessage(
+      setVisibleErrorMessage(
         error instanceof Error ? error.message : "Не удалось завершить привязку Steam."
       );
     } finally {
@@ -476,7 +495,7 @@ export function ProfilePageClient({
 
     setNewNameValue(profile?.username ?? profile?.nickname ?? "");
     setIsEditingName(true);
-    setErrorMessage("");
+    setErrorMessage(null);
   }
 
   function handleCancelEditingName() {
@@ -486,7 +505,7 @@ export function ProfilePageClient({
 
   async function handleSaveProfileName() {
     setIsSavingName(true);
-    setErrorMessage("");
+    setErrorMessage(null);
 
     try {
       const supabase = getSupabaseBrowserClient();
@@ -498,7 +517,7 @@ export function ProfilePageClient({
       );
 
       if (result.error) {
-        setErrorMessage(result.error);
+        setVisibleErrorMessage(result.error);
         return;
       }
 
@@ -514,7 +533,7 @@ export function ProfilePageClient({
       setIsEditingName(false);
       router.refresh();
     } catch (error) {
-      setErrorMessage(
+      setVisibleErrorMessage(
         error instanceof Error ? error.message : "Не удалось обновить имя."
       );
     } finally {
