@@ -70,6 +70,50 @@ type ProfilePageClientProps = {
   hasPendingSteamLink: boolean;
 };
 
+function TeamIdentityRow({
+  teamName,
+  teamLogoUrl,
+  bodyTextClassName,
+}: {
+  teamName: string | null;
+  teamLogoUrl: string | null;
+  bodyTextClassName: string;
+}) {
+  if (!teamName) {
+    return (
+      <div className={bodyTextClassName}>
+        Команда: <span className="font-medium text-white">Команды пока нет</span>
+      </div>
+    );
+  }
+
+  const teamInitial = teamName.trim().charAt(0).toUpperCase() || "К";
+
+  return (
+    <div className={bodyTextClassName}>
+      <div className="mb-2 flex items-center gap-3">
+        {teamLogoUrl ? (
+          <Image
+            src={teamLogoUrl}
+            alt={`Логотип команды ${teamName}`}
+            width={32}
+            height={32}
+            className="h-8 w-8 border border-gray-600 object-cover"
+          />
+        ) : (
+          <div className="flex h-8 w-8 items-center justify-center border border-gray-600 bg-[#123C4D] text-sm font-black uppercase text-white">
+            {teamInitial}
+          </div>
+        )}
+        <div>
+          <span className="text-white/80">Команда: </span>
+          <span className="font-medium text-white">{teamName}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function getBehaviorScoreColorClass(score: number) {
   if (score >= 4) {
     return "text-[#CD9C3E]";
@@ -887,12 +931,11 @@ export function ProfilePageClient({
             <div className={cardClassName}>
               <h2 className={cardHeadingClassName}>Статус команды</h2>
               <div className="space-y-3">
-                <div className={bodyTextClassName}>
-                  Команда:{" "}
-                  <span className="font-medium text-white">
-                    {teamData ? teamData.team.name : "Команды пока нет"}
-                  </span>
-                </div>
+                <TeamIdentityRow
+                  teamName={teamData?.team.name ?? null}
+                  teamLogoUrl={teamData?.team.logo_url ?? null}
+                  bodyTextClassName={bodyTextClassName}
+                />
               </div>
 
               {teamData && (
@@ -945,12 +988,11 @@ export function ProfilePageClient({
             <div className={cardClassName}>
               <h2 className={cardHeadingClassName}>Участие в текущем турнире</h2>
               <div className="space-y-3">
-                <div className={bodyTextClassName}>
-                  Команда:{" "}
-                  <span className="font-medium text-white">
-                    {teamData ? teamData.team.name : "Команды пока нет"}
-                  </span>
-                </div>
+                <TeamIdentityRow
+                  teamName={teamData?.team.name ?? null}
+                  teamLogoUrl={teamData?.team.logo_url ?? null}
+                  bodyTextClassName={bodyTextClassName}
+                />
                 <div className={bodyTextClassName}>
                   Турнир:{" "}
                   <span className="font-medium text-white">
