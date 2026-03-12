@@ -251,6 +251,14 @@ function getOpenTaskBadgeClassName(openTaskCount: number) {
   return `${PLAYER_METRIC_BADGE_CLASSNAME} border-gray-600 bg-transparent text-gray-500`;
 }
 
+function getMMRValueBadgeClassName(mmr: number | null) {
+  if (typeof mmr === "number") {
+    return `${PLAYER_METRIC_BADGE_CLASSNAME} border-[#061726] bg-[#061726] text-[#CD9C3E]`;
+  }
+
+  return `${PLAYER_METRIC_BADGE_CLASSNAME} border-gray-600 bg-transparent text-gray-500`;
+}
+
 function getTournamentBadgeSelectClassName(
   badge: AdminPlayerListItem["tournamentBadge"]
 ) {
@@ -2022,6 +2030,12 @@ export default function AdminPage() {
                               ))}
                             </select>
                           </label>
+                          <div className={getMMRValueBadgeClassName(player.mmr)}>
+                            MMR:{" "}
+                            {typeof player.mmr === "number"
+                              ? player.mmr.toLocaleString("ru-RU")
+                              : "НЕ УКАЗАН"}
+                          </div>
                           <label className="block w-fit">
                             <span className="sr-only">Турнирная медаль</span>
                             <select

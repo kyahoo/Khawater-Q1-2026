@@ -22,6 +22,7 @@ export type AdminPlayerListItem = {
   nickname: string;
   email: string;
   openTaskCount: number;
+  mmr: number | null;
   mmrStatus: "pending" | "verified" | "rejected";
   behaviorScore: number;
   tournamentBadge: "none" | "gold" | "silver" | "bronze";
@@ -244,6 +245,7 @@ export async function listAdminPlayers(
   const users = usersData.users;
   const userIds = users.map((user) => user.id);
   let nicknameByUserId = new Map<string, string>();
+  let mmrByUserId = new Map<string, number | null>();
   let mmrStatusByUserId = new Map<string, "pending" | "verified" | "rejected">();
   let behaviorScoreByUserId = new Map<string, number>();
   let tournamentBadgeByUserId = new Map<string, "none" | "gold" | "silver" | "bronze">();
@@ -252,7 +254,7 @@ export async function listAdminPlayers(
   if (userIds.length > 0) {
     const { data: profiles, error: profilesError } = await adminClient
       .from("profiles")
-      .select("id, nickname, mmr_status, behavior_score, tournament_badge")
+      .select("id, nickname, mmr, mmr_status, behavior_score, tournament_badge")
       .in("id", userIds);
 
     if (profilesError) {
@@ -267,6 +269,15 @@ export async function listAdminPlayers(
         profile.id,
         profile.nickname,
       ])
+    );
+
+    mmrByUserId = new Map(
+      (
+        (profiles ?? []) as Array<{
+          id: string;
+          mmr: number | null;
+        }>
+      ).map((profile) => [profile.id, profile.mmr ?? null])
     );
 
     mmrStatusByUserId = new Map(
@@ -305,6 +316,7 @@ export async function listAdminPlayers(
       nickname: nicknameByUserId.get(user.id) ?? user.user_metadata?.nickname ?? "Unknown",
       email: user.email ?? "No email",
       openTaskCount: openTaskCountByUserId[user.id] ?? 0,
+      mmr: mmrByUserId.get(user.id) ?? null,
       mmrStatus: mmrStatusByUserId.get(user.id) ?? "pending",
       behaviorScore: behaviorScoreByUserId.get(user.id) ?? 5,
       tournamentBadge: tournamentBadgeByUserId.get(user.id) ?? "none",
