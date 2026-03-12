@@ -829,8 +829,7 @@ export default function TournamentPage() {
                         fill
                         priority={true}
                         sizes="100vw"
-                        style={{ objectFit: "cover" }}
-                        className="z-0"
+                        className="absolute inset-0 z-0 h-full w-full object-cover object-top"
                       />
                       <div className="absolute inset-0 z-0 bg-[#061726]/60" />
                     </>
