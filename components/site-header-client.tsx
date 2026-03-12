@@ -136,7 +136,13 @@ export function SiteHeaderClient({
     return String(taskCount);
   }
 
-  if (pathname === "/auth" || pathname.startsWith("/auth/")) {
+  if (
+    pathname === "/" ||
+    pathname === "/login" ||
+    pathname.startsWith("/login/") ||
+    pathname === "/auth" ||
+    pathname.startsWith("/auth/")
+  ) {
     return null;
   }
 
