@@ -141,7 +141,7 @@ export function SiteHeaderClient({
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b-2 border-[#061726] bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700">
+    <header className="sticky top-0 z-50 w-full border-b-2 border-[#061726] bg-gradient-to-r from-[#0B3A4A] via-[#0B3A4A] via-70% to-[#061726]">
       <div className="mx-auto w-full max-w-6xl">
         <nav className="flex w-full flex-nowrap items-center gap-6 overflow-x-auto px-4 py-4 md:gap-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
           <Link
