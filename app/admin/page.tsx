@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useState, useTransition } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   adminForceConfirmTeam,
@@ -450,9 +450,11 @@ export default function AdminPage() {
     null
   );
   const [playerMMRInputs, setPlayerMMRInputs] = useState<Record<string, string>>({});
+  const [openPlayerMenuId, setOpenPlayerMenuId] = useState<string | null>(null);
   const [, startMMRUpdateTransition] = useTransition();
   const [, startTournamentDeleteTransition] = useTransition();
   const [isTournamentResultPending, startTournamentResultTransition] = useTransition();
+  const playerMenuRef = useRef<HTMLDivElement | null>(null);
 
   async function getCurrentAdminAccessToken() {
     const supabase = getSupabaseBrowserClient();
@@ -610,6 +612,28 @@ export default function AdminPage() {
   useEffect(() => {
     void loadAdminPage();
   }, [router]);
+
+  useEffect(() => {
+    if (!openPlayerMenuId) {
+      return;
+    }
+
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        playerMenuRef.current &&
+        event.target instanceof Node &&
+        !playerMenuRef.current.contains(event.target)
+      ) {
+        setOpenPlayerMenuId(null);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [openPlayerMenuId]);
 
   const activeTournament =
     tournaments.find((tournament) => tournament.is_active) ?? null;
@@ -2296,15 +2320,33 @@ export default function AdminPage() {
                         key={player.id}
                         className="relative flex flex-col items-start justify-between gap-4 border-b border-gray-700 bg-zinc-50 p-4 pr-16 last:border-b-0 md:flex-row md:items-start"
                       >
-                        <details className="absolute right-4 top-4 z-40">
-                          <summary
-                            className="flex list-none cursor-pointer select-none items-center justify-center text-3xl font-black leading-none text-[#061726] transition-transform hover:scale-105 focus:outline-none [&::-webkit-details-marker]:hidden"
+                        <div
+                          ref={openPlayerMenuId === player.id ? playerMenuRef : null}
+                          className="absolute right-4 top-4 z-40"
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOpenPlayerMenuId((current) =>
+                                current === player.id ? null : player.id
+                              )
+                            }
+                            className="flex cursor-pointer select-none items-center justify-center text-3xl font-black leading-none text-[#061726] transition-transform hover:scale-105 focus:outline-none"
                             aria-label={`Управление игроком ${player.nickname}`}
+                            aria-expanded={openPlayerMenuId === player.id}
                           >
                             ⋮
-                          </summary>
+                          </button>
 
-                          <div className="absolute right-0 top-10 z-50 flex min-w-[280px] flex-col gap-3 border-2 border-black bg-white p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                          {openPlayerMenuId === player.id ? (
+                            <div className="absolute right-0 top-10 z-50 flex min-w-[280px] flex-col gap-3 border-2 border-black bg-white p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                              <button
+                                type="button"
+                                onClick={() => setOpenPlayerMenuId(null)}
+                                className="mb-2 w-full border-b-2 border-black pb-2 text-right text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-black"
+                              >
+                                ✕ Закрыть
+                              </button>
                             <label className="flex flex-col gap-1">
                               <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#061726]">
                                 Статус MMR
@@ -2504,8 +2546,9 @@ export default function AdminPage() {
                                 </>
                               )}
                             </div>
-                          </div>
-                        </details>
+                            </div>
+                          ) : null}
+                        </div>
 
                         <div className="min-w-0 md:w-64 md:flex-none">
                           <div className="text-lg font-black text-[#061726]">
