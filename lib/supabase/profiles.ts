@@ -22,6 +22,8 @@ export type Profile = {
   is_admin: boolean;
   behaviorScore: number;
   mmr: number | null;
+  mmrStatus: "pending" | "verified" | "rejected";
+  tournamentBadge: "none" | "gold" | "silver" | "bronze";
 };
 
 export type AdminProfileListItem = {
@@ -37,7 +39,7 @@ export async function getProfileByUserId(userId: string) {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, nickname, username, avatar_url, steam_id, created_at, is_admin, behavior_score, mmr"
+      "id, nickname, username, avatar_url, steam_id, created_at, is_admin, behavior_score, mmr, mmr_status, tournament_badge"
     )
     .eq("id", userId)
     .maybeSingle();
@@ -60,6 +62,9 @@ export async function getProfileByUserId(userId: string) {
     is_admin: data.is_admin,
     behaviorScore: data.behavior_score,
     mmr: data.mmr ?? null,
+    mmrStatus: (data.mmr_status as Profile["mmrStatus"] | null) ?? "pending",
+    tournamentBadge:
+      (data.tournament_badge as Profile["tournamentBadge"] | null) ?? "none",
   } as Profile;
 }
 

@@ -70,6 +70,21 @@ type ProfilePageClientProps = {
   hasPendingSteamLink: boolean;
 };
 
+const PROFILE_MEDAL_BADGES = {
+  gold: {
+    icon: "🥇",
+    title: "Gold Medalist",
+  },
+  silver: {
+    icon: "🥈",
+    title: "Silver Medalist",
+  },
+  bronze: {
+    icon: "🥉",
+    title: "Bronze Medalist",
+  },
+} as const;
+
 function TeamIdentityRow({
   teamName,
   teamLogoUrl,
@@ -185,6 +200,10 @@ export function ProfilePageClient({
   const hasTeam = Boolean(teamData?.team.id);
   const isConfirmed = Boolean(teamData && activeTournament && isParticipationConfirmed);
   const isTournamentLocked = Boolean(activeTournament && isParticipationConfirmed);
+  const profileMedal =
+    profile?.tournamentBadge && profile.tournamentBadge !== "none"
+      ? PROFILE_MEDAL_BADGES[profile.tournamentBadge]
+      : null;
   const formattedMMR =
     typeof profile?.mmr === "number" ? profile.mmr.toLocaleString("ru-RU") : null;
 
@@ -694,7 +713,22 @@ export function ProfilePageClient({
                 ) : (
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <div className="text-2xl font-bold text-white">{displayName}</div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-2xl font-bold text-white">{displayName}</div>
+                        {profile?.mmrStatus === "verified" ? (
+                          <span
+                            title="MMR аккаунта подтвержден"
+                            className="ml-2 border border-green-600 px-1 py-0.5 text-xs uppercase tracking-wider text-green-500"
+                          >
+                            [ ✓ MMR ]
+                          </span>
+                        ) : null}
+                        {profileMedal ? (
+                          <span title={profileMedal.title} className="text-xl leading-none">
+                            {profileMedal.icon}
+                          </span>
+                        ) : null}
+                      </div>
                       {isTournamentLocked && (
                         <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-white/60">
                           Имя заблокировано на время турнира
