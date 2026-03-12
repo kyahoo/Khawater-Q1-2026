@@ -10,6 +10,10 @@ import { PushToggleButton } from "@/components/profile/PushToggleButton";
 import { getProfileByUserId, type Profile } from "@/lib/supabase/profiles";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
+  getPlayerMedalTitle,
+  PLAYER_MEDAL_META,
+} from "@/lib/supabase/player-medals";
+import {
   deleteTeamIfLastCaptain,
   getCurrentTeamDetails,
   leaveCurrentTeam,
@@ -69,21 +73,6 @@ function sanitizeProfileErrorMessage(message: string | null) {
 type ProfilePageClientProps = {
   hasPendingSteamLink: boolean;
 };
-
-const PROFILE_MEDAL_BADGES = {
-  gold: {
-    icon: "🥇",
-    title: "Gold Medalist",
-  },
-  silver: {
-    icon: "🥈",
-    title: "Silver Medalist",
-  },
-  bronze: {
-    icon: "🥉",
-    title: "Bronze Medalist",
-  },
-} as const;
 
 function TeamIdentityRow({
   teamName,
@@ -203,10 +192,7 @@ export function ProfilePageClient({
   const hasTeam = Boolean(teamData?.team.id);
   const isConfirmed = Boolean(teamData && activeTournament && isParticipationConfirmed);
   const isTournamentLocked = Boolean(activeTournament && isParticipationConfirmed);
-  const profileMedal =
-    profile?.tournamentBadge && profile.tournamentBadge !== "none"
-      ? PROFILE_MEDAL_BADGES[profile.tournamentBadge]
-      : null;
+  const profileMedals = profile?.medals ?? [];
   const formattedMMR =
     typeof profile?.mmr === "number" ? profile.mmr.toLocaleString("ru-RU") : null;
 
@@ -716,11 +702,15 @@ export function ProfilePageClient({
                             [ ✓ MMR ]
                           </span>
                         ) : null}
-                        {profileMedal ? (
-                          <span title={profileMedal.title} className="text-xl leading-none">
-                            {profileMedal.icon}
+                        {profileMedals.map((medal) => (
+                          <span
+                            key={medal.id}
+                            title={getPlayerMedalTitle(medal)}
+                            className="text-xl leading-none"
+                          >
+                            {PLAYER_MEDAL_META[medal.medal].icon}
                           </span>
-                        ) : null}
+                        ))}
                       </div>
                       {isTournamentLocked && (
                         <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-white/60">

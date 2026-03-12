@@ -51,6 +51,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      player_medals: {
+        Row: {
+          id: string;
+          user_id: string;
+          tournament_id: string;
+          medal: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          tournament_id: string;
+          medal: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          tournament_id?: string;
+          medal?: string;
+        };
+        Relationships: [];
+      };
       behavior_logs: {
         Row: {
           id: string;

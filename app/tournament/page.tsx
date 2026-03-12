@@ -11,6 +11,10 @@ import {
 import { TeamLogo } from "@/components/team-logo";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
+  getPlayerMedalTitle,
+  PLAYER_MEDAL_META,
+} from "@/lib/supabase/player-medals";
+import {
   getActiveTournament,
   getEnteredTeamsForTournament,
   type EnteredTeam,
@@ -34,26 +38,6 @@ type BracketParticipant = {
   isWinner?: true;
   status: null;
   isSuspended?: boolean;
-};
-type TournamentRosterPlayer = EnteredTeam["roster"][number];
-type TournamentPlayerMedal = NonNullable<TournamentRosterPlayer["medal"]>;
-
-const TOURNAMENT_MEDAL_BADGES: Record<
-  TournamentPlayerMedal,
-  { icon: string; title: string }
-> = {
-  gold: {
-    icon: "🥇",
-    title: "Gold Medalist",
-  },
-  silver: {
-    icon: "🥈",
-    title: "Silver Medalist",
-  },
-  bronze: {
-    icon: "🥉",
-    title: "Bronze Medalist",
-  },
 };
 
 function RosterBadge({
@@ -924,13 +908,18 @@ export default function TournamentPage() {
                                           title="MMR аккаунта подтвержден администратором"
                                         />
                                       ) : null}
-                                      {player.medal ? (
-                                        <span
-                                          title={TOURNAMENT_MEDAL_BADGES[player.medal].title}
-                                          className="text-lg leading-none"
-                                        >
-                                          {TOURNAMENT_MEDAL_BADGES[player.medal].icon}
-                                        </span>
+                                      {player.medals.length > 0 ? (
+                                        <div className="flex items-center gap-1">
+                                          {player.medals.map((medal) => (
+                                            <span
+                                              key={medal.id}
+                                              title={getPlayerMedalTitle(medal)}
+                                              className="text-lg leading-none"
+                                            >
+                                              {PLAYER_MEDAL_META[medal.medal].icon}
+                                            </span>
+                                          ))}
+                                        </div>
                                       ) : null}
                                     </div>
                                   </div>

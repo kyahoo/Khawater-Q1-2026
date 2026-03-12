@@ -6,6 +6,7 @@ import {
   adminForceConfirmTeam,
   adminForceAddPlayerToTeam,
   adminRemovePlayerFromTeam,
+  setPlayerMedal,
   type AdminTournamentResultItem,
   createAdminPlayerAction,
   deleteTournament,
@@ -21,12 +22,16 @@ import {
   resetPlayerDeviceBinding,
   toggleTeamSuspension,
   updateAdminPlayerMMR,
-  updatePlayerBadge,
   updateMMRStatus,
   updateTournamentMatchAction,
   type AdminPlayerListItem,
 } from "./actions";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  getPlayerMedalTitle,
+  PLAYER_MEDAL_META,
+  type PlayerMedalValue,
+} from "@/lib/supabase/player-medals";
 import {
   getProfileByUserId,
   listProfilesWithTeamMeta,
@@ -115,11 +120,12 @@ const MMR_STATUS_OPTIONS = [
   { value: "rejected", label: "MMR: ОТКЛОНЕН" },
 ] as const;
 
-const TOURNAMENT_BADGE_OPTIONS = [
-  { value: "none", label: "МЕДАЛЬ: НЕТ" },
-  { value: "gold", label: "🏆 ЗОЛОТО" },
+const PLAYER_MEDAL_OPTIONS = [
+  { value: "", label: "МЕДАЛЬ: ВЫБРАТЬ" },
+  { value: "gold", label: "🥇 ЗОЛОТО" },
   { value: "silver", label: "🥈 СЕРЕБРО" },
   { value: "bronze", label: "🥉 БРОНЗА" },
+  { value: "clear", label: "ОЧИСТИТЬ" },
 ] as const;
 
 const PLAYER_METRIC_BADGE_CLASSNAME =
@@ -140,6 +146,7 @@ const PLAYER_ACTION_BUTTON_DANGER_CLASSNAME = `${PLAYER_ACTION_BUTTON_CLASSNAME}
 type AdminTabId = (typeof ADMIN_TABS)[number]["id"];
 type ScheduleDayParam = "today" | "tomorrow";
 type TournamentPlacement = 1 | 2 | 3;
+type AdminMedalSelectionValue = "" | PlayerMedalValue | "clear";
 
 function getSupabaseLikeErrorMessage(error: unknown, fallbackMessage: string) {
   if (error instanceof Error && error.message) {
@@ -282,24 +289,38 @@ function getMMRValueInputClassName(mmr: number | null) {
   return `${baseClassName} border-gray-600 bg-transparent text-gray-500 focus:border-[#CD9C3E]`;
 }
 
-function getTournamentBadgeSelectClassName(
-  badge: AdminPlayerListItem["tournamentBadge"]
-) {
+function getPlayerMedalSelectClassName(medal: AdminMedalSelectionValue) {
   const baseClassName = PLAYER_METRIC_SELECT_CLASSNAME;
 
-  if (badge === "gold") {
+  if (medal === "gold") {
     return `${baseClassName} border-[#CD9C3E] bg-[#CD9C3E]/10 text-[#8A6418]`;
   }
 
-  if (badge === "silver") {
+  if (medal === "silver") {
     return `${baseClassName} border-gray-500 bg-gray-300/10 text-gray-600`;
   }
 
-  if (badge === "bronze") {
+  if (medal === "bronze") {
     return `${baseClassName} border-amber-700 bg-amber-600/10 text-amber-700`;
   }
 
+  if (medal === "clear") {
+    return `${baseClassName} border-red-700 bg-red-900/10 text-red-600`;
+  }
+
   return `${baseClassName} border-gray-700 bg-transparent text-gray-500`;
+}
+
+function getPlayerMedalChipClassName(medal: PlayerMedalValue) {
+  if (medal === "gold") {
+    return "border-[#CD9C3E] bg-[#CD9C3E]/10 text-[#8A6418]";
+  }
+
+  if (medal === "silver") {
+    return "border-gray-500 bg-gray-300/10 text-gray-700";
+  }
+
+  return "border-amber-700 bg-amber-600/10 text-amber-700";
 }
 
 async function getSocialTemplateStatus() {
@@ -405,7 +426,18 @@ export default function AdminPage() {
   const [isResettingBehaviorScoreUserId, setIsResettingBehaviorScoreUserId] = useState<
     string | null
   >(null);
-  const [isUpdatingBadgeUserId, setIsUpdatingBadgeUserId] = useState<string | null>(null);
+  const [playerMedalDrafts, setPlayerMedalDrafts] = useState<
+    Record<
+      string,
+      {
+        tournamentId: string;
+        medal: AdminMedalSelectionValue;
+      }
+    >
+  >({});
+  const [isSavingPlayerMedalUserId, setIsSavingPlayerMedalUserId] = useState<
+    string | null
+  >(null);
   const [isDeletingTeamId, setIsDeletingTeamId] = useState<string | null>(null);
   const [isDeletingMatchId, setIsDeletingMatchId] = useState<string | null>(null);
   const [editingLogoTeamId, setEditingLogoTeamId] = useState<string | null>(null);
@@ -983,15 +1015,80 @@ export default function AdminPage() {
     }
   }
 
-  async function handleUpdatePlayerBadge(
+  function handlePlayerMedalDraftChange(
     userId: string,
-    badge: AdminPlayerListItem["tournamentBadge"]
+    field: "tournamentId" | "medal",
+    value: string
   ) {
-    setIsUpdatingBadgeUserId(userId);
+    setPlayerMedalDrafts((current) => ({
+      ...current,
+      [userId]: {
+        tournamentId:
+          field === "tournamentId"
+            ? value
+            : (current[userId]?.tournamentId ?? activeTournament?.id ?? tournaments[0]?.id ?? ""),
+        medal:
+          field === "medal"
+            ? (value as AdminMedalSelectionValue)
+            : (current[userId]?.medal ?? ""),
+      },
+    }));
+  }
+
+  async function handleSavePlayerMedal(userId: string) {
+    const draft = playerMedalDrafts[userId];
+    const tournamentId =
+      draft?.tournamentId?.trim() ?? activeTournament?.id ?? tournaments[0]?.id ?? "";
+    const medal = draft?.medal ?? "";
+
+    if (!tournamentId) {
+      setErrorMessage("Сначала выберите турнир для медали.");
+      return;
+    }
+
+    if (!medal) {
+      setErrorMessage("Сначала выберите медаль или действие очистки.");
+      return;
+    }
+
+    setIsSavingPlayerMedalUserId(userId);
     setErrorMessage("");
 
     try {
-      const result = await updatePlayerBadge(userId, badge);
+      const result = await setPlayerMedal(
+        userId,
+        tournamentId,
+        medal === "clear" ? null : medal
+      );
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      setPlayerMedalDrafts((current) => ({
+        ...current,
+        [userId]: {
+          tournamentId,
+          medal: "",
+        },
+      }));
+      await refreshAdminData();
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Не удалось обновить медаль игрока."
+      );
+    } finally {
+      setIsSavingPlayerMedalUserId(null);
+    }
+  }
+
+  async function handleClearPlayerMedal(userId: string, tournamentId: string) {
+    setIsSavingPlayerMedalUserId(userId);
+    setErrorMessage("");
+
+    try {
+      const result = await setPlayerMedal(userId, tournamentId, null);
 
       if (result.error) {
         throw new Error(result.error);
@@ -1001,10 +1098,10 @@ export default function AdminPage() {
       router.refresh();
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Не удалось обновить медаль игрока."
+        error instanceof Error ? error.message : "Не удалось удалить медаль игрока."
       );
     } finally {
-      setIsUpdatingBadgeUserId(null);
+      setIsSavingPlayerMedalUserId(null);
     }
   }
 
@@ -2234,86 +2331,186 @@ export default function AdminPage() {
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-2 md:flex-1 md:justify-center">
-                          <div
-                            className={getBehaviorScoreBadgeClassName(player.behaviorScore)}
-                          >
-                            Балл: {player.behaviorScore}
-                          </div>
-                          <label className="block w-fit">
-                            <span className="sr-only">Статус подтверждения MMR</span>
-                            <select
-                              value={player.mmrStatus}
-                              onChange={(event) =>
-                                void handleUpdateMMRStatus(
-                                  player.id,
-                                  event.target.value as AdminPlayerListItem["mmrStatus"]
-                                )
-                              }
-                              disabled={isUpdatingMMRStatusUserId === player.id}
-                              className={getMMRStatusSelectClassName(player.mmrStatus)}
+                        <div className="flex min-w-0 flex-col gap-4 md:flex-1">
+                          <div className="flex flex-wrap gap-2 md:justify-center">
+                            <div
+                              className={getBehaviorScoreBadgeClassName(player.behaviorScore)}
                             >
-                              {MMR_STATUS_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="block w-fit">
-                            <span className="sr-only">Редактируемый MMR игрока</span>
-                            <input
-                              type="number"
-                              inputMode="numeric"
-                              min="1"
-                              step="1"
-                              value={playerMMRInputs[player.id] ?? ""}
-                              onChange={(event) =>
-                                handlePlayerMMRInputChange(player.id, event.target.value)
-                              }
-                              onBlur={() => handleSavePlayerMMR(player.id)}
-                              onKeyDown={(event) => {
-                                if (event.key !== "Enter") {
-                                  return;
+                              Балл: {player.behaviorScore}
+                            </div>
+                            <label className="block w-fit">
+                              <span className="sr-only">Статус подтверждения MMR</span>
+                              <select
+                                value={player.mmrStatus}
+                                onChange={(event) =>
+                                  void handleUpdateMMRStatus(
+                                    player.id,
+                                    event.target.value as AdminPlayerListItem["mmrStatus"]
+                                  )
                                 }
+                                disabled={isUpdatingMMRStatusUserId === player.id}
+                                className={getMMRStatusSelectClassName(player.mmrStatus)}
+                              >
+                                {MMR_STATUS_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="block w-fit">
+                              <span className="sr-only">Редактируемый MMR игрока</span>
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min="1"
+                                step="1"
+                                value={playerMMRInputs[player.id] ?? ""}
+                                onChange={(event) =>
+                                  handlePlayerMMRInputChange(player.id, event.target.value)
+                                }
+                                onBlur={() => handleSavePlayerMMR(player.id)}
+                                onKeyDown={(event) => {
+                                  if (event.key !== "Enter") {
+                                    return;
+                                  }
 
-                                event.preventDefault();
-                                handleSavePlayerMMR(player.id);
-                              }}
-                              placeholder={
-                                isUpdatingPlayerMMRUserId === player.id
-                                  ? "СОХРАНЕНИЕ..."
-                                  : "ВВЕСТИ MMR"
-                              }
-                              disabled={isUpdatingPlayerMMRUserId === player.id}
-                              aria-busy={isUpdatingPlayerMMRUserId === player.id}
-                              className={getMMRValueInputClassName(player.mmr)}
-                            />
-                          </label>
-                          <label className="block w-fit">
-                            <span className="sr-only">Турнирная медаль</span>
-                            <select
-                              value={player.tournamentBadge}
-                              onChange={(event) =>
-                                void handleUpdatePlayerBadge(
-                                  player.id,
-                                  event.target.value as AdminPlayerListItem["tournamentBadge"]
-                                )
-                              }
-                              disabled={isUpdatingBadgeUserId === player.id}
-                              className={getTournamentBadgeSelectClassName(
-                                player.tournamentBadge
-                              )}
-                            >
-                              {TOURNAMENT_BADGE_OPTIONS.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <div className={getOpenTaskBadgeClassName(player.openTaskCount)}>
-                            Открытые задачи: {player.openTaskCount}
+                                  event.preventDefault();
+                                  handleSavePlayerMMR(player.id);
+                                }}
+                                placeholder={
+                                  isUpdatingPlayerMMRUserId === player.id
+                                    ? "СОХРАНЕНИЕ..."
+                                    : "ВВЕСТИ MMR"
+                                }
+                                disabled={isUpdatingPlayerMMRUserId === player.id}
+                                aria-busy={isUpdatingPlayerMMRUserId === player.id}
+                                className={getMMRValueInputClassName(player.mmr)}
+                              />
+                            </label>
+                            <div className={getOpenTaskBadgeClassName(player.openTaskCount)}>
+                              Открытые задачи: {player.openTaskCount}
+                            </div>
+                          </div>
+
+                          <div className="border-2 border-[#061726] bg-white p-3 shadow-[2px_2px_0px_0px_#061726]">
+                            <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#061726]">
+                              УПРАВЛЕНИЕ МЕДАЛЯМИ
+                            </div>
+
+                            {tournaments.length === 0 ? (
+                              <p className="mt-3 text-sm text-zinc-500">
+                                Сначала создайте турнир, чтобы назначать медали.
+                              </p>
+                            ) : (
+                              <>
+                                <div className="mt-3 flex flex-col gap-2 xl:flex-row">
+                                  <label className="block xl:flex-1">
+                                    <span className="sr-only">Выбор турнира для медали</span>
+                                    <select
+                                      value={
+                                        playerMedalDrafts[player.id]?.tournamentId ??
+                                        activeTournament?.id ??
+                                        tournaments[0]?.id ??
+                                        ""
+                                      }
+                                      onChange={(event) =>
+                                        handlePlayerMedalDraftChange(
+                                          player.id,
+                                          "tournamentId",
+                                          event.target.value
+                                        )
+                                      }
+                                      disabled={isSavingPlayerMedalUserId === player.id}
+                                      className={`${PLAYER_METRIC_SELECT_CLASSNAME} h-10 w-full border-[#061726] bg-white text-[#061726]`}
+                                    >
+                                      {tournaments.map((tournament) => (
+                                        <option key={tournament.id} value={tournament.id}>
+                                          {tournament.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                  <label className="block xl:flex-1">
+                                    <span className="sr-only">Выбор медали</span>
+                                    <select
+                                      value={playerMedalDrafts[player.id]?.medal ?? ""}
+                                      onChange={(event) =>
+                                        handlePlayerMedalDraftChange(
+                                          player.id,
+                                          "medal",
+                                          event.target.value
+                                        )
+                                      }
+                                      disabled={isSavingPlayerMedalUserId === player.id}
+                                      className={`${getPlayerMedalSelectClassName(
+                                        playerMedalDrafts[player.id]?.medal ?? ""
+                                      )} h-10 w-full`}
+                                    >
+                                      {PLAYER_MEDAL_OPTIONS.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                          {option.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleSavePlayerMedal(player.id)}
+                                    disabled={
+                                      isSavingPlayerMedalUserId === player.id ||
+                                      !(
+                                        playerMedalDrafts[player.id]?.medal ??
+                                        ""
+                                      )
+                                    }
+                                    className="inline-flex h-10 items-center justify-center border-2 border-[#061726] bg-[#CD9C3E] px-4 text-xs font-black uppercase tracking-[0.16em] text-[#061726] shadow-[2px_2px_0px_0px_#061726] disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {isSavingPlayerMedalUserId === player.id
+                                      ? "СОХРАНЕНИЕ..."
+                                      : "СОХРАНИТЬ"}
+                                  </button>
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {player.medals.length === 0 ? (
+                                    <div className="border border-dashed border-zinc-300 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-zinc-400">
+                                      Медалей пока нет
+                                    </div>
+                                  ) : (
+                                    player.medals.map((medal) => (
+                                      <div
+                                        key={medal.id}
+                                        className={`inline-flex items-center gap-2 border px-2 py-1 text-xs font-black uppercase tracking-[0.12em] ${getPlayerMedalChipClassName(
+                                          medal.medal
+                                        )}`}
+                                      >
+                                        <span title={getPlayerMedalTitle(medal)}>
+                                          {PLAYER_MEDAL_META[medal.medal].icon}
+                                        </span>
+                                        <span className="max-w-40 truncate">
+                                          {medal.tournamentName}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            void handleClearPlayerMedal(
+                                              player.id,
+                                              medal.tournamentId
+                                            )
+                                          }
+                                          disabled={isSavingPlayerMedalUserId === player.id}
+                                          className="border border-current px-1 leading-none disabled:cursor-not-allowed disabled:opacity-50"
+                                          aria-label={`Удалить медаль ${medal.tournamentName}`}
+                                        >
+                                          x
+                                        </button>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
 

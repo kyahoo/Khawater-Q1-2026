@@ -3,6 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import {
+  listPlayerMedalsForUsersWithClient,
+  type PlayerMedalValue,
+  type PlayerMedalWithTournament,
+} from "@/lib/supabase/player-medals";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getActiveTaskCountsForUsers } from "@/lib/supabase/tasks";
 
@@ -17,6 +22,8 @@ type CreateAdminPlayerResult = {
   error: string | null;
 };
 
+export type AdminPlayerMedalItem = PlayerMedalWithTournament;
+
 export type AdminPlayerListItem = {
   id: string;
   nickname: string;
@@ -25,7 +32,7 @@ export type AdminPlayerListItem = {
   mmr: number | null;
   mmrStatus: "pending" | "verified" | "rejected";
   behaviorScore: number;
-  tournamentBadge: "none" | "gold" | "silver" | "bronze";
+  medals: AdminPlayerMedalItem[];
 };
 
 export type AdminTournamentResultItem = {
@@ -74,7 +81,7 @@ type ResetPlayerBehaviorScoreResult = {
   error: string | null;
 };
 
-type UpdatePlayerBadgeResult = {
+type SetPlayerMedalResult = {
   error: string | null;
 };
 
@@ -276,13 +283,13 @@ export async function listAdminPlayers(
   let mmrByUserId = new Map<string, number | null>();
   let mmrStatusByUserId = new Map<string, "pending" | "verified" | "rejected">();
   let behaviorScoreByUserId = new Map<string, number>();
-  let tournamentBadgeByUserId = new Map<string, "none" | "gold" | "silver" | "bronze">();
+  let medalsByUserId = {} as Record<string, AdminPlayerMedalItem[]>;
   let openTaskCountByUserId = {} as Record<string, number>;
 
   if (userIds.length > 0) {
     const { data: profiles, error: profilesError } = await adminClient
       .from("profiles")
-      .select("id, nickname, mmr, mmr_status, behavior_score, tournament_badge")
+      .select("id, nickname, mmr, mmr_status, behavior_score")
       .in("id", userIds);
 
     if (profilesError) {
@@ -326,15 +333,7 @@ export async function listAdminPlayers(
       ).map((profile) => [profile.id, profile.behavior_score ?? 5])
     );
 
-    tournamentBadgeByUserId = new Map(
-      (
-        (profiles ?? []) as Array<{
-          id: string;
-          tournament_badge: "none" | "gold" | "silver" | "bronze" | null;
-        }>
-      ).map((profile) => [profile.id, profile.tournament_badge ?? "none"])
-    );
-
+    medalsByUserId = await listPlayerMedalsForUsersWithClient(adminClient, userIds);
     openTaskCountByUserId = await getActiveTaskCountsForUsers(adminClient, userIds);
   }
 
@@ -347,7 +346,7 @@ export async function listAdminPlayers(
       mmr: mmrByUserId.get(user.id) ?? null,
       mmrStatus: mmrStatusByUserId.get(user.id) ?? "pending",
       behaviorScore: behaviorScoreByUserId.get(user.id) ?? 5,
-      tournamentBadge: tournamentBadgeByUserId.get(user.id) ?? "none",
+      medals: medalsByUserId[user.id] ?? [],
     }))
     .sort((playerA, playerB) => playerA.nickname.localeCompare(playerB.nickname));
 
@@ -679,12 +678,13 @@ export async function resetPlayerBehaviorScore(
   };
 }
 
-export async function updatePlayerBadge(
+export async function setPlayerMedal(
   userId: string,
-  badge: string
-): Promise<UpdatePlayerBadgeResult> {
+  tournamentId: string,
+  medal: PlayerMedalValue | null
+): Promise<SetPlayerMedalResult> {
   const normalizedUserId = userId.trim();
-  const normalizedBadge = badge.trim();
+  const normalizedTournamentId = tournamentId.trim();
 
   if (!normalizedUserId) {
     return {
@@ -692,9 +692,15 @@ export async function updatePlayerBadge(
     };
   }
 
-  if (!["none", "gold", "silver", "bronze"].includes(normalizedBadge)) {
+  if (!normalizedTournamentId) {
     return {
-      error: "Invalid tournament badge.",
+      error: "Tournament is required.",
+    };
+  }
+
+  if (medal !== null && medal !== "gold" && medal !== "silver" && medal !== "bronze") {
+    return {
+      error: "Invalid tournament medal.",
     };
   }
 
@@ -738,20 +744,62 @@ export async function updatePlayerBadge(
     },
   });
 
-  const { error } = await adminClient
-    .from("profiles")
-    .update({
-      tournament_badge: normalizedBadge,
-    })
-    .eq("id", normalizedUserId);
+  const { data: existingMedal, error: existingMedalError } = await adminClient
+    .from("player_medals")
+    .select("id")
+    .eq("user_id", normalizedUserId)
+    .eq("tournament_id", normalizedTournamentId)
+    .maybeSingle();
 
-  if (error) {
+  if (existingMedalError) {
     return {
-      error: error.message,
+      error: existingMedalError.message,
     };
   }
 
+  if (medal === null) {
+    if (existingMedal) {
+      const { error: deleteMedalError } = await adminClient
+        .from("player_medals")
+        .delete()
+        .eq("id", existingMedal.id);
+
+      if (deleteMedalError) {
+        return {
+          error: deleteMedalError.message,
+        };
+      }
+    }
+  } else if (existingMedal) {
+    const { error: updateMedalError } = await adminClient
+      .from("player_medals")
+      .update({
+        medal,
+      })
+      .eq("id", existingMedal.id);
+
+    if (updateMedalError) {
+      return {
+        error: updateMedalError.message,
+      };
+    }
+  } else {
+    const { error: insertMedalError } = await adminClient.from("player_medals").insert({
+      user_id: normalizedUserId,
+      tournament_id: normalizedTournamentId,
+      medal,
+    });
+
+    if (insertMedalError) {
+      return {
+        error: insertMedalError.message,
+      };
+    }
+  }
+
   revalidatePath("/admin");
+  revalidatePath("/profile");
+  revalidatePath("/tournament");
 
   return {
     error: null,
@@ -1263,6 +1311,17 @@ export async function deleteTournament(
     };
   }
 
+  const { error: deletePlayerMedalsError } = await adminClient
+    .from("player_medals")
+    .delete()
+    .eq("tournament_id", normalizedTournamentId);
+
+  if (deletePlayerMedalsError) {
+    return {
+      error: deletePlayerMedalsError.message,
+    };
+  }
+
   const { error: deleteTournamentError } = await adminClient
     .from("tournaments")
     .delete()
@@ -1487,47 +1546,54 @@ export async function recordTournamentResult(
     );
 
     if (affectedUserIds.length > 0) {
-      const { error: clearBadgeError } = await adminClient
-        .from("profiles")
-        .update({
-          tournament_badge: "none",
-        })
-        .in("id", affectedUserIds);
+      const { error: clearMedalsError } = await adminClient
+        .from("player_medals")
+        .delete()
+        .eq("tournament_id", normalizedTournamentId)
+        .in("user_id", affectedUserIds);
 
-      if (clearBadgeError) {
+      if (clearMedalsError) {
         return {
-          error: clearBadgeError.message,
+          error: clearMedalsError.message,
         };
       }
     }
 
-    const badgeByPlacement = {
+    const medalByPlacement: Record<1 | 2 | 3, PlayerMedalValue> = {
       1: "gold",
       2: "silver",
       3: "bronze",
-    } as const;
+    };
+    const medalsToInsert: Database["public"]["Tables"]["player_medals"]["Insert"][] = [];
 
     for (const result of (currentResults ?? []) as Array<{
       team_id: string;
       placement: number;
     }>) {
-      const badge = badgeByPlacement[result.placement as 1 | 2 | 3];
+      const medal = medalByPlacement[result.placement as 1 | 2 | 3];
       const userIds = teamConfirmedUserIds.get(result.team_id) ?? [];
 
-      if (!badge || userIds.length === 0) {
+      if (!medal || userIds.length === 0) {
         continue;
       }
 
-      const { error: assignBadgeError } = await adminClient
-        .from("profiles")
-        .update({
-          tournament_badge: badge,
-        })
-        .in("id", userIds);
+      medalsToInsert.push(
+        ...userIds.map((userId) => ({
+          user_id: userId,
+          tournament_id: normalizedTournamentId,
+          medal,
+        }))
+      );
+    }
 
-      if (assignBadgeError) {
+    if (medalsToInsert.length > 0) {
+      const { error: insertMedalsError } = await adminClient
+        .from("player_medals")
+        .insert(medalsToInsert);
+
+      if (insertMedalsError) {
         return {
-          error: assignBadgeError.message,
+          error: insertMedalsError.message,
         };
       }
     }

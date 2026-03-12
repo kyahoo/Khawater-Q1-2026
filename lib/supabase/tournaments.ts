@@ -1,5 +1,9 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
+import {
+  listPlayerMedalsForUsers,
+  type PlayerMedalWithTournament,
+} from "@/lib/supabase/player-medals";
 import { getProfileByUserId } from "@/lib/supabase/profiles";
 
 const TOURNAMENT_SELECT_COLUMNS =
@@ -15,7 +19,6 @@ type TournamentMatchInsert =
   Database["public"]["Tables"]["tournament_matches"]["Insert"];
 type TournamentMatchUpdate =
   Database["public"]["Tables"]["tournament_matches"]["Update"];
-type TournamentPlayerMedal = "gold" | "silver" | "bronze";
 
 type TournamentSelectRow = {
   id: string;
@@ -66,7 +69,7 @@ export type EnteredTeam = {
     nickname: string;
     mmr: number | null;
     isMMRVerified: boolean;
-    medal: TournamentPlayerMedal | null;
+    medals: PlayerMedalWithTournament[];
   }>;
   isSuspended: boolean;
 };
@@ -106,7 +109,6 @@ type TeamProfileJoin = {
   nickname: string;
   mmr: number | null;
   mmr_status: string | null;
-  tournament_badge: string | null;
 };
 
 type TeamMembershipJoin = {
@@ -481,7 +483,7 @@ export async function getEnteredTeamsForTournament(
   const { data: teams, error: teamsError } = await supabase
     .from("teams")
     .select(
-      "id, name, logo_url, team_members(user_id, is_captain, created_at, profiles(id, nickname, mmr, mmr_status, tournament_badge))"
+      "id, name, logo_url, team_members(user_id, is_captain, created_at, profiles(id, nickname, mmr, mmr_status))"
     )
     .in("id", teamIds);
 
@@ -489,34 +491,41 @@ export async function getEnteredTeamsForTournament(
     throw teamsError;
   }
 
+  const typedTeams = (teams ?? []) as unknown as Array<{
+    id: string;
+    name: string;
+    logo_url: string | null;
+    team_members: Array<{
+      user_id: string;
+      is_captain: boolean;
+      created_at: string;
+      profiles:
+        | {
+            id: string;
+            nickname: string;
+            mmr: number | null;
+            mmr_status: string | null;
+          }
+        | Array<{
+            id: string;
+            nickname: string;
+            mmr: number | null;
+            mmr_status: string | null;
+          }>
+        | null;
+    }> | null;
+  }>;
+  const medalsByUserId = await listPlayerMedalsForUsers(
+    typedTeams.flatMap((team) =>
+      normalizeJoinedRows<TeamMembershipJoin>(team.team_members).map(
+        (membership) => membership.user_id
+      )
+    )
+  );
+
   return teamIds
     .map((teamId) => {
-      const team = ((teams ?? []) as unknown as Array<{
-        id: string;
-        name: string;
-        logo_url: string | null;
-        team_members: Array<{
-          user_id: string;
-          is_captain: boolean;
-          created_at: string;
-          profiles:
-            | {
-                id: string;
-                nickname: string;
-                mmr: number | null;
-                mmr_status: string | null;
-                tournament_badge: string | null;
-              }
-            | Array<{
-                id: string;
-                nickname: string;
-                mmr: number | null;
-                mmr_status: string | null;
-                tournament_badge: string | null;
-              }>
-            | null;
-        }> | null;
-      }>).find((candidate) => candidate.id === teamId);
+      const team = typedTeams.find((candidate) => candidate.id === teamId);
 
       if (!team) {
         return null;
@@ -539,19 +548,12 @@ export async function getEnteredTeamsForTournament(
             return null;
           }
 
-          const medal =
-            profile.tournament_badge === "gold" ||
-            profile.tournament_badge === "silver" ||
-            profile.tournament_badge === "bronze"
-              ? profile.tournament_badge
-              : null;
-
           return {
             id: profile.id,
             nickname: profile.nickname,
             mmr: profile.mmr ?? null,
             isMMRVerified: profile.mmr_status === "verified",
-            medal,
+            medals: medalsByUserId[profile.id] ?? [],
           };
         })
         .filter(
@@ -562,7 +564,7 @@ export async function getEnteredTeamsForTournament(
             nickname: string;
             mmr: number | null;
             isMMRVerified: boolean;
-            medal: TournamentPlayerMedal | null;
+            medals: PlayerMedalWithTournament[];
           } => Boolean(player)
         );
       const captainMembership = teamMemberships.find((membership) => membership.is_captain);
