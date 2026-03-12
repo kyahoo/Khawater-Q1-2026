@@ -50,6 +50,10 @@ type UpdateMMRStatusResult = {
   error: string | null;
 };
 
+type UpdateAdminPlayerMMRResult = {
+  error: string | null;
+};
+
 type ResetPlayerBehaviorScoreResult = {
   error: string | null;
 };
@@ -406,6 +410,89 @@ export async function updateMMRStatus(
   }
 
   revalidatePath("/admin");
+
+  return {
+    error: null,
+  };
+}
+
+export async function updateAdminPlayerMMR(
+  userId: string,
+  mmr: number | null
+): Promise<UpdateAdminPlayerMMRResult> {
+  const normalizedUserId = userId.trim();
+
+  if (!normalizedUserId) {
+    return {
+      error: "Player ID is required.",
+    };
+  }
+
+  const normalizedMMR = mmr === null ? null : Number(mmr);
+
+  if (normalizedMMR !== null && (!Number.isInteger(normalizedMMR) || normalizedMMR <= 0)) {
+    return {
+      error: "Укажите корректный текущий MMR.",
+    };
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return {
+      error: "Missing Supabase server environment configuration.",
+    };
+  }
+
+  const supabase = await getSupabaseServerClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      error: "Could not verify admin session.",
+    };
+  }
+
+  const { data: actingProfile, error: actingProfileError } = await supabase
+    .from("profiles")
+    .select("id, is_admin")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (actingProfileError || !actingProfile?.is_admin) {
+    return {
+      error: "You do not have admin access for this action.",
+    };
+  }
+
+  const adminClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+
+  const { error } = await adminClient
+    .from("profiles")
+    .update({
+      mmr: normalizedMMR,
+    })
+    .eq("id", normalizedUserId);
+
+  if (error) {
+    return {
+      error: error.message,
+    };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/profile");
+  revalidatePath("/join-team");
+  revalidatePath("/my-team");
 
   return {
     error: null,

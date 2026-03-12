@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useEffectEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   adminForceConfirmTeam,
@@ -16,6 +16,7 @@ import {
   resetPlayerBehaviorScore,
   resetPlayerDeviceBinding,
   toggleTeamSuspension,
+  updateAdminPlayerMMR,
   updatePlayerBadge,
   updateMMRStatus,
   updateTournamentMatchAction,
@@ -251,12 +252,15 @@ function getOpenTaskBadgeClassName(openTaskCount: number) {
   return `${PLAYER_METRIC_BADGE_CLASSNAME} border-gray-600 bg-transparent text-gray-500`;
 }
 
-function getMMRValueBadgeClassName(mmr: number | null) {
+function getMMRValueInputClassName(mmr: number | null) {
+  const baseClassName =
+    "h-9 w-32 border px-2 py-1 text-center text-xs font-black uppercase tracking-[0.16em] outline-none transition-colors placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60";
+
   if (typeof mmr === "number") {
-    return `${PLAYER_METRIC_BADGE_CLASSNAME} border-[#061726] bg-[#061726] text-[#CD9C3E]`;
+    return `${baseClassName} border-[#061726] bg-[#061726] text-[#CD9C3E] focus:border-[#CD9C3E]`;
   }
 
-  return `${PLAYER_METRIC_BADGE_CLASSNAME} border-gray-600 bg-transparent text-gray-500`;
+  return `${baseClassName} border-gray-600 bg-transparent text-gray-500 focus:border-[#CD9C3E]`;
 }
 
 function getTournamentBadgeSelectClassName(
@@ -376,6 +380,9 @@ export default function AdminPage() {
   const [isUpdatingMMRStatusUserId, setIsUpdatingMMRStatusUserId] = useState<
     string | null
   >(null);
+  const [isUpdatingPlayerMMRUserId, setIsUpdatingPlayerMMRUserId] = useState<
+    string | null
+  >(null);
   const [isResettingBehaviorScoreUserId, setIsResettingBehaviorScoreUserId] = useState<
     string | null
   >(null);
@@ -416,6 +423,8 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<AdminTabId>("players");
   const [activeTournamentCheckInThresholdInput, setActiveTournamentCheckInThresholdInput] =
     useState("10");
+  const [playerMMRInputs, setPlayerMMRInputs] = useState<Record<string, string>>({});
+  const [, startMMRUpdateTransition] = useTransition();
 
   async function getCurrentAdminAccessToken() {
     const supabase = getSupabaseBrowserClient();
@@ -600,6 +609,14 @@ export default function AdminPage() {
     const availableMatchIds = new Set(matches.map((match) => match.id));
     setSelectedMatches((current) => current.filter((matchId) => availableMatchIds.has(matchId)));
   }, [matches]);
+
+  useEffect(() => {
+    setPlayerMMRInputs(
+      Object.fromEntries(
+        players.map((player) => [player.id, typeof player.mmr === "number" ? String(player.mmr) : ""])
+      )
+    );
+  }, [players]);
 
   useEffect(() => {
     if (tournaments.length === 0) {
@@ -823,6 +840,85 @@ export default function AdminPage() {
     } finally {
       setIsUpdatingMMRStatusUserId(null);
     }
+  }
+
+  function handlePlayerMMRInputChange(userId: string, nextValue: string) {
+    setPlayerMMRInputs((current) => ({
+      ...current,
+      [userId]: nextValue,
+    }));
+  }
+
+  function handleSavePlayerMMR(userId: string) {
+    if (isUpdatingPlayerMMRUserId === userId) {
+      return;
+    }
+
+    const currentPlayer = players.find((player) => player.id === userId);
+
+    if (!currentPlayer) {
+      return;
+    }
+
+    const draftValue = playerMMRInputs[userId] ?? "";
+    const trimmedDraftValue = draftValue.trim();
+    const normalizedMMR = trimmedDraftValue === "" ? null : Number(trimmedDraftValue);
+
+    if (
+      normalizedMMR !== null &&
+      (!Number.isInteger(normalizedMMR) || normalizedMMR <= 0)
+    ) {
+      setErrorMessage("Укажите корректный текущий MMR.");
+      return;
+    }
+
+    if (currentPlayer.mmr === normalizedMMR) {
+      return;
+    }
+
+    setErrorMessage("");
+    setIsUpdatingPlayerMMRUserId(userId);
+
+    startMMRUpdateTransition(() => {
+      void (async () => {
+        try {
+          const result = await updateAdminPlayerMMR(userId, normalizedMMR);
+
+          if (result.error) {
+            throw new Error(result.error);
+          }
+
+          setPlayers((current) =>
+            current.map((player) =>
+              player.id === userId
+                ? {
+                    ...player,
+                    mmr: normalizedMMR,
+                  }
+                : player
+            )
+          );
+          setPlayerMMRInputs((current) => ({
+            ...current,
+            [userId]: normalizedMMR === null ? "" : String(normalizedMMR),
+          }));
+
+          await refreshAdminData();
+          router.refresh();
+        } catch (error) {
+          setErrorMessage(
+            error instanceof Error ? error.message : "Не удалось обновить MMR игрока."
+          );
+          setPlayerMMRInputs((current) => ({
+            ...current,
+            [userId]:
+              typeof currentPlayer.mmr === "number" ? String(currentPlayer.mmr) : "",
+          }));
+        } finally {
+          setIsUpdatingPlayerMMRUserId(null);
+        }
+      })();
+    });
   }
 
   async function handleResetPlayerBehaviorScore(userId: string) {
@@ -2030,12 +2126,36 @@ export default function AdminPage() {
                               ))}
                             </select>
                           </label>
-                          <div className={getMMRValueBadgeClassName(player.mmr)}>
-                            MMR:{" "}
-                            {typeof player.mmr === "number"
-                              ? player.mmr.toLocaleString("ru-RU")
-                              : "НЕ УКАЗАН"}
-                          </div>
+                          <label className="block w-fit">
+                            <span className="sr-only">Редактируемый MMR игрока</span>
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              min="1"
+                              step="1"
+                              value={playerMMRInputs[player.id] ?? ""}
+                              onChange={(event) =>
+                                handlePlayerMMRInputChange(player.id, event.target.value)
+                              }
+                              onBlur={() => handleSavePlayerMMR(player.id)}
+                              onKeyDown={(event) => {
+                                if (event.key !== "Enter") {
+                                  return;
+                                }
+
+                                event.preventDefault();
+                                handleSavePlayerMMR(player.id);
+                              }}
+                              placeholder={
+                                isUpdatingPlayerMMRUserId === player.id
+                                  ? "СОХРАНЕНИЕ..."
+                                  : "ВВЕСТИ MMR"
+                              }
+                              disabled={isUpdatingPlayerMMRUserId === player.id}
+                              aria-busy={isUpdatingPlayerMMRUserId === player.id}
+                              className={getMMRValueInputClassName(player.mmr)}
+                            />
+                          </label>
                           <label className="block w-fit">
                             <span className="sr-only">Турнирная медаль</span>
                             <select
