@@ -178,6 +178,10 @@ export function ProfilePageClient({
     "mb-6 flex flex-col gap-4 border-[3px] border-[#061726] bg-[#0B3A4A] p-6 shadow-[6px_6px_0px_0px_#061726]";
   const cardHeadingClassName =
     "mb-2 text-xl font-black uppercase tracking-wide text-[#CD9C3E]";
+  const settingsPanelClassName =
+    "border-[3px] border-[#061726] bg-[#061726] p-4 shadow-[4px_4px_0px_0px_#061726]";
+  const settingsPanelLabelClassName =
+    "mb-2 text-xs font-bold uppercase text-gray-400";
   const bodyTextClassName = "text-base font-medium text-white md:text-lg";
   const mutedStatusButtonClassName =
     "w-fit cursor-not-allowed border-[3px] border-[#061726] bg-gray-700 px-6 py-2 text-center text-sm font-bold uppercase text-gray-300";
@@ -713,8 +717,10 @@ export function ProfilePageClient({
                 ) : (
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-2xl font-bold text-white">{displayName}</div>
+                      <div className="mb-2 flex flex-wrap items-center gap-3">
+                        <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+                          {displayName}
+                        </h2>
                         {profile?.mmrStatus === "verified" ? (
                           <span
                             title="MMR аккаунта подтвержден"
@@ -747,175 +753,175 @@ export function ProfilePageClient({
                   </div>
                 )}
               </div>
-              {!profile?.steamId ? (
-                hasPendingSteamLink ? (
-                  <div className="mt-2 border-[4px] border-[#CD9C3E] bg-[#061726] p-5 shadow-[6px_6px_0px_0px_#CD9C3E]">
-                    <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
-                      Steam Link
-                    </p>
-                    <p className="mt-3 max-w-xl text-sm font-medium text-white">
-                      Авторизация в Steam завершена. Подтвердите привязку аккаунта
-                      первым кликом на сайте.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => void handleFinalizeSteam()}
-                      disabled={isFinalizingSteam}
-                      className="mt-4 flex w-full items-center justify-center border-[3px] border-[#061726] bg-[#CD9C3E] px-6 py-4 text-center text-base font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70 md:w-auto"
-                    >
-                      {isFinalizingSteam
-                        ? "ПОДТВЕРЖДЕНИЕ..."
-                        : "ШАГ 2: ПОДТВЕРДИТЬ ПРИВЯЗКУ"}
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => void handleLinkSteam()}
-                    disabled={isLinkingSteam}
-                    className="flex w-full items-center justify-center gap-2 border-[3px] border-[#061726] bg-[#171A21] px-6 py-3 font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-70 md:w-auto"
-                  >
-                    {isLinkingSteam ? "ПРИВЯЗКА STEAM..." : "ПРИВЯЗАТЬ STEAM"}
-                  </button>
-                )
-              ) : (
-                <div className="mt-2 border-[3px] border-[#061726] bg-[#061726] p-4 shadow-[4px_4px_0px_0px_#061726]">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                    {profile.avatarUrl ? (
-                      <Image
-                        src={profile.avatarUrl}
-                        alt={`Аватар Steam ${profile.username ?? profile.nickname}`}
-                        width={64}
-                        height={64}
-                        unoptimized
-                        className="h-16 w-16 border-[3px] border-[#061726] object-cover"
-                      />
-                    ) : (
-                      <div className="h-16 w-16 border-[3px] border-[#061726] bg-[#0B3A4A]" />
-                    )}
-                    <div className="space-y-2">
-                      <p className="text-lg font-black uppercase text-white">
-                        {profile.username ?? profile.nickname}
-                      </p>
-                      <p className="text-sm font-bold text-gray-300">
-                        SteamID64: {profile.steamId}
-                      </p>
-                      <span className="inline-flex w-fit border-[3px] border-[#061726] bg-green-800 px-4 py-2 text-sm font-black uppercase text-green-200 shadow-[4px_4px_0px_0px_#061726]">
-                        STEAM ПРИВЯЗАН
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-                {hasPasskey ? (
-                  <div className="w-fit border-[3px] border-[#061726] bg-green-800 px-6 py-2 text-sm font-extrabold uppercase text-green-200 shadow-[4px_4px_0px_0px_#061726]">
-                    БИОМЕТРИЯ ПОДКЛЮЧЕНА
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => void handleRegisterDevice()}
-                    disabled={isRegisteringDevice || !hasLoadedDeviceBinding}
-                    className={
-                      isRegisteringDevice
-                        ? mutedStatusButtonClassName
-                        : !hasLoadedDeviceBinding
-                          ? mutedStatusButtonClassName
-                          : primaryActionButtonClassName
-                    }
-                  >
-                    {isRegisteringDevice
-                      ? "ПОДКЛЮЧЕНИЕ..."
-                      : !hasLoadedDeviceBinding
-                        ? "ПРОВЕРЯЮ БИОМЕТРИЮ..."
-                        : "ПОДКЛЮЧИТЬ БИОМЕТРИЮ"}
-                  </button>
-                )}
-                {deviceMessage && (
-                  <p className="text-sm text-white/80">{deviceMessage}</p>
-                )}
-              </div>
-              <div className="mt-5 border-[3px] border-[#061726] bg-[#061726] p-5 shadow-[4px_4px_0px_0px_#061726]">
-                <p className="text-sm font-black uppercase tracking-[0.18em] text-[#CD9C3E]">
-                  ТЕКУЩИЙ MMR
-                </p>
-                {!hasMMR || isEditingMMR ? (
-                  <>
-                    <p className="mt-3 text-sm font-medium text-white/80">
-                      Укажите текущий MMR. Без этого нельзя вступить в команду и
-                      подтвердить участие в турнире.
-                    </p>
-                    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-                      <input
-                        type="number"
-                        value={newMMRValue}
-                        onChange={(event) => setNewMMRValue(event.target.value)}
-                        disabled={isSavingMMR}
-                        min={1}
-                        step={1}
-                        inputMode="numeric"
-                        placeholder="Например 4500"
-                        className="w-full bg-transparent border border-gray-600 p-2 text-white outline-none placeholder:text-white/40 sm:max-w-xs"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void handleSavePlayerMMR()}
-                        disabled={isSavingMMR}
-                        className="w-fit border-[3px] border-[#061726] bg-[#CD9C3E] px-5 py-2 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70"
-                      >
-                        {isSavingMMR ? "СОХРАНЕНИЕ..." : "СОХРАНИТЬ"}
-                      </button>
-                      {hasMMR && (
+              <div className="mt-5 space-y-5">
+                <div className={settingsPanelClassName}>
+                  {!profile?.steamId ? (
+                    hasPendingSteamLink ? (
+                      <div className="border-[4px] border-[#CD9C3E] bg-[#061726] p-5 shadow-[6px_6px_0px_0px_#CD9C3E]">
+                        <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
+                          Steam Link
+                        </p>
+                        <p className="mt-3 max-w-xl text-sm font-medium text-white">
+                          Авторизация в Steam завершена. Подтвердите привязку аккаунта
+                          первым кликом на сайте.
+                        </p>
                         <button
                           type="button"
-                          onClick={handleCancelEditingMMR}
-                          disabled={isSavingMMR}
-                          className="w-fit border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-70"
+                          onClick={() => void handleFinalizeSteam()}
+                          disabled={isFinalizingSteam}
+                          className="mt-4 flex w-full items-center justify-center border-[3px] border-[#061726] bg-[#CD9C3E] px-6 py-4 text-center text-base font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70 md:w-auto"
                         >
-                          ОТМЕНА
+                          {isFinalizingSteam
+                            ? "ПОДТВЕРЖДЕНИЕ..."
+                            : "ШАГ 2: ПОДТВЕРДИТЬ ПРИВЯЗКУ"}
                         </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void handleLinkSteam()}
+                        disabled={isLinkingSteam}
+                        className="flex w-full items-center justify-center gap-2 border-[3px] border-[#061726] bg-[#171A21] px-6 py-3 font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-70 md:w-auto"
+                      >
+                        {isLinkingSteam ? "ПРИВЯЗКА STEAM..." : "ПРИВЯЗАТЬ STEAM"}
+                      </button>
+                    )
+                  ) : (
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                      {profile.avatarUrl ? (
+                        <Image
+                          src={profile.avatarUrl}
+                          alt={`Аватар Steam ${profile.username ?? profile.nickname}`}
+                          width={64}
+                          height={64}
+                          unoptimized
+                          className="h-16 w-16 border-[3px] border-[#061726] object-cover"
+                        />
+                      ) : (
+                        <div className="h-16 w-16 border-[3px] border-[#061726] bg-[#0B3A4A]" />
                       )}
+                      <div className="space-y-2">
+                        <p className="text-lg font-black uppercase text-white">
+                          {profile.username ?? profile.nickname}
+                        </p>
+                        <p className="text-sm font-bold text-gray-300">
+                          SteamID64: {profile.steamId}
+                        </p>
+                        <span className="inline-flex w-fit border-[3px] border-[#061726] bg-green-800 px-4 py-2 text-sm font-black uppercase text-green-200 shadow-[4px_4px_0px_0px_#061726]">
+                          STEAM ПРИВЯЗАН
+                        </span>
+                      </div>
                     </div>
-                  </>
-                ) : (
-                  <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-lg font-black uppercase text-white">
-                      ТЕКУЩИЙ MMR: {formattedMMR}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleStartEditingMMR}
-                      className="w-fit border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
-                    >
-                      ИЗМЕНИТЬ
-                    </button>
+                  )}
+                </div>
+
+                <div className={settingsPanelClassName}>
+                  <p className={settingsPanelLabelClassName}>Биометрия</p>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    {hasPasskey ? (
+                      <div className="w-fit border-[3px] border-[#061726] bg-green-800 px-6 py-2 text-sm font-extrabold uppercase text-green-200 shadow-[4px_4px_0px_0px_#061726]">
+                        БИОМЕТРИЯ ПОДКЛЮЧЕНА
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void handleRegisterDevice()}
+                        disabled={isRegisteringDevice || !hasLoadedDeviceBinding}
+                        className={
+                          isRegisteringDevice
+                            ? mutedStatusButtonClassName
+                            : !hasLoadedDeviceBinding
+                              ? mutedStatusButtonClassName
+                              : primaryActionButtonClassName
+                        }
+                      >
+                        {isRegisteringDevice
+                          ? "ПОДКЛЮЧЕНИЕ..."
+                          : !hasLoadedDeviceBinding
+                            ? "ПРОВЕРЯЮ БИОМЕТРИЮ..."
+                            : "ПОДКЛЮЧИТЬ БИОМЕТРИЮ"}
+                      </button>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="mt-5 max-w-xl border-[3px] border-[#061726] bg-[#123C4D] p-5 shadow-[4px_4px_0px_0px_#061726]">
-                <p className="text-sm font-black uppercase tracking-[0.18em] text-white">
-                  Зачем включать уведомления?
-                </p>
-                <ul className="mt-3 space-y-2 text-sm font-bold text-white/90">
-                  <li className="flex items-start gap-2">
-                    <span className="text-[#CD9C3E]">•</span>
-                    <span>Важные анонсы турнира</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-[#CD9C3E]">•</span>
-                    <span>Напоминания перед стартом матчей</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-[#CD9C3E]">•</span>
-                    <span>Уведомления о готовности лобби</span>
-                  </li>
-                </ul>
-                <div className="mt-4">
-                  <PushToggleButton
-                    initialHasPushSubscription={hasPushSubscription}
-                    onSubscribed={() => setHasPushSubscription(true)}
-                  />
+                  {deviceMessage && <p className="mt-3 text-sm text-white/80">{deviceMessage}</p>}
+                </div>
+
+                <div className={settingsPanelClassName}>
+                  <p className={settingsPanelLabelClassName}>Текущий MMR</p>
+                  {!hasMMR || isEditingMMR ? (
+                    <>
+                      <p className="text-sm font-medium text-white/80">
+                        Укажите текущий MMR. Без этого нельзя вступить в команду и
+                        подтвердить участие в турнире.
+                      </p>
+                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <input
+                          type="number"
+                          value={newMMRValue}
+                          onChange={(event) => setNewMMRValue(event.target.value)}
+                          disabled={isSavingMMR}
+                          min={1}
+                          step={1}
+                          inputMode="numeric"
+                          placeholder="Например 4500"
+                          className="w-full border border-gray-600 bg-transparent p-2 text-white outline-none placeholder:text-white/40 sm:max-w-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void handleSavePlayerMMR()}
+                          disabled={isSavingMMR}
+                          className="w-fit border-[3px] border-[#061726] bg-[#CD9C3E] px-5 py-2 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70"
+                        >
+                          {isSavingMMR ? "СОХРАНЕНИЕ..." : "СОХРАНИТЬ"}
+                        </button>
+                        {hasMMR && (
+                          <button
+                            type="button"
+                            onClick={handleCancelEditingMMR}
+                            disabled={isSavingMMR}
+                            className="w-fit border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-70"
+                          >
+                            ОТМЕНА
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-lg font-black uppercase text-white">
+                        ТЕКУЩИЙ MMR: {formattedMMR}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleStartEditingMMR}
+                        className="w-fit border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+                      >
+                        ИЗМЕНИТЬ
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className={settingsPanelClassName}>
+                  <details>
+                    <summary className="text-xs text-gray-400 uppercase font-bold mb-2 cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center justify-between">
+                      Уведомления
+                      <span className="border border-gray-600 px-1 rounded text-[10px] ml-2">
+                        [ ? ]
+                      </span>
+                    </summary>
+                    <ul className="mt-2 space-y-1 text-xs text-gray-500">
+                      <li>Важные анонсы турнира</li>
+                      <li>Напоминания перед стартом матчей</li>
+                      <li>Уведомления о готовности лобби</li>
+                    </ul>
+                  </details>
+                  <div className="mt-4">
+                    <PushToggleButton
+                      initialHasPushSubscription={hasPushSubscription}
+                      onSubscribed={() => setHasPushSubscription(true)}
+                    />
+                  </div>
                 </div>
               </div>
               <button
