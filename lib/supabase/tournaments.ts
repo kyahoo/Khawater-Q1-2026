@@ -240,7 +240,7 @@ export async function listTournaments() {
   let data = result.data as TournamentSelectRow[] | null;
   let error = result.error;
 
-  if (error && isMissingTournamentThresholdColumnError(error)) {
+  if (error && isMissingTournamentColumnsError(error)) {
     const legacyResult = await supabase
       .from("tournaments")
       .select(LEGACY_TOURNAMENT_SELECT_COLUMNS)

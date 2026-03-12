@@ -289,40 +289,6 @@ function getMMRValueInputClassName(mmr: number | null) {
   return `${baseClassName} border-gray-600 bg-transparent text-gray-500 focus:border-[#CD9C3E]`;
 }
 
-function getPlayerMedalSelectClassName(medal: AdminMedalSelectionValue) {
-  const baseClassName = PLAYER_METRIC_SELECT_CLASSNAME;
-
-  if (medal === "gold") {
-    return `${baseClassName} border-[#CD9C3E] bg-[#CD9C3E]/10 text-[#8A6418]`;
-  }
-
-  if (medal === "silver") {
-    return `${baseClassName} border-gray-500 bg-gray-300/10 text-gray-600`;
-  }
-
-  if (medal === "bronze") {
-    return `${baseClassName} border-amber-700 bg-amber-600/10 text-amber-700`;
-  }
-
-  if (medal === "clear") {
-    return `${baseClassName} border-red-700 bg-red-900/10 text-red-600`;
-  }
-
-  return `${baseClassName} border-gray-700 bg-transparent text-gray-500`;
-}
-
-function getPlayerMedalChipClassName(medal: PlayerMedalValue) {
-  if (medal === "gold") {
-    return "border-[#CD9C3E] bg-[#CD9C3E]/10 text-[#8A6418]";
-  }
-
-  if (medal === "silver") {
-    return "border-gray-500 bg-gray-300/10 text-gray-700";
-  }
-
-  return "border-amber-700 bg-amber-600/10 text-amber-700";
-}
-
 async function getSocialTemplateStatus() {
   try {
     const supabase = getSupabaseBrowserClient();
@@ -2401,19 +2367,19 @@ export default function AdminPage() {
                             </div>
                           </div>
 
-                          <div className="border-2 border-[#061726] bg-white p-3 shadow-[2px_2px_0px_0px_#061726]">
-                            <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#061726]">
-                              УПРАВЛЕНИЕ МЕДАЛЯМИ
-                            </div>
+                          <div className="mt-4 w-full border border-gray-600 bg-gray-900/50 p-3">
+                            <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                              Управление медалями
+                            </h4>
 
                             {tournaments.length === 0 ? (
-                              <p className="mt-3 text-sm text-zinc-500">
+                              <p className="text-[10px] uppercase text-gray-500">
                                 Сначала создайте турнир, чтобы назначать медали.
                               </p>
                             ) : (
                               <>
-                                <div className="mt-3 flex flex-col gap-2 xl:flex-row">
-                                  <label className="block xl:flex-1">
+                                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+                                  <label className="block w-full sm:w-auto">
                                     <span className="sr-only">Выбор турнира для медали</span>
                                     <select
                                       value={
@@ -2430,7 +2396,7 @@ export default function AdminPage() {
                                         )
                                       }
                                       disabled={isSavingPlayerMedalUserId === player.id}
-                                      className={`${PLAYER_METRIC_SELECT_CLASSNAME} h-10 w-full border-[#061726] bg-white text-[#061726]`}
+                                      className="w-full min-w-[120px] max-w-[200px] truncate border border-gray-600 bg-transparent p-1.5 text-xs text-white focus:border-yellow-500 focus:outline-none sm:w-auto"
                                     >
                                       {tournaments.map((tournament) => (
                                         <option key={tournament.id} value={tournament.id}>
@@ -2439,7 +2405,7 @@ export default function AdminPage() {
                                       ))}
                                     </select>
                                   </label>
-                                  <label className="block xl:flex-1">
+                                  <label className="block w-full sm:w-auto">
                                     <span className="sr-only">Выбор медали</span>
                                     <select
                                       value={playerMedalDrafts[player.id]?.medal ?? ""}
@@ -2451,9 +2417,7 @@ export default function AdminPage() {
                                         )
                                       }
                                       disabled={isSavingPlayerMedalUserId === player.id}
-                                      className={`${getPlayerMedalSelectClassName(
-                                        playerMedalDrafts[player.id]?.medal ?? ""
-                                      )} h-10 w-full`}
+                                      className="w-full min-w-[120px] max-w-[200px] truncate border border-gray-600 bg-transparent p-1.5 text-xs text-white focus:border-yellow-500 focus:outline-none sm:w-auto"
                                     >
                                       {PLAYER_MEDAL_OPTIONS.map((option) => (
                                         <option key={option.value} value={option.value}>
@@ -2472,7 +2436,7 @@ export default function AdminPage() {
                                         ""
                                       )
                                     }
-                                    className="inline-flex h-10 items-center justify-center border-2 border-[#061726] bg-[#CD9C3E] px-4 text-xs font-black uppercase tracking-[0.16em] text-[#061726] shadow-[2px_2px_0px_0px_#061726] disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="whitespace-nowrap border border-gray-500 bg-gray-800 px-3 py-1.5 text-xs uppercase transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                                   >
                                     {isSavingPlayerMedalUserId === player.id
                                       ? "СОХРАНЕНИЕ..."
@@ -2482,16 +2446,14 @@ export default function AdminPage() {
 
                                 <div className="mt-3 flex flex-wrap gap-2">
                                   {player.medals.length === 0 ? (
-                                    <div className="border border-dashed border-zinc-300 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-zinc-400">
+                                    <span className="text-[10px] uppercase text-gray-500">
                                       Медалей пока нет
-                                    </div>
+                                    </span>
                                   ) : (
                                     player.medals.map((medal) => (
-                                      <div
+                                      <span
                                         key={medal.id}
-                                        className={`inline-flex items-center gap-2 border px-2 py-1 text-xs font-black uppercase tracking-[0.12em] ${getPlayerMedalChipClassName(
-                                          medal.medal
-                                        )}`}
+                                        className="flex items-center gap-2 border border-gray-600 bg-black px-2 py-1 text-xs"
                                       >
                                         <span title={getPlayerMedalTitle(medal)}>
                                           {PLAYER_MEDAL_META[medal.medal].icon}
@@ -2508,12 +2470,12 @@ export default function AdminPage() {
                                             )
                                           }
                                           disabled={isSavingPlayerMedalUserId === player.id}
-                                          className="border border-current px-1 leading-none disabled:cursor-not-allowed disabled:opacity-50"
+                                          className="ml-2 text-red-500 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
                                           aria-label={`Удалить медаль ${medal.tournamentName}`}
                                         >
                                           x
                                         </button>
-                                      </div>
+                                      </span>
                                     ))
                                   )}
                                 </div>
