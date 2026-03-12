@@ -7,6 +7,7 @@ import {
   adminForceAddPlayerToTeam,
   adminRemovePlayerFromTeam,
   createAdminPlayerAction,
+  deleteTournament,
   deletePlayer,
   deleteMultipleMatches,
   deleteMatch,
@@ -415,6 +416,7 @@ export default function AdminPage() {
     useState(false);
   const [isUploadingScheduleBackground, setIsUploadingScheduleBackground] =
     useState(false);
+  const [isDeletingTournamentId, setIsDeletingTournamentId] = useState<string | null>(null);
   const [isGeneratingStandingsImage, setIsGeneratingStandingsImage] = useState(false);
   const [isGeneratingScheduleDay, setIsGeneratingScheduleDay] = useState<
     ScheduleDayParam | null
@@ -425,6 +427,7 @@ export default function AdminPage() {
     useState("10");
   const [playerMMRInputs, setPlayerMMRInputs] = useState<Record<string, string>>({});
   const [, startMMRUpdateTransition] = useTransition();
+  const [, startTournamentDeleteTransition] = useTransition();
 
   async function getCurrentAdminAccessToken() {
     const supabase = getSupabaseBrowserClient();
@@ -1107,6 +1110,45 @@ export default function AdminPage() {
     } finally {
       setIsSwitchingTournamentId(null);
     }
+  }
+
+  function handleDeleteTournament(tournamentId: string) {
+    const shouldDelete = window.confirm(
+      "Вы уверены, что хотите удалить этот турнир? Это действие необратимо."
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setErrorMessage("");
+    setIsDeletingTournamentId(tournamentId);
+
+    startTournamentDeleteTransition(() => {
+      void (async () => {
+        try {
+          const result = await deleteTournament(tournamentId);
+
+          if (result.error) {
+            throw new Error(result.error);
+          }
+
+          if (editingBannerTournamentId === tournamentId) {
+            setEditingBannerTournamentId(null);
+            setSelectedBannerFile(null);
+          }
+
+          await refreshAdminData();
+          router.refresh();
+        } catch (error) {
+          setErrorMessage(
+            error instanceof Error ? error.message : "Could not delete tournament."
+          );
+        } finally {
+          setIsDeletingTournamentId(null);
+        }
+      })();
+    });
   }
 
   async function handleSaveActiveTournamentCheckInThreshold() {
@@ -2773,6 +2815,16 @@ export default function AdminPage() {
                                 : isSwitchingTournamentId === tournament.id
                                   ? "Updating..."
                                   : "Set Active"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTournament(tournament.id)}
+                              disabled={isDeletingTournamentId === tournament.id}
+                              className="rounded border border-red-600 px-3 py-1 text-sm font-bold uppercase text-red-500 transition-colors hover:bg-red-900/30 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {isDeletingTournamentId === tournament.id
+                                ? "Deleting..."
+                                : "Delete"}
                             </button>
                           </div>
                         </div>

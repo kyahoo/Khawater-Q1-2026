@@ -74,6 +74,10 @@ type DeleteMultipleMatchesResult = {
   error: string | null;
 };
 
+type DeleteTournamentResult = {
+  error: string | null;
+};
+
 type AdminActionContext = {
   supabaseUrl: string;
   serviceRoleKey: string;
@@ -962,6 +966,160 @@ export async function deleteMatch(
   revalidatePath("/matches");
   revalidatePath(`/matches/${normalizedMatchId}`);
   revalidatePath("/admin");
+
+  return {
+    error: null,
+  };
+}
+
+export async function deleteTournament(
+  tournamentId: string
+): Promise<DeleteTournamentResult> {
+  const normalizedTournamentId = tournamentId.trim();
+
+  if (!normalizedTournamentId) {
+    return {
+      error: "Tournament is required.",
+    };
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return {
+      error: "Missing Supabase server environment configuration.",
+    };
+  }
+
+  const supabase = await getSupabaseServerClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      error: "Could not verify admin session.",
+    };
+  }
+
+  const { data: actingProfile, error: actingProfileError } = await supabase
+    .from("profiles")
+    .select("id, is_admin")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (actingProfileError || !actingProfile?.is_admin) {
+    return {
+      error: "You do not have admin access for this action.",
+    };
+  }
+
+  const adminClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+
+  const { data: matches, error: matchesError } = await adminClient
+    .from("tournament_matches")
+    .select("id")
+    .eq("tournament_id", normalizedTournamentId);
+
+  if (matchesError) {
+    return {
+      error: matchesError.message,
+    };
+  }
+
+  const matchIds = (matches ?? []).map((match) => match.id as string);
+
+  if (matchIds.length > 0) {
+    const { error: deleteBehaviorLogsError } = await adminClient
+      .from("behavior_logs")
+      .delete()
+      .in("match_id", matchIds);
+
+    if (deleteBehaviorLogsError) {
+      return {
+        error: deleteBehaviorLogsError.message,
+      };
+    }
+
+    const { error: deleteLobbyPhotosError } = await adminClient
+      .from("match_lobby_photos")
+      .delete()
+      .in("match_id", matchIds);
+
+    if (deleteLobbyPhotosError) {
+      return {
+        error: deleteLobbyPhotosError.message,
+      };
+    }
+
+    const { error: deleteCheckInsError } = await adminClient
+      .from("match_check_ins")
+      .delete()
+      .in("match_id", matchIds);
+
+    if (deleteCheckInsError) {
+      return {
+        error: deleteCheckInsError.message,
+      };
+    }
+
+    const { error: deleteMatchesError } = await adminClient
+      .from("tournament_matches")
+      .delete()
+      .in("id", matchIds);
+
+    if (deleteMatchesError) {
+      return {
+        error: deleteMatchesError.message,
+      };
+    }
+  }
+
+  const { error: deleteConfirmationsError } = await adminClient
+    .from("tournament_confirmations")
+    .delete()
+    .eq("tournament_id", normalizedTournamentId);
+
+  if (deleteConfirmationsError) {
+    return {
+      error: deleteConfirmationsError.message,
+    };
+  }
+
+  const { error: deleteEntriesError } = await adminClient
+    .from("tournament_team_entries")
+    .delete()
+    .eq("tournament_id", normalizedTournamentId);
+
+  if (deleteEntriesError) {
+    return {
+      error: deleteEntriesError.message,
+    };
+  }
+
+  const { error: deleteTournamentError } = await adminClient
+    .from("tournaments")
+    .delete()
+    .eq("id", normalizedTournamentId);
+
+  if (deleteTournamentError) {
+    return {
+      error: deleteTournamentError.message,
+    };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/tournament");
+  revalidatePath("/matches");
+  revalidatePath("/tasks");
+  revalidatePath("/profile");
 
   return {
     error: null,
