@@ -43,7 +43,7 @@ export default function AuthPage() {
         fill
         unoptimized={true}
         priority
-        className="object-cover object-center"
+        className="animate-ambient-breathe object-cover object-center"
         sizes="100vw"
       />
 

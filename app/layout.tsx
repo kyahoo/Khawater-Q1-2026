@@ -34,7 +34,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-[100dvh] overscroll-none overflow-x-hidden bg-[#0B3A4A] font-sans text-slate-900 antialiased`}
       >
-        <div aria-hidden="true" className="pointer-events-none fixed inset-0">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 overflow-hidden"
+        >
           <Image
             src="/esports-bg.avif"
             alt=""
@@ -42,7 +45,7 @@ export default function RootLayout({
             unoptimized={true}
             priority
             sizes="100vw"
-            className="object-cover object-[75%_center] md:object-center"
+            className="animate-ambient-breathe object-cover object-[75%_center] md:object-center"
           />
         </div>
 
