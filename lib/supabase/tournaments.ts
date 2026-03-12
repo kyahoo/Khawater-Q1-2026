@@ -1,5 +1,6 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
+import { getProfileByUserId } from "@/lib/supabase/profiles";
 
 const TOURNAMENT_SELECT_COLUMNS =
   "id, name, banner_url, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, check_in_threshold, created_at";
@@ -357,6 +358,14 @@ export async function confirmTournamentParticipation(
   tournamentId: string,
   userId: string
 ) {
+  const profile = await getProfileByUserId(userId);
+
+  if (!profile?.mmr) {
+    throw new Error(
+      "Укажите текущий MMR в профиле перед подтверждением участия."
+    );
+  }
+
   const supabase = getSupabaseBrowserClient();
   const payload: TournamentConfirmationInsert = {
     tournament_id: tournamentId,

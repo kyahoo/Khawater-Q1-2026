@@ -19,6 +19,7 @@ export type Database = {
           created_at: string;
           is_admin: boolean;
           behavior_score: number;
+          mmr: number | null;
           mmr_status: string;
           tournament_badge: string;
         };
@@ -31,6 +32,7 @@ export type Database = {
           created_at?: string;
           is_admin?: boolean;
           behavior_score?: number;
+          mmr?: number | null;
           mmr_status?: string;
           tournament_badge?: string;
         };
@@ -43,6 +45,7 @@ export type Database = {
           created_at?: string;
           is_admin?: boolean;
           behavior_score?: number;
+          mmr?: number | null;
           mmr_status?: string;
           tournament_badge?: string;
         };

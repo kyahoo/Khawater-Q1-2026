@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { getProfileByUserId } from "@/lib/supabase/profiles";
+import { getProfileByUserId, type Profile } from "@/lib/supabase/profiles";
 import {
   getCurrentMembership,
   joinTeam,
@@ -13,6 +14,7 @@ import {
 
 export default function JoinTeamPage() {
   const router = useRouter();
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [teams, setTeams] = useState<TeamListItem[]>([]);
   const [currentTeamId, setCurrentTeamId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +40,8 @@ export default function JoinTeamPage() {
           router.replace("/player-setup");
           return;
         }
+
+        setProfile(profile);
 
         const [membership, teamList] = await Promise.all([
           getCurrentMembership(user.id),
@@ -77,6 +81,13 @@ export default function JoinTeamPage() {
         return;
       }
 
+      const nextProfile = await getProfileByUserId(user.id);
+
+      if (!nextProfile?.mmr) {
+        setProfile(nextProfile);
+        throw new Error("Укажите текущий MMR в профиле перед вступлением в команду.");
+      }
+
       await joinTeam({ teamId, userId: user.id });
       setCurrentTeamId(teamId);
       setTeams((currentTeams) =>
@@ -105,6 +116,8 @@ export default function JoinTeamPage() {
     );
   }
 
+  const hasMMR = Boolean(profile?.mmr);
+
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-900">
 
@@ -117,6 +130,16 @@ export default function JoinTeamPage() {
           already entered the active tournament have a locked roster and cannot
           be joined.
         </p>
+
+        {!hasMMR && (
+          <div className="mb-6 border border-amber-400 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+            Add your current MMR on the{" "}
+            <Link href="/profile" className="font-semibold underline">
+              profile page
+            </Link>{" "}
+            before joining a team.
+          </div>
+        )}
 
         {errorMessage && (
           <p className="mb-6 text-sm leading-7 text-red-600">{errorMessage}</p>
@@ -131,6 +154,7 @@ export default function JoinTeamPage() {
               const isCurrentTeam = currentTeamId === team.id;
               const isBlockedByExistingTeam = Boolean(currentTeamId) && !isCurrentTeam;
               const isLockedForActiveTournament = team.isLockedForActiveTournament;
+              const isBlockedByMissingMMR = !hasMMR;
 
               return (
                 <div
@@ -156,12 +180,16 @@ export default function JoinTeamPage() {
                     disabled={
                       isCurrentTeam ||
                       isBlockedByExistingTeam ||
+                      isBlockedByMissingMMR ||
                       isLockedForActiveTournament ||
                       joiningTeamId === team.id
                     }
                     onClick={() => void handleJoin(team.id)}
                     className={`w-fit rounded border px-4 py-2 text-sm font-medium ${
-                      isCurrentTeam || isBlockedByExistingTeam || isLockedForActiveTournament
+                      isCurrentTeam ||
+                      isBlockedByExistingTeam ||
+                      isBlockedByMissingMMR ||
+                      isLockedForActiveTournament
                         ? "border-zinc-300 bg-zinc-100 text-zinc-500"
                         : "border-zinc-400 bg-zinc-100 text-zinc-900"
                     }`}
@@ -170,6 +198,8 @@ export default function JoinTeamPage() {
                       ? "Joined"
                       : isBlockedByExistingTeam
                         ? "Already on a Team"
+                        : isBlockedByMissingMMR
+                          ? "MMR Required"
                         : isLockedForActiveTournament
                           ? "Roster Locked"
                         : joiningTeamId === team.id

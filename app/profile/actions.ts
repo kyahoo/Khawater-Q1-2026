@@ -286,6 +286,53 @@ export async function updateProfileName(
   };
 }
 
+export async function updatePlayerMMR(
+  accessToken: string,
+  mmr: number
+): Promise<{ error: string | null }> {
+  const trimmedToken = accessToken.trim();
+  const normalizedMMR = Number(mmr);
+
+  if (!trimmedToken) {
+    return {
+      error: "Session is required.",
+    };
+  }
+
+  if (!Number.isInteger(normalizedMMR) || normalizedMMR <= 0) {
+    return {
+      error: "Укажите корректный текущий MMR.",
+    };
+  }
+
+  const authResult = await getProfileActionContext(trimmedToken);
+
+  if (authResult.error || !authResult.context) {
+    return {
+      error: authResult.error ?? "Could not verify your session.",
+    };
+  }
+
+  const { user, adminClient } = authResult.context;
+  const { error: updateError } = await adminClient
+    .from("profiles")
+    .update({ mmr: normalizedMMR })
+    .eq("id", user.id);
+
+  if (updateError) {
+    return {
+      error: updateError.message,
+    };
+  }
+
+  revalidatePath("/profile");
+  revalidatePath("/join-team");
+
+  return {
+    error: null,
+  };
+}
+
 export async function getProfilePasskeyRegistrationOptions(
   accessToken: string
 ): Promise<BeginProfilePasskeyRegistrationResult> {

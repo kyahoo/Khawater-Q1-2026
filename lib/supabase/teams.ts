@@ -1,4 +1,5 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getProfileByUserId } from "@/lib/supabase/profiles";
 
 export type Team = {
   id: string;
@@ -295,6 +296,12 @@ export async function createTeamForAdmin(params: {
 }
 
 export async function joinTeam(params: { teamId: string; userId: string }) {
+  const profile = await getProfileByUserId(params.userId);
+
+  if (!profile?.mmr) {
+    throw new Error("Укажите текущий MMR в профиле перед вступлением в команду.");
+  }
+
   const supabase = getSupabaseBrowserClient();
   const { error } = await supabase.from("team_members").insert({
     team_id: params.teamId,

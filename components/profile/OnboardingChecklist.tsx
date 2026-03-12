@@ -2,6 +2,7 @@ type OnboardingChecklistProps = {
   hasName: boolean;
   hasSteam: boolean;
   hasDevice: boolean;
+  hasMMR: boolean;
   hasTeam: boolean;
   isConfirmed: boolean;
   hasPushSubscription: boolean;
@@ -32,6 +33,7 @@ export function OnboardingChecklist({
   hasName,
   hasSteam,
   hasDevice,
+  hasMMR,
   hasTeam,
   isConfirmed,
   hasPushSubscription,
@@ -48,6 +50,10 @@ export function OnboardingChecklist({
     {
       label: "Подключить биометрию (для входа)",
       completed: hasDevice,
+    },
+    {
+      label: "Указать текущий MMR",
+      completed: hasMMR,
     },
     {
       label: "Вступить в команду",
@@ -77,7 +83,9 @@ export function OnboardingChecklist({
             isReadyForTournament ? "text-green-400" : "text-white/75"
           }`}
         >
-          {isReadyForTournament ? "ГОТОВ К ТУРНИРУ" : `${completedSteps}/6`}
+          {isReadyForTournament
+            ? "ГОТОВ К ТУРНИРУ"
+            : `${completedSteps}/${items.length}`}
         </p>
       </div>
 

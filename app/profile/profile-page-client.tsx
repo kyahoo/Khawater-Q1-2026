@@ -24,6 +24,7 @@ import {
   finalizeSteamLink,
   getProfilePasskeyBindingStatus,
   getProfilePasskeyRegistrationOptions,
+  updatePlayerMMR,
   updateProfileName,
   verifyProfilePasskeyRegistration,
 } from "./actions";
@@ -101,6 +102,9 @@ export function ProfilePageClient({
   const [isEditingName, setIsEditingName] = useState(false);
   const [newNameValue, setNewNameValue] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
+  const [isEditingMMR, setIsEditingMMR] = useState(false);
+  const [newMMRValue, setNewMMRValue] = useState("");
+  const [isSavingMMR, setIsSavingMMR] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [hasLoadedDeviceBinding, setHasLoadedDeviceBinding] = useState(false);
   const [isDeviceBound, setIsDeviceBound] = useState(false);
@@ -133,9 +137,12 @@ export function ProfilePageClient({
   const hasName = Boolean(profile?.nickname?.trim());
   const hasSteam = Boolean(profile?.steamId?.trim());
   const hasDevice = hasPasskey;
+  const hasMMR = profile?.mmr !== null && profile?.mmr !== undefined;
   const hasTeam = Boolean(teamData?.team.id);
   const isConfirmed = Boolean(teamData && activeTournament && isParticipationConfirmed);
   const isTournamentLocked = Boolean(activeTournament && isParticipationConfirmed);
+  const formattedMMR =
+    typeof profile?.mmr === "number" ? profile.mmr.toLocaleString("ru-RU") : null;
 
   function setVisibleErrorMessage(message: string | null) {
     setErrorMessage(sanitizeProfileErrorMessage(message));
@@ -220,6 +227,10 @@ export function ProfilePageClient({
   useEffect(() => {
     setNewNameValue(profile?.username ?? profile?.nickname ?? "");
   }, [profile?.nickname, profile?.username]);
+
+  useEffect(() => {
+    setNewMMRValue(typeof profile?.mmr === "number" ? String(profile.mmr) : "");
+  }, [profile?.mmr]);
 
   useEffect(() => {
     if (isTournamentLocked) {
@@ -315,6 +326,12 @@ export function ProfilePageClient({
       if (!teamData) {
         throw new Error(
           "Join or create a team before confirming tournament participation."
+        );
+      }
+
+      if (!profile?.mmr) {
+        throw new Error(
+          "Укажите текущий MMR в профиле перед подтверждением участия."
         );
       }
 
@@ -477,6 +494,17 @@ export function ProfilePageClient({
     setIsEditingName(false);
   }
 
+  function handleStartEditingMMR() {
+    setNewMMRValue(typeof profile?.mmr === "number" ? String(profile.mmr) : "");
+    setIsEditingMMR(true);
+    setErrorMessage(null);
+  }
+
+  function handleCancelEditingMMR() {
+    setNewMMRValue(typeof profile?.mmr === "number" ? String(profile.mmr) : "");
+    setIsEditingMMR(false);
+  }
+
   async function handleSaveProfileName() {
     setIsSavingName(true);
     setErrorMessage(null);
@@ -515,6 +543,44 @@ export function ProfilePageClient({
     }
   }
 
+  async function handleSavePlayerMMR() {
+    setIsSavingMMR(true);
+    setErrorMessage(null);
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data } = await supabase.auth.getSession();
+      const parsedMMR = Number(newMMRValue);
+      const result = await updatePlayerMMR(
+        data.session?.access_token || "",
+        parsedMMR
+      );
+
+      if (result.error) {
+        setVisibleErrorMessage(result.error);
+        return;
+      }
+
+      setProfile((currentProfile) =>
+        currentProfile
+          ? {
+              ...currentProfile,
+              mmr: parsedMMR,
+            }
+          : currentProfile
+      );
+      setNewMMRValue(String(parsedMMR));
+      setIsEditingMMR(false);
+      router.refresh();
+    } catch (error) {
+      setVisibleErrorMessage(
+        error instanceof Error ? error.message : "Не удалось обновить MMR."
+      );
+    } finally {
+      setIsSavingMMR(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-transparent px-6 py-10 text-zinc-900">
@@ -543,6 +609,7 @@ export function ProfilePageClient({
               hasName={hasName}
               hasSteam={hasSteam}
               hasDevice={hasDevice}
+              hasMMR={hasMMR}
               hasTeam={hasTeam}
               isConfirmed={isConfirmed}
               hasPushSubscription={hasPushSubscription}
@@ -689,6 +756,63 @@ export function ProfilePageClient({
                 )}
                 {deviceMessage && (
                   <p className="text-sm text-white/80">{deviceMessage}</p>
+                )}
+              </div>
+              <div className="mt-5 border-[3px] border-[#061726] bg-[#061726] p-5 shadow-[4px_4px_0px_0px_#061726]">
+                <p className="text-sm font-black uppercase tracking-[0.18em] text-[#CD9C3E]">
+                  ТЕКУЩИЙ MMR
+                </p>
+                {!hasMMR || isEditingMMR ? (
+                  <>
+                    <p className="mt-3 text-sm font-medium text-white/80">
+                      Укажите текущий MMR. Без этого нельзя вступить в команду и
+                      подтвердить участие в турнире.
+                    </p>
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                      <input
+                        type="number"
+                        value={newMMRValue}
+                        onChange={(event) => setNewMMRValue(event.target.value)}
+                        disabled={isSavingMMR}
+                        min={1}
+                        step={1}
+                        inputMode="numeric"
+                        placeholder="Например 4500"
+                        className="w-full bg-transparent border border-gray-600 p-2 text-white outline-none placeholder:text-white/40 sm:max-w-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void handleSavePlayerMMR()}
+                        disabled={isSavingMMR}
+                        className="w-fit border-[3px] border-[#061726] bg-[#CD9C3E] px-5 py-2 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70"
+                      >
+                        {isSavingMMR ? "СОХРАНЕНИЕ..." : "СОХРАНИТЬ"}
+                      </button>
+                      {hasMMR && (
+                        <button
+                          type="button"
+                          onClick={handleCancelEditingMMR}
+                          disabled={isSavingMMR}
+                          className="w-fit border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-70"
+                        >
+                          ОТМЕНА
+                        </button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-lg font-black uppercase text-white">
+                      ТЕКУЩИЙ MMR: {formattedMMR}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleStartEditingMMR}
+                      className="w-fit border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+                    >
+                      ИЗМЕНИТЬ
+                    </button>
+                  </div>
                 )}
               </div>
               <div className="mt-5 max-w-xl border-[3px] border-[#061726] bg-[#123C4D] p-5 shadow-[4px_4px_0px_0px_#061726]">
@@ -848,13 +972,27 @@ export function ProfilePageClient({
                 </p>
               )}
 
+              {!profile?.mmr && (
+                <p className="mt-5 text-sm text-[#CD9C3E]">
+                  Укажите текущий MMR в профиле, чтобы разблокировать
+                  подтверждение участия.
+                </p>
+              )}
+
               <button
                 type="button"
                 onClick={() => void handleConfirmParticipation()}
-                disabled={!activeTournament || !teamData || isConfirmingParticipation}
+                disabled={
+                  !activeTournament ||
+                  !teamData ||
+                  !profile?.mmr ||
+                  isParticipationConfirmed ||
+                  isConfirmingParticipation
+                }
                 className={
                   !activeTournament ||
                   !teamData ||
+                  !profile?.mmr ||
                   isConfirmingParticipation ||
                   isParticipationConfirmed
                     ? mutedStatusButtonClassName
