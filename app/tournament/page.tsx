@@ -831,10 +831,10 @@ export default function TournamentPage() {
                         sizes="100vw"
                         className="absolute inset-0 z-0 h-full w-full object-cover object-top"
                       />
-                      <div className="absolute inset-0 z-0 bg-[#061726]/60" />
+                      <div className="absolute inset-0 z-0 bg-gradient-to-r from-gray-900 via-gray-900/70 to-transparent" />
                     </>
                   )}
-                  <div className="relative z-10">
+                  <div className="relative z-10 max-w-3xl">
                     <div className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[#CD9C3E]">
                       Активный турнир
                     </div>
