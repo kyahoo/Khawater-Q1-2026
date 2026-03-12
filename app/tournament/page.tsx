@@ -40,19 +40,19 @@ type TournamentPlayerMedal = NonNullable<TournamentRosterPlayer["medal"]>;
 
 const TOURNAMENT_MEDAL_BADGES: Record<
   TournamentPlayerMedal,
-  { label: string; className: string }
+  { icon: string; title: string }
 > = {
   gold: {
-    label: "🥇 GOLD",
-    className: "border-yellow-600 text-yellow-500",
+    icon: "🥇",
+    title: "Gold Medalist",
   },
   silver: {
-    label: "🥈 SILVER",
-    className: "border-gray-500 text-gray-300",
+    icon: "🥈",
+    title: "Silver Medalist",
   },
   bronze: {
-    label: "🥉 BRONZE",
-    className: "border-amber-700 text-amber-600",
+    icon: "🥉",
+    title: "Bronze Medalist",
   },
 };
 
@@ -921,12 +921,12 @@ export default function TournamentPage() {
                                         />
                                       ) : null}
                                       {player.medal ? (
-                                        <RosterBadge
-                                          label={TOURNAMENT_MEDAL_BADGES[player.medal].label}
-                                          className={
-                                            TOURNAMENT_MEDAL_BADGES[player.medal].className
-                                          }
-                                        />
+                                        <span
+                                          title={TOURNAMENT_MEDAL_BADGES[player.medal].title}
+                                          className="text-lg leading-none"
+                                        >
+                                          {TOURNAMENT_MEDAL_BADGES[player.medal].icon}
+                                        </span>
                                       ) : null}
                                     </div>
                                   </div>
