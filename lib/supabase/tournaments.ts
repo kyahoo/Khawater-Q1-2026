@@ -7,7 +7,7 @@ import {
 import { getProfileByUserId } from "@/lib/supabase/profiles";
 
 const TOURNAMENT_SELECT_COLUMNS =
-  "id, name, banner_url, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, check_in_threshold, created_at";
+  "id, name, banner_url, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, check_in_threshold, prize_pool, dates, created_at";
 const LEGACY_TOURNAMENT_SELECT_COLUMNS =
   "id, name, banner_url, is_active, number_of_groups, teams_eliminated_per_group, playoff_format, created_at";
 
@@ -29,6 +29,8 @@ type TournamentSelectRow = {
   teams_eliminated_per_group: number;
   playoff_format: string;
   check_in_threshold?: number | null;
+  prize_pool?: string | null;
+  dates?: string | null;
   created_at: string;
 };
 
@@ -41,6 +43,8 @@ export type Tournament = {
   teams_eliminated_per_group: number;
   playoff_format: string;
   check_in_threshold: number;
+  prize_pool: string | null;
+  dates: string | null;
   created_at: string;
 };
 
@@ -136,10 +140,12 @@ function normalizeJoinedRows<T>(value: unknown): T[] {
   return [];
 }
 
-function isMissingTournamentThresholdColumnError(error: unknown) {
+function isMissingTournamentColumnsError(error: unknown) {
   return (
     error instanceof Error &&
-    error.message.includes("column tournaments.check_in_threshold does not exist")
+    (error.message.includes("column tournaments.check_in_threshold does not exist") ||
+      error.message.includes("column tournaments.prize_pool does not exist") ||
+      error.message.includes("column tournaments.dates does not exist"))
   );
 }
 
@@ -153,6 +159,8 @@ function normalizeTournament(row: TournamentSelectRow): Tournament {
     teams_eliminated_per_group: row.teams_eliminated_per_group,
     playoff_format: row.playoff_format,
     check_in_threshold: Math.max(row.check_in_threshold ?? 10, 1),
+    prize_pool: row.prize_pool ?? null,
+    dates: row.dates ?? null,
     created_at: row.created_at,
   };
 }
@@ -165,7 +173,7 @@ async function getTournamentById(tournamentId: string) {
     .eq("id", tournamentId)
     .maybeSingle();
 
-  if (result.error && isMissingTournamentThresholdColumnError(result.error)) {
+  if (result.error && isMissingTournamentColumnsError(result.error)) {
     const legacyResult = await supabase
       .from("tournaments")
       .select(LEGACY_TOURNAMENT_SELECT_COLUMNS)
@@ -196,7 +204,7 @@ export async function getActiveTournament() {
   let data = result.data as TournamentSelectRow[] | null;
   let error = result.error;
 
-  if (error && isMissingTournamentThresholdColumnError(error)) {
+  if (error && isMissingTournamentColumnsError(error)) {
     const legacyResult = await supabase
       .from("tournaments")
       .select(LEGACY_TOURNAMENT_SELECT_COLUMNS)
@@ -255,6 +263,8 @@ export async function createTournament(params: {
   numberOfGroups: number;
   teamsEliminatedPerGroup: number;
   playoffFormat: string;
+  prizePool: string;
+  dates: string;
 }) {
   const supabase = getSupabaseBrowserClient();
   const payload: TournamentInsert = {
@@ -263,6 +273,8 @@ export async function createTournament(params: {
     number_of_groups: params.numberOfGroups,
     teams_eliminated_per_group: params.teamsEliminatedPerGroup,
     playoff_format: params.playoffFormat,
+    prize_pool: params.prizePool,
+    dates: params.dates,
   };
   const { data, error } = await supabase
     .from("tournaments")

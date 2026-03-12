@@ -376,6 +376,8 @@ export default function AdminPage() {
   const [newTournamentPlayoffFormat, setNewTournamentPlayoffFormat] = useState(
     "Single Elimination"
   );
+  const [newTournamentPrizePool, setNewTournamentPrizePool] = useState("");
+  const [newTournamentDates, setNewTournamentDates] = useState("");
   const [newTeamName, setNewTeamName] = useState("");
   const [newPlayerEmail, setNewPlayerEmail] = useState("");
   const [newPlayerNickname, setNewPlayerNickname] = useState("");
@@ -753,6 +755,8 @@ export default function AdminPage() {
 
   async function handleCreateTournament() {
     const trimmedName = newTournamentName.trim();
+    const trimmedPrizePool = newTournamentPrizePool.trim();
+    const trimmedDates = newTournamentDates.trim();
 
     if (!trimmedName) {
       setErrorMessage("Tournament name is required.");
@@ -768,12 +772,16 @@ export default function AdminPage() {
         numberOfGroups: Number(newTournamentNumberOfGroups),
         teamsEliminatedPerGroup: Number(newTournamentTeamsEliminatedPerGroup),
         playoffFormat: newTournamentPlayoffFormat,
+        prizePool: trimmedPrizePool,
+        dates: trimmedDates,
       });
       setTournaments((current) => [createdTournament, ...current]);
       setNewTournamentName("");
       setNewTournamentNumberOfGroups("1");
       setNewTournamentTeamsEliminatedPerGroup("2");
       setNewTournamentPlayoffFormat("Single Elimination");
+      setNewTournamentPrizePool("");
+      setNewTournamentDates("");
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Could not create tournament."
@@ -2948,6 +2956,32 @@ export default function AdminPage() {
                     placeholder="Tournament name"
                     className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
                   />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="flex flex-col gap-2">
+                      <span className="text-xs font-black uppercase tracking-[0.18em] text-[#061726]">
+                        Prize Pool
+                      </span>
+                      <input
+                        type="text"
+                        value={newTournamentPrizePool}
+                        onChange={(event) => setNewTournamentPrizePool(event.target.value)}
+                        placeholder="100,000 KZT"
+                        className="w-full border-[4px] border-[#061726] bg-[#F4EED7] px-3 py-3 text-sm font-bold uppercase tracking-[0.08em] text-[#061726] outline-none placeholder:font-bold placeholder:uppercase placeholder:tracking-[0.08em] placeholder:text-[#061726]/55"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-2">
+                      <span className="text-xs font-black uppercase tracking-[0.18em] text-[#061726]">
+                        Dates
+                      </span>
+                      <input
+                        type="text"
+                        value={newTournamentDates}
+                        onChange={(event) => setNewTournamentDates(event.target.value)}
+                        placeholder="May 10 - May 20"
+                        className="w-full border-[4px] border-[#061726] bg-[#F4EED7] px-3 py-3 text-sm font-bold uppercase tracking-[0.08em] text-[#061726] outline-none placeholder:font-bold placeholder:uppercase placeholder:tracking-[0.08em] placeholder:text-[#061726]/55"
+                      />
+                    </label>
+                  </div>
                   <div className="grid gap-3 sm:grid-cols-3">
                     <select
                       value={newTournamentNumberOfGroups}

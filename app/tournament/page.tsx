@@ -818,30 +818,52 @@ export default function TournamentPage() {
           </section>
         ) : (
           <div className="space-y-6">
-            <section className="relative mb-8 overflow-hidden border-[3px] border-[#061726] bg-[#0B3A4A] p-8 shadow-[6px_6px_0px_0px_#061726]">
-              {activeTournament?.banner_url && (
-                <>
-                  <Image
-                    src={activeTournament.banner_url}
-                    alt={`Баннер турнира ${activeTournament.name}`}
-                    fill
-                    priority={true}
-                    sizes="100vw"
-                    style={{ objectFit: "cover" }}
-                    className="z-0"
-                  />
-                  <div className="absolute inset-0 z-0 bg-[#061726]/60" />
-                </>
-              )}
-              <div className="relative z-10">
-                <div className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[#CD9C3E]">
-                  Активный турнир
+            <details className="mb-8">
+              <summary className="list-none cursor-pointer [&::-webkit-details-marker]:hidden">
+                <div className="relative overflow-hidden border-[3px] border-[#061726] bg-[#0B3A4A] p-8 shadow-[6px_6px_0px_0px_#061726]">
+                  {activeTournament?.banner_url && (
+                    <>
+                      <Image
+                        src={activeTournament.banner_url}
+                        alt={`Баннер турнира ${activeTournament.name}`}
+                        fill
+                        priority={true}
+                        sizes="100vw"
+                        style={{ objectFit: "cover" }}
+                        className="z-0"
+                      />
+                      <div className="absolute inset-0 z-0 bg-[#061726]/60" />
+                    </>
+                  )}
+                  <div className="relative z-10">
+                    <div className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[#CD9C3E]">
+                      Активный турнир
+                    </div>
+                    <h1 className="text-4xl font-extrabold uppercase tracking-tight text-[#CD9C3E] md:text-5xl">
+                      {activeTournament?.name ?? "ЗАГРУЗКА ТУРНИРА"}
+                    </h1>
+                  </div>
                 </div>
-                <h1 className="text-4xl font-extrabold uppercase tracking-tight text-[#CD9C3E] md:text-5xl">
-                  {activeTournament?.name ?? "ЗАГРУЗКА ТУРНИРА"}
-                </h1>
+              </summary>
+              <div className="bg-gray-900 border border-t-0 border-gray-600 p-4 flex justify-around text-center items-center">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-gray-400 uppercase font-bold tracking-wider">
+                    Призовой фонд
+                  </span>
+                  <span className="text-xl font-bold text-yellow-500">
+                    {activeTournament?.prize_pool || "TBD"}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-gray-400 uppercase font-bold tracking-wider">
+                    Даты проведения
+                  </span>
+                  <span className="text-xl font-bold text-white">
+                    {activeTournament?.dates || "TBD"}
+                  </span>
+                </div>
               </div>
-            </section>
+            </details>
 
             <nav className="mb-8 flex flex-wrap gap-3">
               {TOURNAMENT_TABS.map((tab) => (
