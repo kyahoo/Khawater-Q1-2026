@@ -121,10 +121,10 @@ export function SiteHeaderClient({
   }
 
   function navLinkClass(href: string) {
-    return `inline-flex shrink-0 items-center justify-center whitespace-nowrap text-base font-bold uppercase tracking-wide transition-colors touch-manipulation md:text-lg ${
+    return `inline-flex shrink-0 items-center justify-center whitespace-nowrap border-b-4 pb-1 text-base font-bold uppercase tracking-wide transition-colors touch-manipulation md:text-lg ${
       isActivePath(href)
-        ? "text-[#CD9C3E]"
-        : "text-white hover:text-gray-300"
+        ? "border-[#CD9C3E] text-[#CD9C3E]"
+        : "border-transparent text-white hover:text-gray-300"
     }`;
   }
 
@@ -146,8 +146,10 @@ export function SiteHeaderClient({
         <nav className="flex w-full flex-nowrap items-center gap-6 overflow-x-auto px-4 py-4 md:gap-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
           <Link
             href="/tournament"
-            className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap text-base uppercase tracking-tighter touch-manipulation md:text-lg ${
-              pathname === "/tournament" ? "font-black text-[#CD9C3E]" : "font-bold text-white"
+            className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap border-b-4 pb-1 text-base uppercase tracking-tighter touch-manipulation md:text-lg ${
+              pathname === "/tournament"
+                ? "border-[#CD9C3E] font-black text-[#CD9C3E]"
+                : "border-transparent font-bold text-white"
             }`}
           >
             Khawater
