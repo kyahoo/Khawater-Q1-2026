@@ -889,6 +889,40 @@ export async function deleteTeam(
     }
   );
 
+  const { data: activeTournamentEntry, error: activeTournamentEntryError } = await adminClient
+    .from("tournament_team_entries")
+    .select("id, is_suspended, tournaments!inner(is_active)")
+    .eq("team_id", normalizedTeamId)
+    .eq("tournaments.is_active", true)
+    .maybeSingle();
+
+  if (activeTournamentEntryError) {
+    return {
+      error: activeTournamentEntryError.message,
+    };
+  }
+
+  const typedActiveTournamentEntry = activeTournamentEntry as
+    | {
+        id: string;
+        is_suspended: boolean;
+        tournaments:
+          | {
+              is_active: boolean;
+            }
+          | Array<{
+              is_active: boolean;
+            }>
+          | null;
+      }
+    | null;
+
+  if (typedActiveTournamentEntry && !typedActiveTournamentEntry.is_suspended) {
+    return {
+      error: "This team has already entered the active tournament, so its roster is locked.",
+    };
+  }
+
   const { data: matches, error: matchesError } = await adminClient
     .from("tournament_matches")
     .select("id")
@@ -903,6 +937,28 @@ export async function deleteTeam(
   const matchIds = (matches ?? []).map((match) => match.id);
 
   if (matchIds.length > 0) {
+    const { error: deleteBehaviorLogsError } = await adminClient
+      .from("behavior_logs")
+      .delete()
+      .in("match_id", matchIds);
+
+    if (deleteBehaviorLogsError) {
+      return {
+        error: deleteBehaviorLogsError.message,
+      };
+    }
+
+    const { error: deleteLobbyPhotosError } = await adminClient
+      .from("match_lobby_photos")
+      .delete()
+      .in("match_id", matchIds);
+
+    if (deleteLobbyPhotosError) {
+      return {
+        error: deleteLobbyPhotosError.message,
+      };
+    }
+
     const { error: deleteCheckInsError } = await adminClient
       .from("match_check_ins")
       .delete()
@@ -924,6 +980,39 @@ export async function deleteTeam(
         error: deleteMatchesError.message,
       };
     }
+  }
+
+  const { error: deleteTournamentResultsError } = await adminClient
+    .from("tournament_results")
+    .delete()
+    .eq("team_id", normalizedTeamId);
+
+  if (deleteTournamentResultsError) {
+    return {
+      error: deleteTournamentResultsError.message,
+    };
+  }
+
+  const { error: deleteTournamentEntriesError } = await adminClient
+    .from("tournament_team_entries")
+    .delete()
+    .eq("team_id", normalizedTeamId);
+
+  if (deleteTournamentEntriesError) {
+    return {
+      error: deleteTournamentEntriesError.message,
+    };
+  }
+
+  const { error: deleteTeamMembersError } = await adminClient
+    .from("team_members")
+    .delete()
+    .eq("team_id", normalizedTeamId);
+
+  if (deleteTeamMembersError) {
+    return {
+      error: deleteTeamMembersError.message,
+    };
   }
 
   const { error: deleteTeamError } = await adminClient
