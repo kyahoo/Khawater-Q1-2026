@@ -45,7 +45,6 @@ export default function AuthPage() {
         className="object-cover object-center"
         sizes="100vw"
       />
-      <div className="absolute inset-0 z-0 bg-[#061726]/80 backdrop-blur-sm" />
 
       <main className="relative z-10 w-full max-w-md px-6">
         <div className="flex w-full max-w-md flex-col gap-6 border-[4px] border-[#061726] bg-[#0B3A4A] p-8 shadow-[12px_12px_0px_0px_#061726]">

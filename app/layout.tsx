@@ -43,7 +43,6 @@ export default function RootLayout({
             sizes="100vw"
             className="object-cover object-[75%_center] md:object-center"
           />
-          <div className="absolute inset-0 bg-[#0B3A4A]/45" />
         </div>
 
         <div className="relative z-0 min-h-[100dvh]">
