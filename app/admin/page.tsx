@@ -117,6 +117,21 @@ const TOURNAMENT_BADGE_OPTIONS = [
   { value: "bronze", label: "🥉 БРОНЗА" },
 ] as const;
 
+const PLAYER_METRIC_BADGE_CLASSNAME =
+  "inline-flex h-9 items-center whitespace-nowrap border px-2 text-xs font-black uppercase tracking-[0.16em]";
+
+const PLAYER_METRIC_SELECT_CLASSNAME =
+  "h-9 w-fit appearance-none whitespace-nowrap border bg-transparent px-2 text-xs font-black uppercase tracking-[0.16em] outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+
+const PLAYER_ACTION_BUTTON_CLASSNAME =
+  "inline-flex h-9 items-center justify-center whitespace-nowrap border-2 px-3 text-xs font-black uppercase tracking-[0.16em] transition-all hover:translate-y-[2px] hover:shadow-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none";
+
+const PLAYER_ACTION_BUTTON_YELLOW_CLASSNAME = `${PLAYER_ACTION_BUTTON_CLASSNAME} border-[#061726] bg-yellow-500 text-[#061726] shadow-[2px_2px_0px_0px_#061726]`;
+
+const PLAYER_ACTION_BUTTON_BLUE_CLASSNAME = `${PLAYER_ACTION_BUTTON_CLASSNAME} border-blue-600 bg-blue-500/10 text-blue-600 shadow-[2px_2px_0px_0px_#2563EB] hover:bg-blue-500/20`;
+
+const PLAYER_ACTION_BUTTON_DANGER_CLASSNAME = `${PLAYER_ACTION_BUTTON_CLASSNAME} border-red-800 bg-transparent text-red-500 shadow-[2px_2px_0px_0px_#7F1D1D] hover:bg-red-900/30`;
+
 type AdminTabId = (typeof ADMIN_TABS)[number]["id"];
 type ScheduleDayParam = "today" | "tomorrow";
 
@@ -207,40 +222,50 @@ function renderTemplateStatusBadge(hasBackground: boolean | null) {
 }
 
 function getMMRStatusSelectClassName(status: AdminPlayerListItem["mmrStatus"]) {
-  const baseClassName =
-    "w-fit appearance-none border-2 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+  const baseClassName = PLAYER_METRIC_SELECT_CLASSNAME;
 
   if (status === "verified") {
-    return `${baseClassName} border-green-500 bg-green-500/10 text-green-500`;
+    return `${baseClassName} border-green-600 bg-green-500/10 text-green-600`;
   }
 
   if (status === "rejected") {
-    return `${baseClassName} border-red-500 bg-red-500/10 text-red-500`;
+    return `${baseClassName} border-red-700 bg-red-500/10 text-red-600`;
   }
 
-  return `${baseClassName} border-[#CD9C3E] bg-[#CD9C3E]/10 text-[#CD9C3E]`;
+  return `${baseClassName} border-[#CD9C3E] bg-[#CD9C3E]/10 text-[#8A6418]`;
 }
 
-function getBehaviorScoreClassName(score: number) {
-  return score >= 4 ? "text-[#CD9C3E]" : "text-red-500";
+function getBehaviorScoreBadgeClassName(score: number) {
+  if (score >= 4) {
+    return `${PLAYER_METRIC_BADGE_CLASSNAME} border-[#CD9C3E] bg-[#CD9C3E]/10 text-[#8A6418]`;
+  }
+
+  return `${PLAYER_METRIC_BADGE_CLASSNAME} border-red-700 bg-red-900/20 text-red-600`;
+}
+
+function getOpenTaskBadgeClassName(openTaskCount: number) {
+  if (openTaskCount > 0) {
+    return `${PLAYER_METRIC_BADGE_CLASSNAME} border-red-700 bg-red-900/20 text-red-600`;
+  }
+
+  return `${PLAYER_METRIC_BADGE_CLASSNAME} border-gray-600 bg-transparent text-gray-500`;
 }
 
 function getTournamentBadgeSelectClassName(
   badge: AdminPlayerListItem["tournamentBadge"]
 ) {
-  const baseClassName =
-    "w-fit appearance-none border-2 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-60";
+  const baseClassName = PLAYER_METRIC_SELECT_CLASSNAME;
 
   if (badge === "gold") {
-    return `${baseClassName} border-[#CD9C3E] bg-[#CD9C3E]/10 text-[#CD9C3E]`;
+    return `${baseClassName} border-[#CD9C3E] bg-[#CD9C3E]/10 text-[#8A6418]`;
   }
 
   if (badge === "silver") {
-    return `${baseClassName} border-gray-300 bg-gray-300/10 text-gray-300`;
+    return `${baseClassName} border-gray-500 bg-gray-300/10 text-gray-600`;
   }
 
   if (badge === "bronze") {
-    return `${baseClassName} border-amber-600 bg-amber-600/10 text-amber-600`;
+    return `${baseClassName} border-amber-700 bg-amber-600/10 text-amber-700`;
   }
 
   return `${baseClassName} border-gray-700 bg-transparent text-gray-500`;
@@ -732,7 +757,7 @@ export default function AdminPage() {
 
   async function handleResetPlayerDeviceBinding(userId: string) {
     const shouldReset = window.confirm(
-      "Вы уверены, что хотите сбросить привязку устройства для этого игрока?"
+      "Вы уверены, что хотите сбросить биометрию для этого игрока?"
     );
 
     if (!shouldReset) {
@@ -751,13 +776,13 @@ export default function AdminPage() {
       }
 
       await refreshAdminData();
-      window.alert("Устройство успешно сброшено");
+      window.alert("Биометрия успешно сброшена");
       router.refresh();
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Ошибка: не удалось сбросить устройство";
+        error instanceof Error ? error.message : "Ошибка: не удалось сбросить биометрию";
       setErrorMessage(
-        error instanceof Error ? error.message : "Не удалось сбросить устройство."
+        error instanceof Error ? error.message : "Не удалось сбросить биометрию."
       );
       window.alert(`Ошибка: ${message}`);
     } finally {
@@ -1954,90 +1979,90 @@ export default function AdminPage() {
                 {players.length === 0 ? (
                   <p className="text-sm text-zinc-600">No registered players found yet.</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="overflow-hidden border-[3px] border-[#061726] bg-white shadow-[4px_4px_0px_0px_#061726]">
                     {players.map((player) => (
                       <div
                         key={player.id}
-                        className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                        className="flex flex-col items-start justify-between gap-4 border-b border-gray-700 bg-zinc-50 p-4 last:border-b-0 md:flex-row md:items-center"
                       >
-                        <div>
-                          <div className="font-medium">{player.nickname}</div>
-                          <div className="mt-1 text-sm text-zinc-500">{player.email}</div>
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
-                            <div
-                              className={`text-sm font-black uppercase tracking-[0.16em] ${getBehaviorScoreClassName(player.behaviorScore)}`}
-                            >
-                              Балл: {player.behaviorScore}
-                            </div>
-                            <label className="block w-fit">
-                              <span className="sr-only">Статус подтверждения MMR</span>
-                              <select
-                                value={player.mmrStatus}
-                                onChange={(event) =>
-                                  void handleUpdateMMRStatus(
-                                    player.id,
-                                    event.target.value as AdminPlayerListItem["mmrStatus"]
-                                  )
-                                }
-                                disabled={isUpdatingMMRStatusUserId === player.id}
-                                className={getMMRStatusSelectClassName(player.mmrStatus)}
-                              >
-                                {MMR_STATUS_OPTIONS.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            <label className="block w-fit">
-                              <span className="sr-only">Турнирная медаль</span>
-                              <select
-                                value={player.tournamentBadge}
-                                onChange={(event) =>
-                                  void handleUpdatePlayerBadge(
-                                    player.id,
-                                    event.target.value as AdminPlayerListItem["tournamentBadge"]
-                                  )
-                                }
-                                disabled={isUpdatingBadgeUserId === player.id}
-                                className={getTournamentBadgeSelectClassName(
-                                  player.tournamentBadge
-                                )}
-                              >
-                                {TOURNAMENT_BADGE_OPTIONS.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
+                        <div className="min-w-0 md:w-64 md:flex-none">
+                          <div className="text-lg font-black text-[#061726]">
+                            {player.nickname}
+                          </div>
+                          <div className="mt-1 break-all text-sm text-gray-400">
+                            {player.email}
                           </div>
                         </div>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+
+                        <div className="flex flex-wrap gap-2 md:flex-1 md:justify-center">
                           <div
-                            className={`w-fit border-2 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] ${
-                              player.openTaskCount > 0
-                                ? "border-[#7F1D1D] bg-[#450A0A] text-[#FCA5A5]"
-                                : "border-zinc-300 bg-white text-zinc-500"
-                            }`}
+                            className={getBehaviorScoreBadgeClassName(player.behaviorScore)}
                           >
+                            Балл: {player.behaviorScore}
+                          </div>
+                          <label className="block w-fit">
+                            <span className="sr-only">Статус подтверждения MMR</span>
+                            <select
+                              value={player.mmrStatus}
+                              onChange={(event) =>
+                                void handleUpdateMMRStatus(
+                                  player.id,
+                                  event.target.value as AdminPlayerListItem["mmrStatus"]
+                                )
+                              }
+                              disabled={isUpdatingMMRStatusUserId === player.id}
+                              className={getMMRStatusSelectClassName(player.mmrStatus)}
+                            >
+                              {MMR_STATUS_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="block w-fit">
+                            <span className="sr-only">Турнирная медаль</span>
+                            <select
+                              value={player.tournamentBadge}
+                              onChange={(event) =>
+                                void handleUpdatePlayerBadge(
+                                  player.id,
+                                  event.target.value as AdminPlayerListItem["tournamentBadge"]
+                                )
+                              }
+                              disabled={isUpdatingBadgeUserId === player.id}
+                              className={getTournamentBadgeSelectClassName(
+                                player.tournamentBadge
+                              )}
+                            >
+                              {TOURNAMENT_BADGE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <div className={getOpenTaskBadgeClassName(player.openTaskCount)}>
                             Открытые задачи: {player.openTaskCount}
                           </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 md:justify-end">
                           <button
                             type="button"
                             onClick={() => void handleResetPlayerDeviceBinding(player.id)}
                             disabled={isResettingDeviceUserId === player.id}
-                            className="w-fit border-2 border-[#061726] bg-yellow-500 px-4 py-1 text-xs font-extrabold uppercase text-[#061726] shadow-[2px_2px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0px_0px_#061726]"
+                            className={PLAYER_ACTION_BUTTON_YELLOW_CLASSNAME}
                           >
                             {isResettingDeviceUserId === player.id
                               ? "Сброс..."
-                              : "Сбросить устройство"}
+                              : "СБРОСИТЬ БИОМЕТРИЮ"}
                           </button>
                           <button
                             type="button"
                             onClick={() => void handleResetPlayerBehaviorScore(player.id)}
                             disabled={isResettingBehaviorScoreUserId === player.id}
-                            className="border-2 border-blue-500 bg-blue-500/10 px-3 py-1 text-sm font-bold uppercase text-blue-500 transition-colors hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                            className={PLAYER_ACTION_BUTTON_BLUE_CLASSNAME}
                           >
                             {isResettingBehaviorScoreUserId === player.id
                               ? "СБРОС..."
@@ -2047,7 +2072,7 @@ export default function AdminPage() {
                             type="button"
                             onClick={() => void handleDeletePlayer(player.id)}
                             disabled={isDeletingPlayerUserId === player.id}
-                            className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                            className={PLAYER_ACTION_BUTTON_DANGER_CLASSNAME}
                           >
                             {isDeletingPlayerUserId === player.id ? "Deleting..." : "Delete"}
                           </button>
