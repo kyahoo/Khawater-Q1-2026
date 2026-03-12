@@ -23,6 +23,7 @@ import {
   type TournamentMatch,
   type Tournament,
 } from "@/lib/supabase/tournaments";
+import { PetalOverlay } from "@/components/PetalOverlay";
 
 const TOURNAMENT_TABS = [
   { id: "teams", label: "Заявленные команды" },
@@ -824,19 +825,18 @@ export default function TournamentPage() {
             <details className="mb-8">
               <summary className="list-none cursor-pointer [&::-webkit-details-marker]:hidden">
                 <div className="relative overflow-hidden border-[3px] border-[#061726] bg-[#0B3A4A] p-8 shadow-[6px_6px_0px_0px_#061726]">
-                  {activeTournament?.banner_url && (
-                    <>
-                      <Image
-                        src={activeTournament.banner_url}
-                        alt={`Баннер турнира ${activeTournament.name}`}
-                        fill
-                        priority={true}
-                        sizes="100vw"
-                        className="absolute inset-0 z-0 h-full w-full object-cover object-top"
-                      />
-                      <div className="absolute inset-0 z-0 bg-gradient-to-r from-gray-900 via-gray-900/70 to-transparent" />
-                    </>
-                  )}
+                  <>
+                    <Image
+                      src={activeTournament?.banner_url || "/esports-bg.avif"}
+                      alt={`Баннер турнира ${activeTournament?.name ?? ""}`}
+                      fill
+                      priority={true}
+                      sizes="100vw"
+                      className="absolute inset-0 z-0 h-full w-full object-cover object-right"
+                    />
+                    <PetalOverlay />
+                    <div className="absolute inset-0 z-0 bg-gradient-to-r from-gray-900 via-gray-900/70 to-transparent" />
+                  </>
                   <div className="relative z-10 max-w-3xl">
                     <div className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[#CD9C3E]">
                       Активный турнир
