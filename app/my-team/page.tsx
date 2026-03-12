@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -291,9 +292,20 @@ export default function MyTeamPage() {
           <section className="space-y-6">
             <div className={cardClassName}>
               <div className={cardHeadingClassName}>Название команды</div>
-              <h1 className="mb-2 text-3xl font-black text-white md:text-4xl">
-                {teamData.team.name}
-              </h1>
+              <div className="flex items-center gap-4 mb-2">
+                {teamData.team.logo_url ? (
+                  <Image
+                    src={teamData.team.logo_url}
+                    alt={`Логотип команды ${teamData.team.name}`}
+                    width={48}
+                    height={48}
+                    className="w-12 h-12 object-cover border border-gray-600"
+                  />
+                ) : null}
+                <h1 className="text-3xl font-black text-white md:text-4xl">
+                  {teamData.team.name}
+                </h1>
+              </div>
               <div className={bodyTextClassName}>
                 Капитан:{" "}
                 <span className="font-medium text-white">

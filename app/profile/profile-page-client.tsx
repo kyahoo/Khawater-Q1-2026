@@ -95,17 +95,17 @@ function TeamIdentityRow({
 
   return (
     <div className={bodyTextClassName}>
-      <div className="mb-2 flex items-center gap-3">
+      <div className="mb-2 flex items-center gap-4">
         {teamLogoUrl ? (
           <Image
             src={teamLogoUrl}
             alt={`Логотип команды ${teamName}`}
-            width={32}
-            height={32}
-            className="h-8 w-8 border border-gray-600 object-cover"
+            width={56}
+            height={56}
+            className="h-14 w-14 rounded-sm border border-gray-600 object-cover"
           />
         ) : (
-          <div className="flex h-8 w-8 items-center justify-center border border-gray-600 bg-[#123C4D] text-sm font-black uppercase text-white">
+          <div className="flex h-14 w-14 items-center justify-center rounded-sm border border-gray-600 bg-[#123C4D] text-base font-black uppercase text-white">
             {teamInitial}
           </div>
         )}
