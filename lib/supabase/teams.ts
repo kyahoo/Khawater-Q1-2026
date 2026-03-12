@@ -21,6 +21,7 @@ export type TeamMember = {
   userId: string;
   nickname: string;
   isCaptain: boolean;
+  mmr: number | null;
 };
 
 export type TeamListItem = {
@@ -29,6 +30,7 @@ export type TeamListItem = {
   logoUrl: string | null;
   captainName: string;
   memberCount: number;
+  totalMmr: number;
   isLockedForActiveTournament: boolean;
 };
 
@@ -40,10 +42,12 @@ type TeamMembershipProfileRow = {
     | {
         id: string;
         nickname: string;
+        mmr: number | null;
       }
     | Array<{
         id: string;
         nickname: string;
+        mmr: number | null;
       }>
     | null;
 };
@@ -118,7 +122,7 @@ export async function getTeamMembers(teamId: string) {
   const supabase = getSupabaseBrowserClient();
   const { data: memberships, error: membershipsError } = await supabase
     .from("team_members")
-    .select("user_id, is_captain, created_at, profiles(id, nickname)")
+    .select("user_id, is_captain, created_at, profiles(id, nickname, mmr)")
     .eq("team_id", teamId)
     .order("created_at", { ascending: true });
 
@@ -139,6 +143,10 @@ export async function getTeamMembers(teamId: string) {
         ? membership.profiles[0]?.nickname
         : membership.profiles?.nickname) ?? "Player",
     isCaptain: membership.is_captain,
+    mmr:
+      (Array.isArray(membership.profiles)
+        ? membership.profiles[0]?.mmr
+        : membership.profiles?.mmr) ?? null,
   }));
 }
 
@@ -166,7 +174,7 @@ export async function listTeamsWithMeta() {
   const { data: teams, error: teamsError } = await supabase
     .from("teams")
     .select(
-      "id, name, logo_url, created_at, team_members(user_id, is_captain, created_at, profiles(id, nickname))"
+      "id, name, logo_url, created_at, team_members(user_id, is_captain, created_at, profiles(id, nickname, mmr))"
     )
     .order("created_at", { ascending: true });
 
@@ -209,6 +217,7 @@ export async function listTeamsWithMeta() {
       logoUrl: team.logo_url,
       captainName: "No captain",
       memberCount: 0,
+      totalMmr: 0,
       isLockedForActiveTournament: lockedTeamIds.has(team.id),
     })) as TeamListItem[];
   }
@@ -229,6 +238,13 @@ export async function listTeamsWithMeta() {
         ? captainMembership.profiles[0]
         : captainMembership.profiles
       : null;
+    const totalMmr = teamMemberships.reduce((sum, membership) => {
+      const profile = Array.isArray(membership.profiles)
+        ? membership.profiles[0]
+        : membership.profiles;
+
+      return sum + (profile?.mmr ?? 0);
+    }, 0);
 
     return {
       id: team.id,
@@ -236,6 +252,7 @@ export async function listTeamsWithMeta() {
       logoUrl: team.logo_url,
       captainName: captainProfile?.nickname ?? "No captain",
       memberCount: teamMemberships.length,
+      totalMmr,
       isLockedForActiveTournament: lockedTeamIds.has(team.id),
     };
   }) as TeamListItem[];

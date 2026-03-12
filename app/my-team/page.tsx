@@ -112,6 +112,10 @@ export default function MyTeamPage() {
       })),
     [confirmedUserIdSet, teamData]
   );
+  const totalMmr = useMemo(
+    () => teamMembers.reduce((sum, member) => sum + (member.mmr ?? 0), 0),
+    [teamMembers]
+  );
   const confirmedCount = teamMembers.filter((player) => player.isConfirmed).length;
   const isCaptain = teamData?.membership.is_captain ?? false;
   const isLastMember = (teamData?.members.length ?? 0) === 1;
@@ -295,6 +299,9 @@ export default function MyTeamPage() {
                 <span className="font-medium text-white">
                   {teamData.captain?.nickname ?? "Капитан"}
                 </span>
+              </div>
+              <div className="mt-2 inline-block border border-yellow-600 px-2 py-1 text-sm font-bold tracking-wider text-yellow-500">
+                TOTAL MMR: {totalMmr}
               </div>
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">

@@ -2142,6 +2142,9 @@ export default function AdminPage() {
                             <div className="text-sm text-zinc-500">
                               {team.logoUrl ? "Логотип загружен" : "Логотип не загружен"}
                             </div>
+                            <div className="text-sm text-gray-400">
+                              Total MMR: {team.totalMmr}
+                            </div>
                             {team.isLockedForActiveTournament && (
                               <div className="text-sm text-zinc-500">
                                 Roster locked after tournament entry
