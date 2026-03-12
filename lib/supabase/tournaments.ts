@@ -442,7 +442,8 @@ export async function getEnteredTeamsForTournament(
   const { data: entries, error: entriesError } = await supabase
     .from("tournament_team_entries")
     .select("team_id, is_suspended")
-    .eq("tournament_id", tournamentId);
+    .eq("tournament_id", tournamentId)
+    .eq("is_suspended", false);
 
   if (entriesError) {
     throw entriesError;
@@ -453,9 +454,6 @@ export async function getEnteredTeamsForTournament(
     is_suspended: boolean;
   }>;
   const teamIds = typedEntries.map((entry) => entry.team_id);
-  const suspensionByTeamId = new Map(
-    typedEntries.map((entry) => [entry.team_id, entry.is_suspended])
-  );
 
   if (teamIds.length === 0) {
     return [];
@@ -528,7 +526,7 @@ export async function getEnteredTeamsForTournament(
         logoUrl: team.logo_url,
         captainName: captainProfile?.nickname ?? "No captain",
         roster,
-        isSuspended: suspensionByTeamId.get(team.id) ?? false,
+        isSuspended: false,
       };
     })
     .filter((team): team is EnteredTeam => Boolean(team));

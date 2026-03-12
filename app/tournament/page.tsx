@@ -750,6 +750,7 @@ export default function TournamentPage() {
                 .select("team_id")
                 .eq("tournament_id", nextActiveTournament.id)
                 .eq("team_id", membershipTeamId)
+                .eq("is_suspended", false)
                 .maybeSingle()
             : Promise.resolve({ data: null }),
         ]);
@@ -855,12 +856,7 @@ export default function TournamentPage() {
                       >
                         <div className="flex items-center gap-3 border-b-[4px] border-[#061726] bg-khawater-blue p-4 text-xl font-extrabold uppercase tracking-widest text-[#FFFFFF]">
                           <TeamLogo teamName={team.name} logoUrl={team.logoUrl} />
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span>{team.name}</span>
-                            {team.isSuspended ? (
-                              <span className="font-bold text-red-500">(Suspended)</span>
-                            ) : null}
-                          </div>
+                          <span>{team.name}</span>
                         </div>
                         <div className="flex-1 p-4">
                           <div className="text-sm leading-relaxed font-medium text-arcade-black">

@@ -559,8 +559,10 @@ export default function AdminPage() {
   const hasAdminAccess = profile?.is_admin ?? false;
   const isEditingMatch = editingMatchId !== null;
   const selectedTeam = teams.find((team) => team.id === selectedTeamId) ?? null;
-  const enteredTeams = entryTeams.filter((team) => team.hasEntered);
-  const enteredGroupStageTeams = groupStageTeams.filter((team) => team.hasEntered);
+  const enteredTeams = entryTeams.filter((team) => team.hasEntered && !team.isSuspended);
+  const enteredGroupStageTeams = groupStageTeams.filter(
+    (team) => team.hasEntered && !team.isSuspended
+  );
   const groupStageMatchCount =
     groupStageForm.teamIds.length >= 2
       ? (groupStageForm.teamIds.length * (groupStageForm.teamIds.length - 1)) / 2
