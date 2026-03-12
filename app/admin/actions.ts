@@ -28,6 +28,12 @@ export type AdminPlayerListItem = {
   tournamentBadge: "none" | "gold" | "silver" | "bronze";
 };
 
+export type AdminTournamentResultItem = {
+  tournamentId: string;
+  teamId: string;
+  placement: 1 | 2 | 3;
+};
+
 type ListAdminPlayersResult =
   | {
       error: string;
@@ -36,6 +42,16 @@ type ListAdminPlayersResult =
   | {
       error: null;
       players: AdminPlayerListItem[];
+    };
+
+type ListAdminTournamentResultsResult =
+  | {
+      error: string;
+      results: [];
+    }
+  | {
+      error: null;
+      results: AdminTournamentResultItem[];
     };
 
 type DeletePlayerResult = {
@@ -75,6 +91,10 @@ type DeleteMultipleMatchesResult = {
 };
 
 type DeleteTournamentResult = {
+  error: string | null;
+};
+
+type RecordTournamentResultResult = {
   error: string | null;
 };
 
@@ -334,6 +354,56 @@ export async function listAdminPlayers(
   return {
     error: null,
     players,
+  };
+}
+
+export async function listAdminTournamentResults(
+  accessToken: string
+): Promise<ListAdminTournamentResultsResult> {
+  const authResult = await verifyAdminAction(accessToken);
+
+  if (authResult.error || !authResult.context) {
+    return {
+      error: authResult.error,
+      results: [],
+    };
+  }
+
+  const adminClient = createClient<Database>(
+    authResult.context.supabaseUrl,
+    authResult.context.serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+
+  const { data, error } = await adminClient
+    .from("tournament_results")
+    .select("tournament_id, team_id, placement");
+
+  if (error) {
+    return {
+      error: error.message,
+      results: [],
+    };
+  }
+
+  return {
+    error: null,
+    results: ((data ?? []) as Array<{
+      tournament_id: string;
+      team_id: string;
+      placement: number;
+    }>)
+      .filter((result) => [1, 2, 3].includes(result.placement))
+      .map((result) => ({
+        tournamentId: result.tournament_id,
+        teamId: result.team_id,
+        placement: result.placement as 1 | 2 | 3,
+      })),
   };
 }
 
@@ -1120,6 +1190,215 @@ export async function deleteTournament(
   revalidatePath("/matches");
   revalidatePath("/tasks");
   revalidatePath("/profile");
+
+  return {
+    error: null,
+  };
+}
+
+export async function recordTournamentResult(
+  tournamentId: string,
+  teamId: string,
+  placement: number
+): Promise<RecordTournamentResultResult> {
+  const normalizedTournamentId = tournamentId.trim();
+  const normalizedTeamId = teamId.trim();
+  const normalizedPlacement = Number(placement);
+
+  if (!normalizedTournamentId || !normalizedTeamId) {
+    return {
+      error: "Tournament and team are required.",
+    };
+  }
+
+  if (![1, 2, 3].includes(normalizedPlacement)) {
+    return {
+      error: "Placement must be 1, 2, or 3.",
+    };
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return {
+      error: "Missing Supabase server environment configuration.",
+    };
+  }
+
+  const supabase = await getSupabaseServerClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      error: "Could not verify admin session.",
+    };
+  }
+
+  const { data: actingProfile, error: actingProfileError } = await supabase
+    .from("profiles")
+    .select("id, is_admin")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (actingProfileError || !actingProfile?.is_admin) {
+    return {
+      error: "You do not have admin access for this action.",
+    };
+  }
+
+  const adminClient = createClient<Database>(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+
+  const { data: previousResults, error: previousResultsError } = await adminClient
+    .from("tournament_results")
+    .select("id, team_id, placement")
+    .eq("tournament_id", normalizedTournamentId);
+
+  if (previousResultsError) {
+    return {
+      error: previousResultsError.message,
+    };
+  }
+
+  const existingPlacementResult = ((previousResults ?? []) as Array<{
+    id: string;
+    team_id: string;
+    placement: number;
+  }>).find((result) => result.placement === normalizedPlacement);
+
+  if (existingPlacementResult) {
+    const { error: updateResultError } = await adminClient
+      .from("tournament_results")
+      .update({
+        team_id: normalizedTeamId,
+      })
+      .eq("id", existingPlacementResult.id);
+
+    if (updateResultError) {
+      return {
+        error: updateResultError.message,
+      };
+    }
+  } else {
+    const { error: insertResultError } = await adminClient
+      .from("tournament_results")
+      .insert({
+        tournament_id: normalizedTournamentId,
+        team_id: normalizedTeamId,
+        placement: normalizedPlacement,
+      });
+
+    if (insertResultError) {
+      return {
+        error: insertResultError.message,
+      };
+    }
+  }
+
+  const { data: currentResults, error: currentResultsError } = await adminClient
+    .from("tournament_results")
+    .select("team_id, placement")
+    .eq("tournament_id", normalizedTournamentId);
+
+  if (currentResultsError) {
+    return {
+      error: currentResultsError.message,
+    };
+  }
+
+  const affectedTeamIds = Array.from(
+    new Set([
+      ...((previousResults ?? []) as Array<{ team_id: string }>).map((result) => result.team_id),
+      ...((currentResults ?? []) as Array<{ team_id: string }>).map((result) => result.team_id),
+    ])
+  );
+
+  if (affectedTeamIds.length > 0) {
+    const { data: memberships, error: membershipsError } = await adminClient
+      .from("team_members")
+      .select("team_id, user_id")
+      .in("team_id", affectedTeamIds);
+
+    if (membershipsError) {
+      return {
+        error: membershipsError.message,
+      };
+    }
+
+    const typedMemberships = (memberships ?? []) as Array<{
+      team_id: string;
+      user_id: string;
+    }>;
+    const teamMemberIds = new Map<string, string[]>();
+
+    for (const membership of typedMemberships) {
+      const teamUserIds = teamMemberIds.get(membership.team_id) ?? [];
+      teamUserIds.push(membership.user_id);
+      teamMemberIds.set(membership.team_id, teamUserIds);
+    }
+
+    const affectedUserIds = Array.from(
+      new Set(typedMemberships.map((membership) => membership.user_id))
+    );
+
+    if (affectedUserIds.length > 0) {
+      const { error: clearBadgeError } = await adminClient
+        .from("profiles")
+        .update({
+          tournament_badge: "none",
+        })
+        .in("id", affectedUserIds);
+
+      if (clearBadgeError) {
+        return {
+          error: clearBadgeError.message,
+        };
+      }
+    }
+
+    const badgeByPlacement = {
+      1: "gold",
+      2: "silver",
+      3: "bronze",
+    } as const;
+
+    for (const result of (currentResults ?? []) as Array<{
+      team_id: string;
+      placement: number;
+    }>) {
+      const badge = badgeByPlacement[result.placement as 1 | 2 | 3];
+      const userIds = teamMemberIds.get(result.team_id) ?? [];
+
+      if (!badge || userIds.length === 0) {
+        continue;
+      }
+
+      const { error: assignBadgeError } = await adminClient
+        .from("profiles")
+        .update({
+          tournament_badge: badge,
+        })
+        .in("id", userIds);
+
+      if (assignBadgeError) {
+        return {
+          error: assignBadgeError.message,
+        };
+      }
+    }
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/profile");
+  revalidatePath("/tournament");
 
   return {
     error: null,

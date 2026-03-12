@@ -161,7 +161,6 @@ export function ProfilePageClient({
   const [isEditingName, setIsEditingName] = useState(false);
   const [newNameValue, setNewNameValue] = useState("");
   const [isSavingName, setIsSavingName] = useState(false);
-  const [isEditingMMR, setIsEditingMMR] = useState(false);
   const [newMMRValue, setNewMMRValue] = useState("");
   const [isSavingMMR, setIsSavingMMR] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -561,17 +560,6 @@ export function ProfilePageClient({
     setIsEditingName(false);
   }
 
-  function handleStartEditingMMR() {
-    setNewMMRValue(typeof profile?.mmr === "number" ? String(profile.mmr) : "");
-    setIsEditingMMR(true);
-    setErrorMessage(null);
-  }
-
-  function handleCancelEditingMMR() {
-    setNewMMRValue(typeof profile?.mmr === "number" ? String(profile.mmr) : "");
-    setIsEditingMMR(false);
-  }
-
   async function handleSaveProfileName() {
     setIsSavingName(true);
     setErrorMessage(null);
@@ -637,7 +625,6 @@ export function ProfilePageClient({
           : currentProfile
       );
       setNewMMRValue(String(parsedMMR));
-      setIsEditingMMR(false);
       router.refresh();
     } catch (error) {
       setVisibleErrorMessage(
@@ -848,7 +835,7 @@ export function ProfilePageClient({
 
                 <div className={settingsPanelClassName}>
                   <p className={settingsPanelLabelClassName}>Текущий MMR</p>
-                  {!hasMMR || isEditingMMR ? (
+                  {!hasMMR ? (
                     <>
                       <p className="text-sm font-medium text-white/80">
                         Укажите текущий MMR. Без этого нельзя вступить в команду и
@@ -874,30 +861,16 @@ export function ProfilePageClient({
                         >
                           {isSavingMMR ? "СОХРАНЕНИЕ..." : "СОХРАНИТЬ"}
                         </button>
-                        {hasMMR && (
-                          <button
-                            type="button"
-                            onClick={handleCancelEditingMMR}
-                            disabled={isSavingMMR}
-                            className="w-fit border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-70"
-                          >
-                            ОТМЕНА
-                          </button>
-                        )}
                       </div>
                     </>
                   ) : (
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
                       <p className="text-lg font-black uppercase text-white">
                         ТЕКУЩИЙ MMR: {formattedMMR}
                       </p>
-                      <button
-                        type="button"
-                        onClick={handleStartEditingMMR}
-                        className="w-fit border-[3px] border-[#CD9C3E] bg-[#0B3A4A] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
-                      >
-                        ИЗМЕНИТЬ
-                      </button>
+                      <p className="mt-2 text-[10px] uppercase text-gray-500">
+                        Для изменения MMR обратитесь к администратору
+                      </p>
                     </div>
                   )}
                 </div>

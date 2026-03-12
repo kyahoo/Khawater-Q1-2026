@@ -6,6 +6,7 @@ import {
   adminForceConfirmTeam,
   adminForceAddPlayerToTeam,
   adminRemovePlayerFromTeam,
+  type AdminTournamentResultItem,
   createAdminPlayerAction,
   deleteTournament,
   deletePlayer,
@@ -14,6 +15,8 @@ import {
   deleteTeam,
   generateGroupStageMatches,
   listAdminPlayers,
+  listAdminTournamentResults,
+  recordTournamentResult,
   resetPlayerBehaviorScore,
   resetPlayerDeviceBinding,
   toggleTeamSuspension,
@@ -136,6 +139,7 @@ const PLAYER_ACTION_BUTTON_DANGER_CLASSNAME = `${PLAYER_ACTION_BUTTON_CLASSNAME}
 
 type AdminTabId = (typeof ADMIN_TABS)[number]["id"];
 type ScheduleDayParam = "today" | "tomorrow";
+type TournamentPlacement = 1 | 2 | 3;
 
 function getSupabaseLikeErrorMessage(error: unknown, fallbackMessage: string) {
   if (error instanceof Error && error.message) {
@@ -220,6 +224,20 @@ function renderTemplateStatusBadge(hasBackground: boolean | null) {
     <div className="inline-flex w-fit border-2 border-[#061726] bg-zinc-100 px-2 py-1 text-xs font-bold uppercase tracking-wide text-zinc-500">
       ⚪ Проверка...
     </div>
+  );
+}
+
+function buildTournamentResultSelections(
+  results: AdminTournamentResultItem[]
+): Record<string, Partial<Record<TournamentPlacement, string>>> {
+  return results.reduce<Record<string, Partial<Record<TournamentPlacement, string>>>>(
+    (accumulator, result) => {
+      const currentTournamentSelections = accumulator[result.tournamentId] ?? {};
+      currentTournamentSelections[result.placement] = result.teamId;
+      accumulator[result.tournamentId] = currentTournamentSelections;
+      return accumulator;
+    },
+    {}
   );
 }
 
@@ -425,6 +443,12 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<AdminTabId>("players");
   const [activeTournamentCheckInThresholdInput, setActiveTournamentCheckInThresholdInput] =
     useState("10");
+  const [tournamentResultSelections, setTournamentResultSelections] = useState<
+    Record<string, Partial<Record<TournamentPlacement, string>>>
+  >({});
+  const [isSavingTournamentResultKey, setIsSavingTournamentResultKey] = useState<string | null>(
+    null
+  );
   const [playerMMRInputs, setPlayerMMRInputs] = useState<Record<string, string>>({});
   const [, startMMRUpdateTransition] = useTransition();
   const [, startTournamentDeleteTransition] = useTransition();
@@ -447,11 +471,18 @@ export default function AdminPage() {
     setEntrySectionErrorMessage("");
     setMatchesSectionErrorMessage("");
 
-    const [nextTournaments, nextTeams, nextProfiles, nextPlayersResult] = await Promise.all([
+    const [
+      nextTournaments,
+      nextTeams,
+      nextProfiles,
+      nextPlayersResult,
+      nextTournamentResultsResult,
+    ] = await Promise.all([
       listTournaments(),
       listTeamsWithMeta(),
       listProfilesWithTeamMeta(),
       listAdminPlayers(accessToken),
+      listAdminTournamentResults(accessToken),
     ]);
 
     if (nextPlayersResult.error) {
@@ -462,6 +493,11 @@ export default function AdminPage() {
     setTeams(nextTeams);
     setProfiles(nextProfiles);
     setPlayers(nextPlayersResult.players);
+    setTournamentResultSelections(
+      nextTournamentResultsResult.error
+        ? {}
+        : buildTournamentResultSelections(nextTournamentResultsResult.results)
+    );
 
     const nextActiveTournament =
       nextTournaments.find((tournament) => tournament.is_active) ?? null;
@@ -1149,6 +1185,53 @@ export default function AdminPage() {
         }
       })();
     });
+  }
+
+  function handleTournamentResultSelectionChange(
+    tournamentId: string,
+    placement: TournamentPlacement,
+    teamId: string
+  ) {
+    setTournamentResultSelections((current) => ({
+      ...current,
+      [tournamentId]: {
+        ...(current[tournamentId] ?? {}),
+        [placement]: teamId,
+      },
+    }));
+  }
+
+  async function handleRecordTournamentResult(
+    tournamentId: string,
+    placement: TournamentPlacement
+  ) {
+    const teamId = tournamentResultSelections[tournamentId]?.[placement]?.trim() ?? "";
+
+    if (!teamId) {
+      setErrorMessage("Выберите команду перед сохранением результата.");
+      return;
+    }
+
+    const resultKey = `${tournamentId}:${placement}`;
+    setIsSavingTournamentResultKey(resultKey);
+    setErrorMessage("");
+
+    try {
+      const result = await recordTournamentResult(tournamentId, teamId, placement);
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      await refreshAdminData();
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Не удалось сохранить результат турнира."
+      );
+    } finally {
+      setIsSavingTournamentResultKey(null);
+    }
   }
 
   async function handleSaveActiveTournamentCheckInThreshold() {
@@ -2826,6 +2909,91 @@ export default function AdminPage() {
                                 ? "Deleting..."
                                 : "Delete"}
                             </button>
+                          </div>
+                        </div>
+                        <div className="border-[3px] border-[#061726] bg-[#0B3A4A] px-4 py-4 shadow-[4px_4px_0px_0px_#061726]">
+                          <div className="text-sm font-black uppercase tracking-[0.18em] text-[#CD9C3E]">
+                            ЗАФИКСИРОВАТЬ РЕЗУЛЬТАТЫ
+                          </div>
+                          <div className="mt-4 space-y-3">
+                            {([
+                              {
+                                placement: 1 as const,
+                                label: "1 место",
+                                selectClassName:
+                                  "border-[#CD9C3E] text-[#CD9C3E] focus:border-[#CD9C3E]",
+                              },
+                              {
+                                placement: 2 as const,
+                                label: "2 место",
+                                selectClassName:
+                                  "border-gray-400 text-gray-200 focus:border-gray-300",
+                              },
+                              {
+                                placement: 3 as const,
+                                label: "3 место",
+                                selectClassName:
+                                  "border-amber-700 text-amber-300 focus:border-amber-500",
+                              },
+                            ]).map((resultRow) => {
+                              const resultKey = `${tournament.id}:${resultRow.placement}`;
+                              const isSavingResult =
+                                isSavingTournamentResultKey === resultKey;
+
+                              return (
+                                <div
+                                  key={resultKey}
+                                  className="flex flex-col gap-2 md:flex-row md:items-center"
+                                >
+                                  <label className="w-full md:flex-1">
+                                    <span className="mb-1 block text-xs font-black uppercase tracking-[0.18em] text-white/80">
+                                      {resultRow.label}
+                                    </span>
+                                    <select
+                                      value={
+                                        tournamentResultSelections[tournament.id]?.[
+                                          resultRow.placement
+                                        ] ?? ""
+                                      }
+                                      onChange={(event) =>
+                                        handleTournamentResultSelectionChange(
+                                          tournament.id,
+                                          resultRow.placement,
+                                          event.target.value
+                                        )
+                                      }
+                                      disabled={isSavingResult}
+                                      className={`w-full border bg-transparent p-1 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60 ${resultRow.selectClassName}`}
+                                    >
+                                      <option value="">Выберите команду</option>
+                                      {teams.map((team) => (
+                                        <option key={team.id} value={team.id}>
+                                          {team.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      void handleRecordTournamentResult(
+                                        tournament.id,
+                                        resultRow.placement
+                                      )
+                                    }
+                                    disabled={
+                                      isSavingResult ||
+                                      !tournamentResultSelections[tournament.id]?.[
+                                        resultRow.placement
+                                      ]
+                                    }
+                                    className="w-fit border-[3px] border-[#061726] bg-[#CD9C3E] px-4 py-2 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70"
+                                  >
+                                    {isSavingResult ? "СОХРАНЕНИЕ..." : "СОХРАНИТЬ"}
+                                  </button>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                         {editingBannerTournamentId === tournament.id && (

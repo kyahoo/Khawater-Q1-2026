@@ -258,6 +258,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      tournament_results: {
+        Row: {
+          id: string;
+          tournament_id: string;
+          team_id: string;
+          placement: number;
+        };
+        Insert: {
+          id?: string;
+          tournament_id: string;
+          team_id: string;
+          placement: number;
+        };
+        Update: {
+          id?: string;
+          tournament_id?: string;
+          team_id?: string;
+          placement?: number;
+        };
+        Relationships: [];
+      };
       tournament_matches: {
         Row: {
           id: string;
