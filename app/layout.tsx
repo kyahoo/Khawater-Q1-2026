@@ -36,7 +36,7 @@ export default function RootLayout({
       >
         <div aria-hidden="true" className="pointer-events-none fixed inset-0">
           <Image
-            src="/esports-bg.png"
+            src="/esports-bg.avif"
             alt=""
             fill
             priority
