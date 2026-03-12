@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function NewsPage() {
   return (
-    <div className="min-h-screen bg-[#0B3A4A] text-white">
+    <div className="min-h-screen bg-transparent text-white">
       <main className="mx-auto max-w-6xl px-4 pb-14 pt-24 md:px-6 md:pb-16">
         <section className="border-[4px] border-[#CD9C3E] bg-[#0B3A4A] px-6 py-7 shadow-[8px_8px_0px_0px_#061726] md:px-8 md:py-9">
           <p className="text-xs font-black uppercase tracking-[0.32em] text-[#CD9C3E]">

@@ -35,6 +35,45 @@ type BracketParticipant = {
   status: null;
   isSuspended?: boolean;
 };
+type TournamentRosterPlayer = EnteredTeam["roster"][number];
+type TournamentPlayerMedal = NonNullable<TournamentRosterPlayer["medal"]>;
+
+const TOURNAMENT_MEDAL_BADGES: Record<
+  TournamentPlayerMedal,
+  { label: string; className: string }
+> = {
+  gold: {
+    label: "🥇 GOLD",
+    className: "border-yellow-600 text-yellow-500",
+  },
+  silver: {
+    label: "🥈 SILVER",
+    className: "border-gray-500 text-gray-300",
+  },
+  bronze: {
+    label: "🥉 BRONZE",
+    className: "border-amber-700 text-amber-600",
+  },
+};
+
+function RosterBadge({
+  label,
+  className,
+  title,
+}: {
+  label: string;
+  className: string;
+  title?: string;
+}) {
+  return (
+    <span
+      title={title}
+      className={`inline-flex items-center border-2 px-2 py-0.5 text-[10px] font-black uppercase leading-none tracking-[0.14em] ${className}`}
+    >
+      [ {label} ]
+    </span>
+  );
+}
 
 function TournamentSectionSkeleton({
   title,
@@ -859,13 +898,45 @@ export default function TournamentPage() {
                           <span>{team.name}</span>
                         </div>
                         <div className="flex-1 p-4">
-                          <div className="text-sm leading-relaxed font-medium text-arcade-black">
-                            <span className="mb-1 block text-xs font-bold uppercase text-arcade-muted">
+                          <div className="text-sm font-medium text-arcade-black">
+                            <span className="mb-2 block text-xs font-bold uppercase text-arcade-muted">
                               Состав:
-                            </span>{" "}
-                            {team.roster?.length
-                              ? team.roster.join(", ")
-                              : "Игроков пока нет"}
+                            </span>
+                            <div className="border-[3px] border-[#061726] bg-[#F4EED7] px-3">
+                              {team.roster?.length ? (
+                                team.roster.map((player) => (
+                                  <div
+                                    key={player.id}
+                                    className="flex items-center justify-between gap-3 border-b border-gray-800 py-1 text-sm last:border-0"
+                                  >
+                                    <span className="min-w-0 flex-1 font-bold text-[#061726]">
+                                      {player.nickname}
+                                    </span>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                      {player.isMMRVerified ? (
+                                        <RosterBadge
+                                          label="✓ MMR"
+                                          className="border-green-500 text-green-500"
+                                          title="MMR аккаунта подтвержден администратором"
+                                        />
+                                      ) : null}
+                                      {player.medal ? (
+                                        <RosterBadge
+                                          label={TOURNAMENT_MEDAL_BADGES[player.medal].label}
+                                          className={
+                                            TOURNAMENT_MEDAL_BADGES[player.medal].className
+                                          }
+                                        />
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="py-2 text-sm text-[#061726]/70">
+                                  Игроков пока нет
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
