@@ -64,6 +64,7 @@ export type EnteredTeam = {
   roster: Array<{
     id: string;
     nickname: string;
+    mmr: number | null;
     isMMRVerified: boolean;
     medal: TournamentPlayerMedal | null;
   }>;
@@ -103,6 +104,7 @@ type TournamentInsert = Database["public"]["Tables"]["tournaments"]["Insert"];
 type TeamProfileJoin = {
   id: string;
   nickname: string;
+  mmr: number | null;
   mmr_status: string | null;
   tournament_badge: string | null;
 };
@@ -479,7 +481,7 @@ export async function getEnteredTeamsForTournament(
   const { data: teams, error: teamsError } = await supabase
     .from("teams")
     .select(
-      "id, name, logo_url, team_members(user_id, is_captain, created_at, profiles(id, nickname, mmr_status, tournament_badge))"
+      "id, name, logo_url, team_members(user_id, is_captain, created_at, profiles(id, nickname, mmr, mmr_status, tournament_badge))"
     )
     .in("id", teamIds);
 
@@ -501,12 +503,14 @@ export async function getEnteredTeamsForTournament(
             | {
                 id: string;
                 nickname: string;
+                mmr: number | null;
                 mmr_status: string | null;
                 tournament_badge: string | null;
               }
             | Array<{
                 id: string;
                 nickname: string;
+                mmr: number | null;
                 mmr_status: string | null;
                 tournament_badge: string | null;
               }>
@@ -545,6 +549,7 @@ export async function getEnteredTeamsForTournament(
           return {
             id: profile.id,
             nickname: profile.nickname,
+            mmr: profile.mmr ?? null,
             isMMRVerified: profile.mmr_status === "verified",
             medal,
           };
@@ -555,6 +560,7 @@ export async function getEnteredTeamsForTournament(
           ): player is {
             id: string;
             nickname: string;
+            mmr: number | null;
             isMMRVerified: boolean;
             medal: TournamentPlayerMedal | null;
           } => Boolean(player)

@@ -915,7 +915,11 @@ export default function TournamentPage() {
                                     <div className="flex shrink-0 items-center gap-2">
                                       {player.isMMRVerified ? (
                                         <RosterBadge
-                                          label="✓ MMR"
+                                          label={
+                                            player.mmr !== null
+                                              ? `✓ ${player.mmr}`
+                                              : "✓ MMR"
+                                          }
                                           className="border-green-500 text-green-500"
                                           title="MMR аккаунта подтвержден администратором"
                                         />
