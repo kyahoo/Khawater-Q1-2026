@@ -39,6 +39,7 @@ export default function RootLayout({
             src="/esports-bg.avif"
             alt=""
             fill
+            unoptimized={true}
             priority
             sizes="100vw"
             className="object-cover object-[75%_center] md:object-center"

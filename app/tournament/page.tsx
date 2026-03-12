@@ -830,6 +830,7 @@ export default function TournamentPage() {
                       src={activeTournament?.banner_url || "/esports-bg.avif"}
                       alt={`Баннер турнира ${activeTournament?.name ?? ""}`}
                       fill
+                      unoptimized={!activeTournament?.banner_url}
                       priority={true}
                       sizes="100vw"
                       className="absolute inset-0 z-0 h-full w-full object-cover object-right"

@@ -41,6 +41,7 @@ export default function AuthPage() {
         src="/esports-bg.avif"
         alt="Фон авторизации"
         fill
+        unoptimized={true}
         priority
         className="object-cover object-center"
         sizes="100vw"
