@@ -2367,21 +2367,21 @@ export default function AdminPage() {
                             </div>
                           </div>
 
-                          <div className="mt-4 w-full border border-gray-600 bg-gray-900/50 p-3">
-                            <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                          <div className="mt-4 p-3 border-2 border-black w-full max-w-sm mx-auto bg-white flex flex-col gap-3">
+                            <div className="font-bold text-xs tracking-wider uppercase text-black text-center border-b border-gray-200 pb-1">
                               Управление медалями
-                            </h4>
+                            </div>
 
                             {tournaments.length === 0 ? (
-                              <p className="text-[10px] uppercase text-gray-500">
+                              <span className="text-[10px] text-gray-500 uppercase text-center">
                                 Сначала создайте турнир, чтобы назначать медали.
-                              </p>
+                              </span>
                             ) : (
                               <>
-                                <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-                                  <label className="block w-full sm:w-auto">
-                                    <span className="sr-only">Выбор турнира для медали</span>
+                                <div className="flex flex-col gap-2">
+                                  <label>
                                     <select
+                                      aria-label="Выбор турнира для медали"
                                       value={
                                         playerMedalDrafts[player.id]?.tournamentId ??
                                         activeTournament?.id ??
@@ -2396,7 +2396,7 @@ export default function AdminPage() {
                                         )
                                       }
                                       disabled={isSavingPlayerMedalUserId === player.id}
-                                      className="w-full min-w-[120px] max-w-[200px] truncate border border-gray-600 bg-transparent p-1.5 text-xs text-white focus:border-yellow-500 focus:outline-none sm:w-auto"
+                                      className="border border-gray-400 text-xs p-1.5 text-black bg-white focus:outline-none focus:border-black w-full truncate"
                                     >
                                       {tournaments.map((tournament) => (
                                         <option key={tournament.id} value={tournament.id}>
@@ -2405,9 +2405,9 @@ export default function AdminPage() {
                                       ))}
                                     </select>
                                   </label>
-                                  <label className="block w-full sm:w-auto">
-                                    <span className="sr-only">Выбор медали</span>
+                                  <label>
                                     <select
+                                      aria-label="Выбор медали"
                                       value={playerMedalDrafts[player.id]?.medal ?? ""}
                                       onChange={(event) =>
                                         handlePlayerMedalDraftChange(
@@ -2417,7 +2417,7 @@ export default function AdminPage() {
                                         )
                                       }
                                       disabled={isSavingPlayerMedalUserId === player.id}
-                                      className="w-full min-w-[120px] max-w-[200px] truncate border border-gray-600 bg-transparent p-1.5 text-xs text-white focus:border-yellow-500 focus:outline-none sm:w-auto"
+                                      className="border border-gray-400 text-xs p-1.5 text-black bg-white focus:outline-none focus:border-black w-full truncate"
                                     >
                                       {PLAYER_MEDAL_OPTIONS.map((option) => (
                                         <option key={option.value} value={option.value}>
@@ -2436,7 +2436,7 @@ export default function AdminPage() {
                                         ""
                                       )
                                     }
-                                    className="whitespace-nowrap border border-gray-500 bg-gray-800 px-3 py-1.5 text-xs uppercase transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="bg-black text-white text-xs px-3 py-2 font-bold uppercase hover:bg-gray-800 transition-colors w-full"
                                   >
                                     {isSavingPlayerMedalUserId === player.id
                                       ? "СОХРАНЕНИЕ..."
@@ -2444,21 +2444,21 @@ export default function AdminPage() {
                                   </button>
                                 </div>
 
-                                <div className="mt-3 flex flex-wrap gap-2">
+                                <div className="flex flex-wrap gap-2 justify-center mt-1">
                                   {player.medals.length === 0 ? (
-                                    <span className="text-[10px] uppercase text-gray-500">
+                                    <span className="text-[10px] text-gray-500 uppercase">
                                       Медалей пока нет
                                     </span>
                                   ) : (
                                     player.medals.map((medal) => (
                                       <span
                                         key={medal.id}
-                                        className="flex items-center gap-2 border border-gray-600 bg-black px-2 py-1 text-xs"
+                                        className="border border-black bg-gray-50 px-2 py-1 flex items-center gap-2 text-xs text-black font-bold"
                                       >
                                         <span title={getPlayerMedalTitle(medal)}>
                                           {PLAYER_MEDAL_META[medal.medal].icon}
                                         </span>
-                                        <span className="max-w-40 truncate">
+                                        <span>
                                           {medal.tournamentName}
                                         </span>
                                         <button
@@ -2470,10 +2470,10 @@ export default function AdminPage() {
                                             )
                                           }
                                           disabled={isSavingPlayerMedalUserId === player.id}
-                                          className="ml-2 text-red-500 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                                          className="text-red-600 hover:text-red-800 ml-1"
                                           aria-label={`Удалить медаль ${medal.tournamentName}`}
                                         >
-                                          x
+                                          ✕
                                         </button>
                                       </span>
                                     ))
