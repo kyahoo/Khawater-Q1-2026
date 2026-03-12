@@ -14,6 +14,7 @@ type TournamentMatchInsert =
   Database["public"]["Tables"]["tournament_matches"]["Insert"];
 type TournamentMatchUpdate =
   Database["public"]["Tables"]["tournament_matches"]["Update"];
+type TournamentPlayerMedal = "gold" | "silver" | "bronze";
 
 type TournamentSelectRow = {
   id: string;
@@ -59,7 +60,12 @@ export type EnteredTeam = {
   name: string;
   logoUrl: string | null;
   captainName: string;
-  roster: string[];
+  roster: Array<{
+    id: string;
+    nickname: string;
+    isMMRVerified: boolean;
+    medal: TournamentPlayerMedal | null;
+  }>;
   isSuspended: boolean;
 };
 
@@ -96,6 +102,8 @@ type TournamentInsert = Database["public"]["Tables"]["tournaments"]["Insert"];
 type TeamProfileJoin = {
   id: string;
   nickname: string;
+  mmr_status: string | null;
+  tournament_badge: string | null;
 };
 
 type TeamMembershipJoin = {
@@ -462,7 +470,7 @@ export async function getEnteredTeamsForTournament(
   const { data: teams, error: teamsError } = await supabase
     .from("teams")
     .select(
-      "id, name, logo_url, team_members(user_id, is_captain, created_at, profiles(id, nickname))"
+      "id, name, logo_url, team_members(user_id, is_captain, created_at, profiles(id, nickname, mmr_status, tournament_badge))"
     )
     .in("id", teamIds);
 
@@ -484,10 +492,14 @@ export async function getEnteredTeamsForTournament(
             | {
                 id: string;
                 nickname: string;
+                mmr_status: string | null;
+                tournament_badge: string | null;
               }
             | Array<{
                 id: string;
                 nickname: string;
+                mmr_status: string | null;
+                tournament_badge: string | null;
               }>
             | null;
         }> | null;
@@ -510,9 +522,34 @@ export async function getEnteredTeamsForTournament(
             ? membership.profiles[0]
             : membership.profiles;
 
-          return profile?.nickname ?? null;
+          if (!profile?.nickname) {
+            return null;
+          }
+
+          const medal =
+            profile.tournament_badge === "gold" ||
+            profile.tournament_badge === "silver" ||
+            profile.tournament_badge === "bronze"
+              ? profile.tournament_badge
+              : null;
+
+          return {
+            id: profile.id,
+            nickname: profile.nickname,
+            isMMRVerified: profile.mmr_status === "verified",
+            medal,
+          };
         })
-        .filter((nickname): nickname is string => Boolean(nickname));
+        .filter(
+          (
+            player
+          ): player is {
+            id: string;
+            nickname: string;
+            isMMRVerified: boolean;
+            medal: TournamentPlayerMedal | null;
+          } => Boolean(player)
+        );
       const captainMembership = teamMemberships.find((membership) => membership.is_captain);
       const captainProfile = captainMembership
         ? Array.isArray(captainMembership.profiles)
