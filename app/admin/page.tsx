@@ -452,6 +452,7 @@ export default function AdminPage() {
   const [playerMMRInputs, setPlayerMMRInputs] = useState<Record<string, string>>({});
   const [, startMMRUpdateTransition] = useTransition();
   const [, startTournamentDeleteTransition] = useTransition();
+  const [isTournamentResultPending, startTournamentResultTransition] = useTransition();
 
   async function getCurrentAdminAccessToken() {
     const supabase = getSupabaseBrowserClient();
@@ -1206,32 +1207,40 @@ export default function AdminPage() {
     placement: TournamentPlacement
   ) {
     const teamId = tournamentResultSelections[tournamentId]?.[placement]?.trim() ?? "";
-
-    if (!teamId) {
-      setErrorMessage("Выберите команду перед сохранением результата.");
-      return;
-    }
-
     const resultKey = `${tournamentId}:${placement}`;
+
     setIsSavingTournamentResultKey(resultKey);
     setErrorMessage("");
 
-    try {
-      const result = await recordTournamentResult(tournamentId, teamId, placement);
+    startTournamentResultTransition(() => {
+      void (async () => {
+        try {
+          const result = await recordTournamentResult(tournamentId, teamId || null, placement);
 
-      if (result.error) {
-        throw new Error(result.error);
-      }
+          if (result.error) {
+            throw new Error(result.error);
+          }
 
-      await refreshAdminData();
-      router.refresh();
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Не удалось сохранить результат турнира."
-      );
-    } finally {
-      setIsSavingTournamentResultKey(null);
-    }
+          setTournamentResultSelections((current) => ({
+            ...current,
+            [tournamentId]: {
+              ...(current[tournamentId] ?? {}),
+              [placement]: teamId,
+            },
+          }));
+
+          await refreshAdminData();
+          router.refresh();
+          window.alert("Результат успешно сохранен!");
+        } catch (error) {
+          setErrorMessage(
+            error instanceof Error ? error.message : "Не удалось сохранить результат турнира."
+          );
+        } finally {
+          setIsSavingTournamentResultKey(null);
+        }
+      })();
+    });
   }
 
   async function handleSaveActiveTournamentCheckInThreshold() {
@@ -2938,7 +2947,8 @@ export default function AdminPage() {
                             ]).map((resultRow) => {
                               const resultKey = `${tournament.id}:${resultRow.placement}`;
                               const isSavingResult =
-                                isSavingTournamentResultKey === resultKey;
+                                isSavingTournamentResultKey === resultKey &&
+                                isTournamentResultPending;
 
                               return (
                                 <div
@@ -2965,7 +2975,7 @@ export default function AdminPage() {
                                       disabled={isSavingResult}
                                       className={`w-full border bg-transparent p-1 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60 ${resultRow.selectClassName}`}
                                     >
-                                      <option value="">Выберите команду</option>
+                                      <option value="">-- ОЧИСТИТЬ (Clear) --</option>
                                       {teams.map((team) => (
                                         <option key={team.id} value={team.id}>
                                           {team.name}
@@ -2981,12 +2991,7 @@ export default function AdminPage() {
                                         resultRow.placement
                                       )
                                     }
-                                    disabled={
-                                      isSavingResult ||
-                                      !tournamentResultSelections[tournament.id]?.[
-                                        resultRow.placement
-                                      ]
-                                    }
+                                    disabled={isSavingResult}
                                     className="w-fit border-[3px] border-[#061726] bg-[#CD9C3E] px-4 py-2 text-sm font-black uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:bg-[#8A6A2C] disabled:text-[#061726]/70"
                                   >
                                     {isSavingResult ? "СОХРАНЕНИЕ..." : "СОХРАНИТЬ"}

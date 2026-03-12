@@ -1287,16 +1287,16 @@ export async function deleteTournament(
 
 export async function recordTournamentResult(
   tournamentId: string,
-  teamId: string,
+  teamId: string | null,
   placement: number
 ): Promise<RecordTournamentResultResult> {
   const normalizedTournamentId = tournamentId.trim();
-  const normalizedTeamId = teamId.trim();
+  const normalizedTeamId = teamId?.trim() ?? "";
   const normalizedPlacement = Number(placement);
 
-  if (!normalizedTournamentId || !normalizedTeamId) {
+  if (!normalizedTournamentId) {
     return {
-      error: "Tournament and team are required.",
+      error: "Tournament is required.",
     };
   }
 
@@ -1362,6 +1362,28 @@ export async function recordTournamentResult(
     team_id: string;
     placement: number;
   }>).find((result) => result.placement === normalizedPlacement);
+
+  if (!normalizedTeamId) {
+    if (existingPlacementResult) {
+      const { error: deleteResultError } = await adminClient
+        .from("tournament_results")
+        .delete()
+        .eq("id", existingPlacementResult.id);
+
+      if (deleteResultError) {
+        return {
+          error: deleteResultError.message,
+        };
+      }
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/tournament");
+
+    return {
+      error: null,
+    };
+  }
 
   if (existingPlacementResult) {
     const { error: updateResultError } = await adminClient
