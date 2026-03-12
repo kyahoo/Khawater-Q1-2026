@@ -13,6 +13,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   getPlayerMedalTitle,
   PLAYER_MEDAL_META,
+  type PlayerMedalValue,
 } from "@/lib/supabase/player-medals";
 import {
   getActiveTournament,
@@ -29,6 +30,8 @@ const TOURNAMENT_TABS = [
   { id: "group", label: "Таблица группового этапа" },
   { id: "playoffs", label: "Сетка плей-офф" },
 ] as const;
+
+const MEDAL_DISPLAY_ORDER: PlayerMedalValue[] = ["gold", "silver", "bronze"];
 
 type TournamentTabId = (typeof TOURNAMENT_TABS)[number]["id"];
 type BracketParticipant = {
@@ -909,42 +912,78 @@ export default function TournamentPage() {
                             </span>
                             <div className="border-[3px] border-[#061726] bg-[#F4EED7] px-3">
                               {team.roster?.length ? (
-                                team.roster.map((player) => (
-                                  <div
-                                    key={player.id}
-                                    className="flex items-center justify-between gap-3 border-b border-gray-800 py-1 text-sm last:border-0"
-                                  >
-                                    <span className="min-w-0 flex-1 font-bold text-[#061726]">
-                                      {player.nickname}
-                                    </span>
-                                    <div className="flex shrink-0 items-center gap-2">
-                                      {player.isMMRVerified ? (
-                                        <RosterBadge
-                                          label={
-                                            player.mmr !== null
-                                              ? `✓ ${player.mmr}`
-                                              : "✓ MMR"
-                                          }
-                                          className="border-green-500 text-green-500"
-                                          title="MMR аккаунта подтвержден администратором"
-                                        />
-                                      ) : null}
-                                      {player.medals.length > 0 ? (
-                                        <div className="flex items-center gap-1">
-                                          {player.medals.map((medal) => (
-                                            <span
-                                              key={medal.id}
-                                              title={getPlayerMedalTitle(medal)}
-                                              className="text-lg leading-none"
-                                            >
-                                              {PLAYER_MEDAL_META[medal.medal].icon}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      ) : null}
+                                team.roster.map((player) => {
+                                  const medalCounts = player.medals.reduce(
+                                    (accumulator, medal) => {
+                                      accumulator[medal.medal] =
+                                        (accumulator[medal.medal] || 0) + 1;
+                                      return accumulator;
+                                    },
+                                    {} as Record<PlayerMedalValue, number>
+                                  );
+                                  const medalTitles = player.medals.reduce(
+                                    (accumulator, medal) => {
+                                      accumulator[medal.medal] = [
+                                        ...(accumulator[medal.medal] ?? []),
+                                        getPlayerMedalTitle(medal),
+                                      ];
+                                      return accumulator;
+                                    },
+                                    {} as Partial<Record<PlayerMedalValue, string[]>>
+                                  );
+
+                                  return (
+                                    <div
+                                      key={player.id}
+                                      className="flex items-center justify-between gap-3 border-b border-gray-800 py-1 text-sm last:border-0"
+                                    >
+                                      <span className="min-w-0 flex-1 font-bold text-[#061726]">
+                                        {player.nickname}
+                                      </span>
+                                      <div className="flex shrink-0 items-center gap-2">
+                                        {player.isMMRVerified ? (
+                                          <RosterBadge
+                                            label={
+                                              player.mmr !== null
+                                                ? `✓ ${player.mmr}`
+                                                : "✓ MMR"
+                                            }
+                                            className="border-green-500 text-green-500"
+                                            title="MMR аккаунта подтвержден администратором"
+                                          />
+                                        ) : null}
+                                        {player.medals.length > 0 ? (
+                                          <div className="flex items-center gap-3">
+                                            {MEDAL_DISPLAY_ORDER.map((medalType) => {
+                                              const count = medalCounts[medalType] ?? 0;
+
+                                              if (count === 0) {
+                                                return null;
+                                              }
+
+                                              return (
+                                                <div
+                                                  key={medalType}
+                                                  title={(medalTitles[medalType] ?? []).join("\n")}
+                                                  className="relative inline-flex items-center justify-center"
+                                                >
+                                                  <span className="text-lg leading-none">
+                                                    {PLAYER_MEDAL_META[medalType].icon}
+                                                  </span>
+                                                  {count > 1 ? (
+                                                    <span className="absolute -top-2 -right-2 flex h-[14px] min-w-[14px] items-center justify-center border border-gray-500 bg-gray-900 px-1 text-[8px] font-bold leading-tight text-white">
+                                                      {count}
+                                                    </span>
+                                                  ) : null}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        ) : null}
+                                      </div>
                                     </div>
-                                  </div>
-                                ))
+                                  );
+                                })
                               ) : (
                                 <div className="py-2 text-sm text-[#061726]/70">
                                   Игроков пока нет
