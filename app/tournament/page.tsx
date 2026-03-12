@@ -23,7 +23,6 @@ import {
   type TournamentMatch,
   type Tournament,
 } from "@/lib/supabase/tournaments";
-import { PetalOverlay } from "@/components/PetalOverlay";
 
 const TOURNAMENT_TABS = [
   { id: "teams", label: "Заявленные команды" },
@@ -835,7 +834,6 @@ export default function TournamentPage() {
                       sizes="100vw"
                       className="absolute inset-0 z-0 h-full w-full object-cover object-right"
                     />
-                    <PetalOverlay />
                     <div className="absolute inset-0 z-0 bg-gradient-to-r from-gray-900 via-gray-900/70 to-transparent" />
                   </>
                   <div className="relative z-10 max-w-3xl">

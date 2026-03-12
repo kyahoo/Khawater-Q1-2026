@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PetalOverlay } from "@/components/PetalOverlay";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getProfileByUserId } from "@/lib/supabase/profiles";
 import {
@@ -249,9 +248,8 @@ export default function MyTeamPage() {
 
   if (isLoading) {
     return (
-      <div className="relative min-h-screen bg-transparent px-6 py-10 text-zinc-900">
-        <PetalOverlay />
-        <div className="relative z-10 mx-auto max-w-6xl text-sm text-zinc-600">
+      <div className="min-h-screen bg-transparent px-6 py-10 text-zinc-900">
+        <div className="mx-auto max-w-6xl text-sm text-zinc-600">
           Загрузка команды...
         </div>
       </div>
@@ -259,9 +257,8 @@ export default function MyTeamPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-transparent text-zinc-900">
-      <PetalOverlay />
-      <main className="relative z-10 mx-auto max-w-6xl px-6 py-8">
+    <div className="min-h-screen bg-transparent text-zinc-900">
+      <main className="mx-auto max-w-6xl px-6 py-8">
         {errorMessage && (
           <p className="mb-6 text-sm leading-7 text-red-600">{errorMessage}</p>
         )}

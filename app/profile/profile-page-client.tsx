@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { browserSupportsWebAuthn, startRegistration } from "@simplewebauthn/browser";
 import { OnboardingChecklist } from "@/components/profile/OnboardingChecklist";
 import { PushToggleButton } from "@/components/profile/PushToggleButton";
-import { PetalOverlay } from "@/components/PetalOverlay";
 import { getProfileByUserId, type Profile } from "@/lib/supabase/profiles";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
@@ -624,9 +623,8 @@ export function ProfilePageClient({
 
   if (isLoading) {
     return (
-      <div className="relative min-h-screen bg-transparent px-6 py-10 text-zinc-900">
-        <PetalOverlay />
-        <div className="relative z-10 mx-auto max-w-5xl text-sm text-zinc-600">
+      <div className="min-h-screen bg-transparent px-6 py-10 text-zinc-900">
+        <div className="mx-auto max-w-5xl text-sm text-zinc-600">
           Загрузка профиля...
         </div>
       </div>
@@ -634,9 +632,8 @@ export function ProfilePageClient({
   }
 
   return (
-    <div className="relative min-h-screen bg-transparent text-zinc-900">
-      <PetalOverlay />
-      <main className="relative z-10 mx-auto max-w-5xl px-6 py-10">
+    <div className="min-h-screen bg-transparent text-zinc-900">
+      <main className="mx-auto max-w-5xl px-6 py-10">
         <h1 className="mb-8 inline-block border-[3px] border-[#061726] bg-[#0B3A4A] px-6 py-3 text-4xl font-black uppercase text-[#CD9C3E] shadow-[6px_6px_0px_0px_#061726] md:text-5xl">
           Профиль
         </h1>
