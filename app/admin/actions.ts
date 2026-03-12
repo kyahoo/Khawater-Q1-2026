@@ -1448,16 +1448,42 @@ export async function recordTournamentResult(
       team_id: string;
       user_id: string;
     }>;
-    const teamMemberIds = new Map<string, string[]>();
+    const memberUserIds = Array.from(new Set(typedMemberships.map((membership) => membership.user_id)));
+
+    const { data: tournamentConfirmations, error: tournamentConfirmationsError } =
+      memberUserIds.length > 0
+        ? await adminClient
+            .from("tournament_confirmations")
+            .select("user_id")
+            .eq("tournament_id", normalizedTournamentId)
+            .in("user_id", memberUserIds)
+        : { data: [], error: null };
+
+    if (tournamentConfirmationsError) {
+      return {
+        error: tournamentConfirmationsError.message,
+      };
+    }
+
+    const confirmedUserIdSet = new Set(
+      ((tournamentConfirmations ?? []) as Array<{ user_id: string }>).map(
+        (confirmation) => confirmation.user_id
+      )
+    );
+    const teamConfirmedUserIds = new Map<string, string[]>();
 
     for (const membership of typedMemberships) {
-      const teamUserIds = teamMemberIds.get(membership.team_id) ?? [];
+      if (!confirmedUserIdSet.has(membership.user_id)) {
+        continue;
+      }
+
+      const teamUserIds = teamConfirmedUserIds.get(membership.team_id) ?? [];
       teamUserIds.push(membership.user_id);
-      teamMemberIds.set(membership.team_id, teamUserIds);
+      teamConfirmedUserIds.set(membership.team_id, teamUserIds);
     }
 
     const affectedUserIds = Array.from(
-      new Set(typedMemberships.map((membership) => membership.user_id))
+      new Set(Array.from(teamConfirmedUserIds.values()).flat())
     );
 
     if (affectedUserIds.length > 0) {
@@ -1486,7 +1512,7 @@ export async function recordTournamentResult(
       placement: number;
     }>) {
       const badge = badgeByPlacement[result.placement as 1 | 2 | 3];
-      const userIds = teamMemberIds.get(result.team_id) ?? [];
+      const userIds = teamConfirmedUserIds.get(result.team_id) ?? [];
 
       if (!badge || userIds.length === 0) {
         continue;
