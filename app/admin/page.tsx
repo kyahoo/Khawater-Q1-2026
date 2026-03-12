@@ -2290,30 +2290,25 @@ export default function AdminPage() {
                 {players.length === 0 ? (
                   <p className="text-sm text-zinc-600">No registered players found yet.</p>
                 ) : (
-                  <div className="overflow-hidden border-[3px] border-[#061726] bg-white shadow-[4px_4px_0px_0px_#061726]">
+                  <div className="overflow-visible border-[3px] border-[#061726] bg-white shadow-[4px_4px_0px_0px_#061726]">
                     {players.map((player) => (
                       <div
                         key={player.id}
-                        className="flex flex-col items-start justify-between gap-4 border-b border-gray-700 bg-zinc-50 p-4 last:border-b-0 md:flex-row md:items-center"
+                        className="relative flex flex-col items-start justify-between gap-4 border-b border-gray-700 bg-zinc-50 p-4 pr-16 last:border-b-0 md:flex-row md:items-start"
                       >
-                        <div className="min-w-0 md:w-64 md:flex-none">
-                          <div className="text-lg font-black text-[#061726]">
-                            {player.nickname}
-                          </div>
-                          <div className="mt-1 break-all text-sm text-gray-400">
-                            {player.email}
-                          </div>
-                        </div>
+                        <details className="absolute right-4 top-4 z-40">
+                          <summary
+                            className="flex list-none cursor-pointer select-none items-center justify-center text-3xl font-black leading-none text-[#061726] transition-transform hover:scale-105 focus:outline-none [&::-webkit-details-marker]:hidden"
+                            aria-label={`Управление игроком ${player.nickname}`}
+                          >
+                            ⋮
+                          </summary>
 
-                        <div className="flex min-w-0 flex-col gap-4 md:flex-1">
-                          <div className="flex flex-wrap gap-2 md:justify-center">
-                            <div
-                              className={getBehaviorScoreBadgeClassName(player.behaviorScore)}
-                            >
-                              Балл: {player.behaviorScore}
-                            </div>
-                            <label className="block w-fit">
-                              <span className="sr-only">Статус подтверждения MMR</span>
+                          <div className="absolute right-0 top-10 z-50 flex min-w-[280px] flex-col gap-3 border-2 border-black bg-white p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                            <label className="flex flex-col gap-1">
+                              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#061726]">
+                                Статус MMR
+                              </span>
                               <select
                                 value={player.mmrStatus}
                                 onChange={(event) =>
@@ -2323,7 +2318,7 @@ export default function AdminPage() {
                                   )
                                 }
                                 disabled={isUpdatingMMRStatusUserId === player.id}
-                                className={getMMRStatusSelectClassName(player.mmrStatus)}
+                                className={`${getMMRStatusSelectClassName(player.mmrStatus)} min-w-full`}
                               >
                                 {MMR_STATUS_OPTIONS.map((option) => (
                                   <option key={option.value} value={option.value}>
@@ -2332,8 +2327,11 @@ export default function AdminPage() {
                                 ))}
                               </select>
                             </label>
-                            <label className="block w-fit">
-                              <span className="sr-only">Редактируемый MMR игрока</span>
+
+                            <label className="flex flex-col gap-1">
+                              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#061726]">
+                                MMR игрока
+                              </span>
                               <input
                                 type="number"
                                 inputMode="numeric"
@@ -2359,160 +2357,176 @@ export default function AdminPage() {
                                 }
                                 disabled={isUpdatingPlayerMMRUserId === player.id}
                                 aria-busy={isUpdatingPlayerMMRUserId === player.id}
-                                className={getMMRValueInputClassName(player.mmr)}
+                                className={`${getMMRValueInputClassName(player.mmr)} min-w-full`}
                               />
                             </label>
+
+                            <button
+                              type="button"
+                              onClick={() => void handleResetPlayerDeviceBinding(player.id)}
+                              disabled={isResettingDeviceUserId === player.id}
+                              className={`${PLAYER_ACTION_BUTTON_YELLOW_CLASSNAME} w-full`}
+                            >
+                              {isResettingDeviceUserId === player.id
+                                ? "Сброс..."
+                                : "СБРОСИТЬ БИОМЕТРИЮ"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleResetPlayerBehaviorScore(player.id)}
+                              disabled={isResettingBehaviorScoreUserId === player.id}
+                              className={`${PLAYER_ACTION_BUTTON_BLUE_CLASSNAME} w-full`}
+                            >
+                              {isResettingBehaviorScoreUserId === player.id
+                                ? "СБРОС..."
+                                : "СБРОСИТЬ БАЛЛ"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleDeletePlayer(player.id)}
+                              disabled={isDeletingPlayerUserId === player.id}
+                              className={`${PLAYER_ACTION_BUTTON_DANGER_CLASSNAME} w-full`}
+                            >
+                              {isDeletingPlayerUserId === player.id
+                                ? "Deleting..."
+                                : "Delete"}
+                            </button>
+
+                            <div className="flex w-full flex-col gap-3 border-2 border-black bg-zinc-50 p-3">
+                              <div className="border-b border-gray-200 pb-1 text-center text-xs font-bold uppercase tracking-wider text-black">
+                                Управление медалями
+                              </div>
+
+                              {tournaments.length === 0 ? (
+                                <span className="text-center text-[10px] uppercase text-gray-500">
+                                  Сначала создайте турнир, чтобы назначать медали.
+                                </span>
+                              ) : (
+                                <>
+                                  <div className="flex flex-col gap-2">
+                                    <label>
+                                      <select
+                                        aria-label="Выбор турнира для медали"
+                                        value={
+                                          playerMedalDrafts[player.id]?.tournamentId ??
+                                          activeTournament?.id ??
+                                          tournaments[0]?.id ??
+                                          ""
+                                        }
+                                        onChange={(event) =>
+                                          handlePlayerMedalDraftChange(
+                                            player.id,
+                                            "tournamentId",
+                                            event.target.value
+                                          )
+                                        }
+                                        disabled={isSavingPlayerMedalUserId === player.id}
+                                        className="w-full truncate border border-gray-400 bg-white p-1.5 text-xs text-black focus:border-black focus:outline-none"
+                                      >
+                                        {tournaments.map((tournament) => (
+                                          <option key={tournament.id} value={tournament.id}>
+                                            {tournament.name}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+                                    <label>
+                                      <select
+                                        aria-label="Выбор медали"
+                                        value={playerMedalDrafts[player.id]?.medal ?? ""}
+                                        onChange={(event) =>
+                                          handlePlayerMedalDraftChange(
+                                            player.id,
+                                            "medal",
+                                            event.target.value
+                                          )
+                                        }
+                                        disabled={isSavingPlayerMedalUserId === player.id}
+                                        className="w-full truncate border border-gray-400 bg-white p-1.5 text-xs text-black focus:border-black focus:outline-none"
+                                      >
+                                        {PLAYER_MEDAL_OPTIONS.map((option) => (
+                                          <option key={option.value} value={option.value}>
+                                            {option.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleSavePlayerMedal(player.id)}
+                                      disabled={
+                                        isSavingPlayerMedalUserId === player.id ||
+                                        !(playerMedalDrafts[player.id]?.medal ?? "")
+                                      }
+                                      className="w-full bg-black px-3 py-2 text-xs font-bold uppercase text-white transition-colors hover:bg-gray-800"
+                                    >
+                                      {isSavingPlayerMedalUserId === player.id
+                                        ? "СОХРАНЕНИЕ..."
+                                        : "СОХРАНИТЬ"}
+                                    </button>
+                                  </div>
+
+                                  <div className="mt-1 flex flex-wrap justify-center gap-2">
+                                    {player.medals.length === 0 ? (
+                                      <span className="text-[10px] uppercase text-gray-500">
+                                        Медалей пока нет
+                                      </span>
+                                    ) : (
+                                      player.medals.map((medal) => (
+                                        <span
+                                          key={medal.id}
+                                          className="flex items-center gap-2 border border-black bg-gray-50 px-2 py-1 text-xs font-bold text-black"
+                                        >
+                                          <span title={getPlayerMedalTitle(medal)}>
+                                            {PLAYER_MEDAL_META[medal.medal].icon}
+                                          </span>
+                                          <span>{medal.tournamentName}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              void handleClearPlayerMedal(
+                                                player.id,
+                                                medal.tournamentId
+                                              )
+                                            }
+                                            disabled={
+                                              isSavingPlayerMedalUserId === player.id
+                                            }
+                                            className="ml-1 text-red-600 hover:text-red-800"
+                                            aria-label={`Удалить медаль ${medal.tournamentName}`}
+                                          >
+                                            ✕
+                                          </button>
+                                        </span>
+                                      ))
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </details>
+
+                        <div className="min-w-0 md:w-64 md:flex-none">
+                          <div className="text-lg font-black text-[#061726]">
+                            {player.nickname}
+                          </div>
+                          <div className="mt-1 break-all text-sm text-gray-400">
+                            {player.email}
+                          </div>
+                        </div>
+
+                        <div className="flex min-w-0 flex-col gap-4 md:flex-1">
+                          <div className="flex flex-wrap gap-2 md:justify-center">
+                            <div
+                              className={getBehaviorScoreBadgeClassName(player.behaviorScore)}
+                            >
+                              Балл: {player.behaviorScore}
+                            </div>
                             <div className={getOpenTaskBadgeClassName(player.openTaskCount)}>
                               Открытые задачи: {player.openTaskCount}
                             </div>
                           </div>
-
-                          <div className="mt-4 p-3 border-2 border-black w-full max-w-sm mx-auto bg-white flex flex-col gap-3">
-                            <div className="font-bold text-xs tracking-wider uppercase text-black text-center border-b border-gray-200 pb-1">
-                              Управление медалями
-                            </div>
-
-                            {tournaments.length === 0 ? (
-                              <span className="text-[10px] text-gray-500 uppercase text-center">
-                                Сначала создайте турнир, чтобы назначать медали.
-                              </span>
-                            ) : (
-                              <>
-                                <div className="flex flex-col gap-2">
-                                  <label>
-                                    <select
-                                      aria-label="Выбор турнира для медали"
-                                      value={
-                                        playerMedalDrafts[player.id]?.tournamentId ??
-                                        activeTournament?.id ??
-                                        tournaments[0]?.id ??
-                                        ""
-                                      }
-                                      onChange={(event) =>
-                                        handlePlayerMedalDraftChange(
-                                          player.id,
-                                          "tournamentId",
-                                          event.target.value
-                                        )
-                                      }
-                                      disabled={isSavingPlayerMedalUserId === player.id}
-                                      className="border border-gray-400 text-xs p-1.5 text-black bg-white focus:outline-none focus:border-black w-full truncate"
-                                    >
-                                      {tournaments.map((tournament) => (
-                                        <option key={tournament.id} value={tournament.id}>
-                                          {tournament.name}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </label>
-                                  <label>
-                                    <select
-                                      aria-label="Выбор медали"
-                                      value={playerMedalDrafts[player.id]?.medal ?? ""}
-                                      onChange={(event) =>
-                                        handlePlayerMedalDraftChange(
-                                          player.id,
-                                          "medal",
-                                          event.target.value
-                                        )
-                                      }
-                                      disabled={isSavingPlayerMedalUserId === player.id}
-                                      className="border border-gray-400 text-xs p-1.5 text-black bg-white focus:outline-none focus:border-black w-full truncate"
-                                    >
-                                      {PLAYER_MEDAL_OPTIONS.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                          {option.label}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </label>
-                                  <button
-                                    type="button"
-                                    onClick={() => void handleSavePlayerMedal(player.id)}
-                                    disabled={
-                                      isSavingPlayerMedalUserId === player.id ||
-                                      !(
-                                        playerMedalDrafts[player.id]?.medal ??
-                                        ""
-                                      )
-                                    }
-                                    className="bg-black text-white text-xs px-3 py-2 font-bold uppercase hover:bg-gray-800 transition-colors w-full"
-                                  >
-                                    {isSavingPlayerMedalUserId === player.id
-                                      ? "СОХРАНЕНИЕ..."
-                                      : "СОХРАНИТЬ"}
-                                  </button>
-                                </div>
-
-                                <div className="flex flex-wrap gap-2 justify-center mt-1">
-                                  {player.medals.length === 0 ? (
-                                    <span className="text-[10px] text-gray-500 uppercase">
-                                      Медалей пока нет
-                                    </span>
-                                  ) : (
-                                    player.medals.map((medal) => (
-                                      <span
-                                        key={medal.id}
-                                        className="border border-black bg-gray-50 px-2 py-1 flex items-center gap-2 text-xs text-black font-bold"
-                                      >
-                                        <span title={getPlayerMedalTitle(medal)}>
-                                          {PLAYER_MEDAL_META[medal.medal].icon}
-                                        </span>
-                                        <span>
-                                          {medal.tournamentName}
-                                        </span>
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            void handleClearPlayerMedal(
-                                              player.id,
-                                              medal.tournamentId
-                                            )
-                                          }
-                                          disabled={isSavingPlayerMedalUserId === player.id}
-                                          className="text-red-600 hover:text-red-800 ml-1"
-                                          aria-label={`Удалить медаль ${medal.tournamentName}`}
-                                        >
-                                          ✕
-                                        </button>
-                                      </span>
-                                    ))
-                                  )}
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2 md:justify-end">
-                          <button
-                            type="button"
-                            onClick={() => void handleResetPlayerDeviceBinding(player.id)}
-                            disabled={isResettingDeviceUserId === player.id}
-                            className={PLAYER_ACTION_BUTTON_YELLOW_CLASSNAME}
-                          >
-                            {isResettingDeviceUserId === player.id
-                              ? "Сброс..."
-                              : "СБРОСИТЬ БИОМЕТРИЮ"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleResetPlayerBehaviorScore(player.id)}
-                            disabled={isResettingBehaviorScoreUserId === player.id}
-                            className={PLAYER_ACTION_BUTTON_BLUE_CLASSNAME}
-                          >
-                            {isResettingBehaviorScoreUserId === player.id
-                              ? "СБРОС..."
-                              : "СБРОСИТЬ БАЛЛ"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleDeletePlayer(player.id)}
-                            disabled={isDeletingPlayerUserId === player.id}
-                            className={PLAYER_ACTION_BUTTON_DANGER_CLASSNAME}
-                          >
-                            {isDeletingPlayerUserId === player.id ? "Deleting..." : "Delete"}
-                          </button>
                         </div>
                       </div>
                     ))}
