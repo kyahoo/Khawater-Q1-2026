@@ -4,6 +4,7 @@ import { useEffect, useEffectEvent, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getHasLiveMatchForUser } from "@/lib/supabase/matches";
 import { getActiveTaskCountForUser } from "@/lib/supabase/tasks";
 
 type SiteHeaderClientProps = {
@@ -49,19 +50,23 @@ export function SiteHeaderClient({
     initialCurrentUserId ? null : 0
   );
   const [behaviorScore, setBehaviorScore] = useState<number | null>(initialBehaviorScore);
+  const [hasLiveMatch, setHasLiveMatch] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   const loadUserNavigationState = useEffectEvent(async (userId: string) => {
     try {
-      const [nextTaskCount, nextBehaviorScore] = await Promise.all([
+      const [nextTaskCount, nextBehaviorScore, nextHasLiveMatch] = await Promise.all([
         getActiveTaskCountForUser(userId),
         getBehaviorScoreForUser(userId),
+        getHasLiveMatchForUser(userId),
       ]);
       setActiveTaskCount(nextTaskCount);
       setBehaviorScore(nextBehaviorScore);
+      setHasLiveMatch(nextHasLiveMatch);
     } catch (error) {
       console.error("Navigation state load failed:", error);
       setActiveTaskCount(0);
+      setHasLiveMatch(false);
     }
   });
 
@@ -85,6 +90,7 @@ export function SiteHeaderClient({
 
       setActiveTaskCount(0);
       setBehaviorScore(null);
+      setHasLiveMatch(false);
     });
 
     const {
@@ -101,6 +107,7 @@ export function SiteHeaderClient({
 
       setActiveTaskCount(0);
       setBehaviorScore(null);
+      setHasLiveMatch(false);
     });
 
     return () => {
@@ -182,7 +189,15 @@ export function SiteHeaderClient({
           ) : hasSession ? (
             <>
               <Link href="/matches" className={navLinkClass("/matches")}>
-                Мои матчи
+                <span className="inline-flex items-center gap-2">
+                  <span>Мои матчи</span>
+                  {hasLiveMatch && (
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                    </span>
+                  )}
+                </span>
               </Link>
               <Link href="/tasks" className={navLinkClass("/tasks")}>
                 <span className="inline-flex items-center gap-2">

@@ -133,6 +133,67 @@ export type UserTeamMatch = {
   teamBId: string;
 };
 
+const PRE_MATCH_OPEN_WINDOW_MS = 30 * 60 * 1000;
+
+const almatyWallClockFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Almaty",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+
+function getAlmatyWallClockTimeMs(dateInput: string | Date) {
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const parts = almatyWallClockFormatter.formatToParts(date);
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value])
+  );
+
+  const year = Number(values.year);
+  const month = Number(values.month);
+  const day = Number(values.day);
+  const hour = Number(values.hour);
+  const minute = Number(values.minute);
+  const second = Number(values.second);
+
+  if ([year, month, day, hour, minute, second].some((value) => Number.isNaN(value))) {
+    return null;
+  }
+
+  return Date.UTC(year, month - 1, day, hour, minute, second);
+}
+
+function isUserTeamMatchLive(match: UserTeamMatch) {
+  if (!match.scheduledAt) {
+    return false;
+  }
+
+  const normalizedStatus = match.status.trim().toLowerCase();
+
+  if (normalizedStatus === "finished" || normalizedStatus === "completed") {
+    return false;
+  }
+
+  const scheduledTimeMs = getAlmatyWallClockTimeMs(match.scheduledAt);
+
+  if (scheduledTimeMs === null) {
+    return false;
+  }
+
+  return Date.now() >= scheduledTimeMs - PRE_MATCH_OPEN_WINDOW_MS;
+}
+
 function normalizeMatchRoomTeam(params: {
   teamRow: MatchRoomTeamQueryRow | null;
   teamId: string;
@@ -516,4 +577,9 @@ export async function getMatchesForUserTeamWithClient(
 export async function getMatchesForUserTeam(userId: string): Promise<UserTeamMatch[]> {
   const supabase = getSupabaseBrowserClient();
   return getMatchesForUserTeamWithClient(supabase, userId);
+}
+
+export async function getHasLiveMatchForUser(userId: string): Promise<boolean> {
+  const matches = await getMatchesForUserTeam(userId);
+  return matches.some(isUserTeamMatchLive);
 }
