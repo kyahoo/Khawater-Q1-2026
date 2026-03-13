@@ -875,7 +875,7 @@ export default function TournamentPage() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`cursor-pointer select-none border-[4px] px-6 py-3 text-sm uppercase tracking-wider shadow-[6px_6px_0px_0px_#061726] transition-colors md:text-base ${
                     activeTab === tab.id
-                      ? "border-[#061726] bg-white font-extrabold text-[#0B3A4A]"
+                      ? "border-[#061726] bg-[#F4EED7] font-extrabold text-[#061726]"
                       : "border-[#061726] bg-[#0B3A4A] font-bold text-white hover:bg-[#0f4f66]"
                   }`}
                 >
