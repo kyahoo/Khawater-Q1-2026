@@ -178,14 +178,12 @@ export function SiteHeaderClient({
           <Link href="/history" className={`${navLinkClass("/history")} md:hidden`}>
             Зал славы
           </Link>
-          <div
-            className="relative hidden cursor-pointer items-center md:flex"
-            onClick={() => setIsMoreOpen(!isMoreOpen)}
-          >
+          <div className="relative hidden items-center md:flex">
             <button
               type="button"
+              onClick={() => setIsMoreOpen(!isMoreOpen)}
               aria-expanded={isMoreOpen}
-              className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap border-b-4 pb-1 text-base font-bold uppercase tracking-wide transition-colors md:text-lg ${
+              className={`inline-flex h-full shrink-0 cursor-pointer items-center justify-center whitespace-nowrap border-b-4 pb-1 text-base font-bold uppercase tracking-wide transition-colors md:text-lg ${
                 isActivePath("/rules") || isActivePath("/history")
                   ? "border-[#CD9C3E] text-[#CD9C3E]"
                   : "border-transparent text-white hover:text-gray-300"
@@ -193,33 +191,24 @@ export function SiteHeaderClient({
             >
               Прочее
             </button>
-            <div
-              className={`absolute top-[100%] left-0 min-w-[160px] flex-col bg-[#0B3A4A] shadow-2xl z-[100] ${
-                isMoreOpen ? "flex" : "hidden"
-              }`}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <Link
-                href="/rules"
-                className={dropdownLinkClass("/rules")}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setIsMoreOpen(false);
-                }}
-              >
-                Правила
-              </Link>
-              <Link
-                href="/history"
-                className={dropdownLinkClass("/history")}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setIsMoreOpen(false);
-                }}
-              >
-                Зал славы
-              </Link>
-            </div>
+            {isMoreOpen && (
+              <div className="absolute top-full left-0 z-[100] flex min-w-[160px] flex-col bg-[#0B3A4A] shadow-2xl">
+                <Link
+                  href="/rules"
+                  className={dropdownLinkClass("/rules")}
+                  onClick={() => setIsMoreOpen(false)}
+                >
+                  Правила
+                </Link>
+                <Link
+                  href="/history"
+                  className={dropdownLinkClass("/history")}
+                  onClick={() => setIsMoreOpen(false)}
+                >
+                  Зал славы
+                </Link>
+              </div>
+            )}
           </div>
           {hasSession === false ? (
             <Link
