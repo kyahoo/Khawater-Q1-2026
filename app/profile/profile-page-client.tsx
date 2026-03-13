@@ -854,9 +854,7 @@ export function ProfilePageClient({
                     </>
                   ) : (
                     <div>
-                      <p className="text-lg font-black uppercase text-white">
-                        ТЕКУЩИЙ MMR: {formattedMMR}
-                      </p>
+                      <p className="text-lg font-black uppercase text-white">{formattedMMR}</p>
                       <p className="mt-2 text-[10px] uppercase text-gray-500">
                         Для изменения MMR обратитесь к администратору
                       </p>
