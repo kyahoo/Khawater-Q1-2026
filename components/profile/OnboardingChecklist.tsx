@@ -40,7 +40,7 @@ export function OnboardingChecklist({
 }: OnboardingChecklistProps) {
   const items: ChecklistItem[] = [
     {
-      label: "Установить никнейм (будет заблокирован на время турнира)",
+      label: "Установить никнейм",
       completed: hasName,
     },
     {
@@ -48,7 +48,7 @@ export function OnboardingChecklist({
       completed: hasSteam,
     },
     {
-      label: "Подключить биометрию (для входа)",
+      label: "Подключить биометрию",
       completed: hasDevice,
     },
     {
