@@ -899,47 +899,45 @@ export default function TournamentPage() {
                     {enteredTeams.map((team) => (
                       <div
                         key={team.id}
-                        className="group relative flex flex-col overflow-hidden border-[4px] border-[#061726] bg-white shadow-[6px_6px_0px_0px_#CD9C3E] transition-all hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#CD9C3E]"
+                        className="group relative flex flex-col overflow-hidden border-[4px] border-[#061726] shadow-[6px_6px_0px_0px_#CD9C3E] transition-all hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#CD9C3E]"
                       >
                         <div className="flex items-center gap-3 border-b-[4px] border-[#061726] bg-[#F4EED7] p-4 text-xl font-extrabold uppercase tracking-widest text-[#061726]">
                           <TeamLogo teamName={team.name} logoUrl={team.logoUrl} />
                           <span>{team.name}</span>
                         </div>
-                        <div className="flex-1 p-4">
-                          <div className="text-sm font-medium text-arcade-black">
-                            <span className="mb-2 block text-xs font-bold uppercase text-white/70">
+                        <div className="flex-1">
+                          <div className="h-full border-[3px] border-white/10 bg-black/40 px-3 backdrop-blur-md">
+                            <span className="block py-3 text-xs font-bold uppercase text-white/70">
                               Состав:
                             </span>
-                            <div className="border-[3px] border-white/10 bg-black/40 px-3 backdrop-blur-sm">
-                              {team.roster?.length ? (
-                                team.roster.map((player) => {
-                                  return (
-                                    <div
-                                      key={player.id}
-                                      className="flex items-center justify-between gap-3 border-b border-white/10 py-1 text-sm last:border-0"
-                                    >
-                                      <span className="min-w-0 flex-1 font-bold text-white">
-                                        {player.nickname}
-                                      </span>
-                                      <div className="flex shrink-0 items-center gap-2">
-                                        {player.isMMRVerified && player.mmr !== null ? (
-                                          <RosterBadge
-                                            label={`MMR: ${player.mmr}`}
-                                            className="border-green-500 text-green-500"
-                                            title="MMR аккаунта подтвержден администратором"
-                                          />
-                                        ) : null}
-                                        <PlayerMedals medals={player.medals} />
-                                      </div>
+                            {team.roster?.length ? (
+                              team.roster.map((player) => {
+                                return (
+                                  <div
+                                    key={player.id}
+                                    className="flex items-center justify-between gap-3 border-b border-white/10 py-1 text-sm last:border-0"
+                                  >
+                                    <span className="min-w-0 flex-1 font-bold text-white">
+                                      {player.nickname}
+                                    </span>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                      {player.isMMRVerified && player.mmr !== null ? (
+                                        <RosterBadge
+                                          label={`MMR: ${player.mmr}`}
+                                          className="border-green-500 text-green-500"
+                                          title="MMR аккаунта подтвержден администратором"
+                                        />
+                                      ) : null}
+                                      <PlayerMedals medals={player.medals} />
                                     </div>
-                                  );
-                                })
-                              ) : (
-                                <div className="py-2 text-sm text-white/70">
-                                  Игроков пока нет
-                                </div>
-                              )}
-                            </div>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div className="py-2 text-sm text-white/70">
+                                Игроков пока нет
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
