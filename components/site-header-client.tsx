@@ -158,11 +158,7 @@ export function SiteHeaderClient({
   return (
     <header className="sticky top-0 z-50 w-full border-b-2 border-[#061726] bg-gradient-to-r from-[#0B3A4A] via-[#0B3A4A] via-70% to-[#061726]">
       <div className="mx-auto w-full max-w-6xl">
-        <nav
-          className={`flex w-full flex-nowrap items-center gap-6 px-4 py-4 md:gap-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] ${
-            isMoreOpen ? "!overflow-visible" : "overflow-x-auto md:overflow-visible"
-          }`}
-        >
+        <nav className="flex w-full flex-nowrap items-center gap-6 overflow-x-auto px-4 py-4 md:gap-8 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
           <Link
             href="/tournament"
             className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap border-b-4 pb-1 text-base uppercase tracking-tighter touch-manipulation md:text-lg ${
@@ -230,7 +226,7 @@ export function SiteHeaderClient({
               Прочее
             </button>
             {isMoreOpen && (
-              <div className="absolute top-full right-0 z-[100] flex min-w-[160px] flex-col bg-[#0B3A4A] shadow-2xl">
+              <div className="fixed top-[62px] right-0 z-[100] flex min-w-[160px] flex-col bg-[#0B3A4A] shadow-2xl">
                 <Link
                   href="/rules"
                   className={dropdownLinkClass("/rules")}
