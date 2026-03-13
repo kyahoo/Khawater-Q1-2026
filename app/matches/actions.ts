@@ -60,7 +60,9 @@ type MatchActionContext = {
   adminClient: SupabaseClient<Database>;
 };
 
-type MatchActionMatchRow = Database["public"]["Tables"]["tournament_matches"]["Row"];
+type MatchActionMatchRow = Database["public"]["Tables"]["tournament_matches"]["Row"] & {
+  admin_override?: boolean | null;
+};
 type MatchCheckInRow = Database["public"]["Tables"]["match_check_ins"]["Row"];
 
 type AuthorizedMatchActionContext = MatchActionContext & {
@@ -124,6 +126,10 @@ function normalizeStoredResultScreenshotUrls(
   }
 
   return [];
+}
+
+function isAdminOverrideMatch(match: MatchActionMatchRow) {
+  return match.admin_override ?? false;
 }
 
 function appendOrReplaceResultScreenshotUrl(params: {
@@ -1440,8 +1446,13 @@ export async function confirmMatchResult(
   const existingResultScreenshotUrls = normalizeStoredResultScreenshotUrls(
     authResult.context.match.result_screenshot_urls
   );
+  const isAdminOverride = isAdminOverrideMatch(authResult.context.match);
 
-  if (existingResultScreenshotUrls.length === 0 && screenshotUrls.length === 0) {
+  if (
+    !isAdminOverride &&
+    existingResultScreenshotUrls.length === 0 &&
+    screenshotUrls.length === 0
+  ) {
     await applyBehaviorPenalty({
       adminClient: authResult.context.adminClient,
       userId: authResult.context.user.id,
@@ -1451,7 +1462,7 @@ export async function confirmMatchResult(
     });
   }
 
-  if (screenshotUrls.length !== totalGames) {
+  if (!isAdminOverride && screenshotUrls.length !== totalGames) {
     throw new Error("Количество скриншотов должно совпадать с числом сыгранных карт.");
   }
 

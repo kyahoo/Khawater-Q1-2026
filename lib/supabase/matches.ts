@@ -38,6 +38,7 @@ export type MatchRoomData = {
     id: string;
     roundLabel: string;
     format: string;
+    adminOverride: boolean;
     checkInThreshold: number;
     scheduledAt: string | null;
     status: string;
@@ -87,6 +88,7 @@ type MatchRoomBaseRow = Pick<
 >;
 
 type MatchRoomQueryRow = MatchRoomBaseRow & {
+  admin_override?: boolean | null;
   result_screenshot_urls: string[] | null;
   winner_team_id?: string | null;
   opponent_notified: boolean | null;
@@ -237,7 +239,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
   const initialMatchResult = await supabase
     .from("tournament_matches")
     .select(
-      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls, winner_team_id, opponent_notified, reminder_1h_sent, reminder_30m_sent, is_forfeit"
+      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls, winner_team_id, opponent_notified, reminder_1h_sent, reminder_30m_sent, is_forfeit, admin_override"
     )
     .eq("id", matchId)
     .maybeSingle();
@@ -433,6 +435,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
         id: typedMatch.id,
         roundLabel: typedMatch.round_label,
         format: typedMatch.format,
+        adminOverride: typedMatch.admin_override ?? false,
         checkInThreshold,
         scheduledAt: typedMatch.scheduled_at,
         status: typedMatch.status,

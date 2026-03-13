@@ -842,7 +842,7 @@ export default function MatchRoomPage() {
       .map((slot) => slot.publicUrl)
       .filter((publicUrl): publicUrl is string => Boolean(publicUrl));
 
-    if (screenshotUrls.length !== totalGames) {
+    if (!data.match.adminOverride && screenshotUrls.length !== totalGames) {
       setMatchResultErrorMessage(
         "Загрузите скриншоты всех сыгранных карт перед подтверждением результата."
       );
@@ -1086,7 +1086,7 @@ export default function MatchRoomPage() {
   const hasReportedMatchResult =
     data.match.teamAScore !== null &&
     data.match.teamBScore !== null &&
-    safeResultScreenshotUrls.length > 0;
+    (safeResultScreenshotUrls.length > 0 || data.match.adminOverride);
   const isScorePending = Boolean(isCurrentUserLobbyHost && !hasReportedMatchResult);
   const hasInvalidResultSeriesLength =
     seriesLength !== null && totalGames > seriesLength;
@@ -1101,7 +1101,7 @@ export default function MatchRoomPage() {
   const isResultSubmitDisabled =
     isSubmittingMatchResult ||
     totalGames <= 0 ||
-    uploadedResultScreenshotCount !== totalGames ||
+    (!data.match.adminOverride && uploadedResultScreenshotCount !== totalGames) ||
     safeResultScreenshotSlots.some((slot) => slot?.isUploading) ||
     hasInvalidResultSeriesLength ||
     hasInvalidResultWinner;
