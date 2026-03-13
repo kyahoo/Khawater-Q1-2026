@@ -178,38 +178,6 @@ export function SiteHeaderClient({
           <Link href="/history" className={`${navLinkClass("/history")} md:hidden`}>
             Зал славы
           </Link>
-          <div className="relative hidden items-center md:flex">
-            <button
-              type="button"
-              onClick={() => setIsMoreOpen(!isMoreOpen)}
-              aria-expanded={isMoreOpen}
-              className={`inline-flex h-full shrink-0 cursor-pointer items-center justify-center whitespace-nowrap border-b-4 pb-1 text-base font-bold uppercase tracking-wide transition-colors md:text-lg ${
-                isActivePath("/rules") || isActivePath("/history")
-                  ? "border-[#CD9C3E] text-[#CD9C3E]"
-                  : "border-transparent text-white hover:text-gray-300"
-              }`}
-            >
-              Прочее
-            </button>
-            {isMoreOpen && (
-              <div className="absolute top-full left-0 z-[100] flex min-w-[160px] flex-col bg-[#0B3A4A] shadow-2xl">
-                <Link
-                  href="/rules"
-                  className={dropdownLinkClass("/rules")}
-                  onClick={() => setIsMoreOpen(false)}
-                >
-                  Правила
-                </Link>
-                <Link
-                  href="/history"
-                  className={dropdownLinkClass("/history")}
-                  onClick={() => setIsMoreOpen(false)}
-                >
-                  Зал славы
-                </Link>
-              </div>
-            )}
-          </div>
           {hasSession === false ? (
             <Link
               href="/auth"
@@ -250,6 +218,38 @@ export function SiteHeaderClient({
           ) : (
             <div className="h-9 w-24 shrink-0 bg-white/10" />
           )}
+          <div className="relative hidden items-center md:flex">
+            <button
+              type="button"
+              onClick={() => setIsMoreOpen(!isMoreOpen)}
+              aria-expanded={isMoreOpen}
+              className={`inline-flex h-full shrink-0 cursor-pointer items-center justify-center whitespace-nowrap border-b-4 pb-1 text-base font-bold uppercase tracking-wide transition-colors md:text-lg ${
+                isActivePath("/rules") || isActivePath("/history")
+                  ? "border-[#CD9C3E] text-[#CD9C3E]"
+                  : "border-transparent text-white hover:text-gray-300"
+              }`}
+            >
+              Прочее
+            </button>
+            {isMoreOpen && (
+              <div className="absolute top-full left-0 z-[100] flex min-w-[160px] flex-col bg-[#0B3A4A] shadow-2xl">
+                <Link
+                  href="/rules"
+                  className={dropdownLinkClass("/rules")}
+                  onClick={() => setIsMoreOpen(false)}
+                >
+                  Правила
+                </Link>
+                <Link
+                  href="/history"
+                  className={dropdownLinkClass("/history")}
+                  onClick={() => setIsMoreOpen(false)}
+                >
+                  Зал славы
+                </Link>
+              </div>
+            )}
+          </div>
         </nav>
       </div>
     </header>
