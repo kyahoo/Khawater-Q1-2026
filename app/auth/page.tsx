@@ -42,7 +42,7 @@ export default function AuthPage() {
         alt="Фон авторизации"
         fill
         unoptimized={true}
-        priority
+        priority={true}
         className="object-cover object-center"
         sizes="100vw"
       />

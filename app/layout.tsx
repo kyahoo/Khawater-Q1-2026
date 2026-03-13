@@ -45,7 +45,7 @@ export default function RootLayout({
             alt=""
             fill
             unoptimized={true}
-            priority
+            priority={true}
             sizes="100vw"
             className="object-cover object-[75%_center] md:object-center"
           />
