@@ -690,12 +690,12 @@ export function ProfilePageClient({
                         <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
                           {displayName}
                         </h2>
-                        {profile?.mmrStatus === "verified" ? (
+                        {profile?.mmrStatus === "verified" && formattedMMR ? (
                           <span
                             title="MMR аккаунта подтвержден"
                             className="ml-2 border border-green-600 px-1 py-0.5 text-xs uppercase tracking-wider text-green-500"
                           >
-                            [ ✓ MMR ]
+                            {`[ MMR: ${formattedMMR} ]`}
                           </span>
                         ) : null}
                         <PlayerMedals medals={profileMedals} />
