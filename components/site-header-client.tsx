@@ -49,6 +49,7 @@ export function SiteHeaderClient({
     initialCurrentUserId ? null : 0
   );
   const [behaviorScore, setBehaviorScore] = useState<number | null>(initialBehaviorScore);
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   const loadUserNavigationState = useEffectEvent(async (userId: string) => {
     try {
@@ -177,9 +178,13 @@ export function SiteHeaderClient({
           <Link href="/history" className={`${navLinkClass("/history")} md:hidden`}>
             Зал славы
           </Link>
-          <div className="relative group hidden cursor-pointer items-center md:flex">
+          <div
+            className="relative hidden cursor-pointer items-center md:flex"
+            onClick={() => setIsMoreOpen(!isMoreOpen)}
+          >
             <button
               type="button"
+              aria-expanded={isMoreOpen}
               className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap border-b-4 pb-1 text-base font-bold uppercase tracking-wide transition-colors md:text-lg ${
                 isActivePath("/rules") || isActivePath("/history")
                   ? "border-[#CD9C3E] text-[#CD9C3E]"
@@ -188,11 +193,30 @@ export function SiteHeaderClient({
             >
               Прочее
             </button>
-            <div className="absolute top-[100%] left-0 z-[100] hidden min-w-[160px] flex-col bg-[#0B3A4A] shadow-2xl group-hover:flex">
-              <Link href="/rules" className={dropdownLinkClass("/rules")}>
+            <div
+              className={`absolute top-[100%] left-0 min-w-[160px] flex-col bg-[#0B3A4A] shadow-2xl z-[100] ${
+                isMoreOpen ? "flex" : "hidden"
+              }`}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <Link
+                href="/rules"
+                className={dropdownLinkClass("/rules")}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setIsMoreOpen(false);
+                }}
+              >
                 Правила
               </Link>
-              <Link href="/history" className={dropdownLinkClass("/history")}>
+              <Link
+                href="/history"
+                className={dropdownLinkClass("/history")}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setIsMoreOpen(false);
+                }}
+              >
                 Зал славы
               </Link>
             </div>
