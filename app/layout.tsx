@@ -30,9 +30,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" className="overscroll-none bg-[#0B3A4A]">
+    <html lang="ru" className="bg-[#0B3A4A]">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-[100dvh] overscroll-none overflow-x-hidden bg-[#0B3A4A] font-sans text-slate-900 antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-[100dvh] overflow-x-hidden bg-[#0B3A4A] font-sans text-slate-900 antialiased`}
       >
         <div
           aria-hidden="true"

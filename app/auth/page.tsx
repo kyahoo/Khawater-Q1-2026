@@ -36,7 +36,7 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="relative flex h-screen w-full items-center justify-center overflow-hidden text-white">
+    <div className="relative flex min-h-screen w-full items-center justify-center text-white">
       <Image
         src="/esports-bg.avif"
         alt="Фон авторизации"
