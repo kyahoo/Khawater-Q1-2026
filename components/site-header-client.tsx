@@ -241,7 +241,7 @@ export function SiteHeaderClient({
               Прочее
             </button>
             {isMoreOpen && (
-              <div className="fixed top-[62px] right-0 z-[100] flex min-w-[160px] flex-col bg-[#0B3A4A] shadow-2xl">
+              <div className="fixed right-0 top-[62px] z-[100] flex min-w-[160px] flex-col bg-[#0B3A4A] shadow-2xl md:absolute md:right-0 md:top-full md:mt-2">
                 <Link
                   href="/rules"
                   className={dropdownLinkClass("/rules")}
