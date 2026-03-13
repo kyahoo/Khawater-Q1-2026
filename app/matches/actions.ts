@@ -93,6 +93,7 @@ const INVALID_LOBBY_SCREENSHOT_REASON =
   "Отсутствие или недействительный скриншот лобби";
 const MISSING_MATCH_RESULT_SCREENSHOTS_REASON =
   "Отсутствие скриншотов с результатами матча";
+const TECHNICAL_WIN_REQUEST_WINDOW_MS = 20 * 60 * 1000;
 const FORFEIT_BEHAVIOR_PENALTY = -1;
 const FORFEIT_BEHAVIOR_REASON = "Техническое поражение в матче";
 
@@ -130,6 +131,22 @@ function normalizeStoredResultScreenshotUrls(
 
 function isAdminOverrideMatch(match: MatchActionMatchRow) {
   return match.admin_override ?? false;
+}
+
+function isTechnicalWinRequestWindowExpired(
+  scheduledAt: string | null | undefined
+) {
+  if (!scheduledAt) {
+    return true;
+  }
+
+  const scheduledAtMs = new Date(scheduledAt).getTime();
+
+  if (!Number.isFinite(scheduledAtMs)) {
+    return true;
+  }
+
+  return Date.now() > scheduledAtMs + TECHNICAL_WIN_REQUEST_WINDOW_MS;
 }
 
 function appendOrReplaceResultScreenshotUrl(params: {
@@ -1992,7 +2009,7 @@ export async function claimDefaultWin(
 
     const { data: matchRow, error: matchError } = await adminClient
       .from("tournament_matches")
-      .select("id, status, team_a_id, team_b_id, is_forfeit, winner_team_id")
+      .select("*")
       .eq("id", trimmedMatchId)
       .maybeSingle();
 
@@ -2002,15 +2019,17 @@ export async function claimDefaultWin(
       };
     }
 
-    if (matchRow.status === "finished" || matchRow.is_forfeit) {
+    const typedMatchRow = matchRow as MatchActionMatchRow;
+
+    if (typedMatchRow.status === "finished" || typedMatchRow.is_forfeit) {
       return {
         error: "Матч уже завершен.",
       };
     }
 
     if (
-      trimmedClaimingTeamId !== matchRow.team_a_id &&
-      trimmedClaimingTeamId !== matchRow.team_b_id
+      trimmedClaimingTeamId !== typedMatchRow.team_a_id &&
+      trimmedClaimingTeamId !== typedMatchRow.team_b_id
     ) {
       return {
         error: "Ваша команда не участвует в этом матче.",
@@ -2018,11 +2037,64 @@ export async function claimDefaultWin(
     }
 
     const actualOpponentTeamId =
-      trimmedClaimingTeamId === matchRow.team_a_id ? matchRow.team_b_id : matchRow.team_a_id;
+      trimmedClaimingTeamId === typedMatchRow.team_a_id
+        ? typedMatchRow.team_b_id
+        : typedMatchRow.team_a_id;
 
     if (trimmedOpponentTeamId !== actualOpponentTeamId) {
       return {
         error: "Команда соперника указана неверно.",
+      };
+    }
+
+    if (isAdminOverrideMatch(typedMatchRow)) {
+      return {
+        error: "Матч находится под контролем администратора.",
+      };
+    }
+
+    if (isTechnicalWinRequestWindowExpired(typedMatchRow.scheduled_at)) {
+      return {
+        error: "Время на запрос технической победы истекло.",
+      };
+    }
+
+    const { data: claimingTeamMembers, error: claimingTeamMembersError } =
+      await adminClient
+        .from("team_members")
+        .select("user_id")
+        .eq("team_id", trimmedClaimingTeamId);
+
+    if (claimingTeamMembersError) {
+      return {
+        error: claimingTeamMembersError.message,
+      };
+    }
+
+    const claimingTeamUserIds = (claimingTeamMembers ?? []).map(
+      (member) => member.user_id
+    );
+    const { data: claimingTeamCheckIns, error: claimingTeamCheckInsError } =
+      await adminClient
+        .from("match_check_ins")
+        .select("player_id, is_checked_in, is_ready")
+        .eq("match_id", trimmedMatchId)
+        .in("player_id", claimingTeamUserIds);
+
+    if (claimingTeamCheckInsError) {
+      return {
+        error: claimingTeamCheckInsError.message,
+      };
+    }
+
+    const claimingTeamCheckedInCount = (claimingTeamCheckIns ?? []).filter(
+      (row) => row.is_ready || row.is_checked_in
+    ).length;
+
+    if (claimingTeamCheckedInCount !== 5) {
+      return {
+        error:
+          "Запрос технической победы доступен только если 5 игроков вашей команды прошли чек-ин.",
       };
     }
 

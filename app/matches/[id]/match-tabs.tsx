@@ -12,6 +12,7 @@ import { CheckInGate } from "./check-in-gate";
 
 const LOBBY_MAP_NUMBERS = [1, 2, 3] as const;
 const REQUIRED_TEAM_CHECK_INS = 5;
+const TECHNICAL_WIN_REQUEST_WINDOW_MS = 20 * 60 * 1000;
 
 type LobbyMapNumber = (typeof LOBBY_MAP_NUMBERS)[number];
 
@@ -34,6 +35,7 @@ type MatchTabsProps = {
   checkedInUserIds: string[];
   hostLabel: string;
   checkInThreshold: number;
+  isTechnicalWinRequestWindowExpired: boolean;
   roundLabelDisplay: string;
   scheduledAtDisplay: string | null;
   lobbyStatusLabel: string;
@@ -280,6 +282,7 @@ export function MatchTabs({
   checkedInUserIds,
   hostLabel,
   checkInThreshold,
+  isTechnicalWinRequestWindowExpired: initialIsTechnicalWinRequestWindowExpired,
   roundLabelDisplay,
   scheduledAtDisplay,
   lobbyStatusLabel,
@@ -289,6 +292,8 @@ export function MatchTabs({
   const [activeTab, setActiveTab] = useState<"lobby" | "management" | "results">(
     "lobby"
   );
+  const [hasTechnicalWinRequestWindowElapsedInView, setHasTechnicalWinRequestWindowElapsedInView] =
+    useState(false);
   const {
     isCurrentUserParticipant,
     isCurrentUserCaptain,
@@ -326,6 +331,12 @@ export function MatchTabs({
   const teamBCheckInCount = teamB.roster.filter((player) =>
     checkedInUserIdSet.has(player.userId)
   ).length;
+  const currentTeamCheckInCount =
+    currentTeamId === teamA.id
+      ? teamACheckInCount
+      : currentTeamId === teamB.id
+        ? teamBCheckInCount
+        : 0;
   const hasTechnicalCheckInResult =
     results.isCheckInExpired &&
     (teamACheckInCount < REQUIRED_TEAM_CHECK_INS ||
@@ -369,6 +380,47 @@ export function MatchTabs({
     isCurrentUserHostCaptain && currentTeamId
   );
   const normalizedMatchId = String(matchId ?? "").trim();
+  const isTechnicalWinRequestWindowExpired =
+    initialIsTechnicalWinRequestWindowExpired ||
+    hasTechnicalWinRequestWindowElapsedInView;
+  const hasRequiredTechnicalWinCheckIns =
+    currentTeamCheckInCount === REQUIRED_TEAM_CHECK_INS;
+  const isTechnicalWinDisabledForAdminOverride = match.adminOverride;
+  const isTechnicalWinActionBlocked =
+    isTechnicalWinDisabledForAdminOverride ||
+    !hasRequiredTechnicalWinCheckIns ||
+    isTechnicalWinRequestWindowExpired;
+  const technicalWinDisabledLabel =
+    isTechnicalWinRequestWindowExpired === true
+      ? "Время запроса истекло"
+      : "Тех. победа недоступна";
+
+  useEffect(() => {
+    if (!match.scheduledAt || initialIsTechnicalWinRequestWindowExpired) {
+      return;
+    }
+
+    const scheduledTimeMs = new Date(match.scheduledAt).getTime();
+
+    if (!Number.isFinite(scheduledTimeMs)) {
+      return;
+    }
+
+    const requestDeadlineMs =
+      scheduledTimeMs + TECHNICAL_WIN_REQUEST_WINDOW_MS;
+    if (Date.now() > requestDeadlineMs) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(
+      () => setHasTechnicalWinRequestWindowElapsedInView(true),
+      Math.max(requestDeadlineMs - Date.now(), 0)
+    );
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [initialIsTechnicalWinRequestWindowExpired, match.scheduledAt]);
 
   return (
     <>
@@ -793,8 +845,9 @@ export function MatchTabs({
                 </h2>
                 <p className="mt-3 max-w-3xl text-sm text-white/80">
                   Используйте этот запрос только если соперник не выходит на
-                  матч. Кнопка доступна капитанам обеих команд и не зависит от
-                  таймера чек-ина.
+                  матч. Запрос доступен только капитану команды, у которой
+                  ровно 5 игроков прошли чек-ин, и только в течение первых 20
+                  минут после старта матча.
                 </p>
                 <div className="mt-5">
                   <ForfeitClaimButton
@@ -803,7 +856,29 @@ export function MatchTabs({
                     opponentTeamId={opponentTeamId!}
                     isMatchFinished={match.status === "finished"}
                     isForfeit={match.isForfeit}
+                    isDisabled={isTechnicalWinActionBlocked}
+                    disabledLabel={technicalWinDisabledLabel}
                   />
+                  <div className="mt-3 space-y-2">
+                    {isTechnicalWinDisabledForAdminOverride && (
+                      <p className="text-sm font-bold text-[#FCA5A5]">
+                        Матч находится под контролем администратора. Запрос
+                        технической победы недоступен.
+                      </p>
+                    )}
+                    {!hasRequiredTechnicalWinCheckIns && (
+                      <p className="text-sm font-bold text-[#FCA5A5]">
+                        Запрос доступен только если 5 игроков вашей команды
+                        прошли чек-ин. Сейчас: {currentTeamCheckInCount}/
+                        {REQUIRED_TEAM_CHECK_INS}.
+                      </p>
+                    )}
+                    {isTechnicalWinRequestWindowExpired === true && (
+                      <p className="text-sm font-bold text-[#FCA5A5]">
+                        Время на запрос технической победы истекло
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             </>

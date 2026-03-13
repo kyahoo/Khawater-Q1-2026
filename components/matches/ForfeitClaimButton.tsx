@@ -10,6 +10,8 @@ type ForfeitClaimButtonProps = {
   opponentTeamId: string;
   isMatchFinished: boolean;
   isForfeit: boolean;
+  isDisabled?: boolean;
+  disabledLabel?: string;
 };
 
 export function ForfeitClaimButton({
@@ -18,6 +20,8 @@ export function ForfeitClaimButton({
   opponentTeamId,
   isMatchFinished,
   isForfeit,
+  isDisabled: isDisabledByPolicy = false,
+  disabledLabel,
 }: ForfeitClaimButtonProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -45,7 +49,8 @@ export function ForfeitClaimButton({
     };
   }, [toastMessage]);
 
-  const isDisabled = isSubmitting || isForfeit || isMatchFinished;
+  const isDisabled =
+    isSubmitting || isForfeit || isMatchFinished || isDisabledByPolicy;
 
   async function handleConfirm() {
     if (isDisabled) {
@@ -101,6 +106,8 @@ export function ForfeitClaimButton({
           ? "Тех. победа недоступна"
           : isSubmitting
             ? "ОБРАБОТКА..."
+            : isDisabledByPolicy
+              ? disabledLabel ?? "Тех. победа недоступна"
             : "Запросить тех. победу"}
       </button>
 

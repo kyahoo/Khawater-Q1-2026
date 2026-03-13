@@ -1027,6 +1027,9 @@ export default function MatchRoomPage() {
   const isCheckInExpired =
     Number.isFinite(scheduledTimeMs) &&
     Date.now() > scheduledTimeMs + 15 * 60 * 1000;
+  const isTechnicalWinRequestWindowExpired =
+    !Number.isFinite(scheduledTimeMs) ||
+    Date.now() > scheduledTimeMs + 20 * 60 * 1000;
   const isLateCheckInLockout =
     isCheckInExpired && !teamAHasCheckedIn && !teamBHasCheckedIn;
   const currentUserLobbyPhotos = currentUserId
@@ -1146,6 +1149,9 @@ export default function MatchRoomPage() {
             checkedInUserIds={data.checkedInUserIds}
             hostLabel={hostLabel}
             checkInThreshold={checkInThreshold}
+            isTechnicalWinRequestWindowExpired={
+              isTechnicalWinRequestWindowExpired
+            }
             roundLabelDisplay={roundLabelDisplay}
             scheduledAtDisplay={scheduledAtDisplay}
             lobbyStatusLabel={lobbyStatusLabel}
