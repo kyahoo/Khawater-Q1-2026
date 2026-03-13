@@ -419,6 +419,9 @@ export default function AdminPage() {
   const [isUploadingBannerTournamentId, setIsUploadingBannerTournamentId] = useState<
     string | null
   >(null);
+  const [isRemovingBannerTournamentId, setIsRemovingBannerTournamentId] = useState<
+    string | null
+  >(null);
   const [selectedStandingsBackgroundFile, setSelectedStandingsBackgroundFile] =
     useState<File | null>(null);
   const [standingsBackgroundInputKey, setStandingsBackgroundInputKey] = useState(0);
@@ -1553,6 +1556,37 @@ export default function AdminPage() {
       window.alert("Ошибка: не удалось загрузить баннер");
     } finally {
       setIsUploadingBannerTournamentId(null);
+    }
+  }
+
+  async function handleRemoveBanner(tournamentId: string) {
+    setIsRemovingBannerTournamentId(tournamentId);
+    setErrorMessage("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: updateError } = await supabase
+        .from("tournaments")
+        .update({ banner_url: null })
+        .eq("id", tournamentId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      if (editingBannerTournamentId === tournamentId) {
+        setEditingBannerTournamentId(null);
+        setSelectedBannerFile(null);
+      }
+
+      await refreshAdminData();
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        getSupabaseLikeErrorMessage(error, "Не удалось удалить баннер турнира.")
+      );
+    } finally {
+      setIsRemovingBannerTournamentId(null);
     }
   }
 
@@ -3091,6 +3125,18 @@ export default function AdminPage() {
                                   ? "Редактирование"
                                   : "Загрузить баннер"}
                               </button>
+                              {tournament.banner_url ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleRemoveBanner(tournament.id)}
+                                  disabled={isRemovingBannerTournamentId === tournament.id}
+                                  className="rounded border border-red-500 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {isRemovingBannerTournamentId === tournament.id
+                                    ? "Удаление..."
+                                    : "Удалить баннер"}
+                                </button>
+                              ) : null}
                               <button
                                 type="button"
                                 onClick={() => void handleSetActiveTournament(tournament.id)}
