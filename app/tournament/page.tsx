@@ -823,19 +823,26 @@ export default function TournamentPage() {
           <div className="space-y-6">
             <details className="mb-8">
               <summary className="list-none cursor-pointer [&::-webkit-details-marker]:hidden">
-                <div className="relative overflow-hidden border-[3px] border-[#061726] bg-[#0B3A4A] p-8 shadow-[6px_6px_0px_0px_#061726]">
-                  <>
+                <div
+                  className={`relative overflow-hidden border-[3px] border-[#061726] p-8 shadow-[6px_6px_0px_0px_#061726] ${
+                    activeTournament?.banner_url
+                      ? "bg-[#0B3A4A]"
+                      : "bg-slate-800/80 animate-pulse"
+                  }`}
+                >
+                  {activeTournament?.banner_url ? (
+                    <>
                     <Image
-                      src={activeTournament?.banner_url || "/esports-bg.avif"}
-                      alt={`Баннер турнира ${activeTournament?.name ?? ""}`}
+                      src={activeTournament.banner_url}
+                      alt={`Баннер турнира ${activeTournament.name ?? ""}`}
                       fill
-                      unoptimized={!activeTournament?.banner_url}
                       priority={true}
                       sizes="100vw"
                       className="absolute inset-0 z-0 h-full w-full object-cover object-right"
                     />
                     <div className="absolute inset-0 z-0 bg-gradient-to-r from-gray-900 via-gray-900/70 to-transparent" />
-                  </>
+                    </>
+                  ) : null}
                   <div className="relative z-10 max-w-3xl">
                     <div className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-[#CD9C3E]">
                       Активный турнир
