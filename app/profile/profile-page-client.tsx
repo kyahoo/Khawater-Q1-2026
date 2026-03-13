@@ -5,14 +5,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { browserSupportsWebAuthn, startRegistration } from "@simplewebauthn/browser";
+import { PlayerMedals } from "@/components/player-medals";
 import { OnboardingChecklist } from "@/components/profile/OnboardingChecklist";
 import { PushToggleButton } from "@/components/profile/PushToggleButton";
 import { getProfileByUserId, type Profile } from "@/lib/supabase/profiles";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import {
-  getPlayerMedalTitle,
-  PLAYER_MEDAL_META,
-} from "@/lib/supabase/player-medals";
 import {
   deleteTeamIfLastCaptain,
   getCurrentTeamDetails,
@@ -701,15 +698,7 @@ export function ProfilePageClient({
                             [ ✓ MMR ]
                           </span>
                         ) : null}
-                        {profileMedals.map((medal) => (
-                          <span
-                            key={medal.id}
-                            title={getPlayerMedalTitle(medal)}
-                            className="text-xl leading-none"
-                          >
-                            {PLAYER_MEDAL_META[medal.medal].icon}
-                          </span>
-                        ))}
+                        <PlayerMedals medals={profileMedals} />
                       </div>
                       {isTournamentLocked && (
                         <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-white/60">
