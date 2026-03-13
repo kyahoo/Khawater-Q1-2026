@@ -901,7 +901,7 @@ export default function TournamentPage() {
                         key={team.id}
                         className="group relative flex flex-col overflow-hidden border-[4px] border-[#061726] bg-white shadow-[6px_6px_0px_0px_#CD9C3E] transition-all hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#CD9C3E]"
                       >
-                        <div className="flex items-center gap-3 border-b-[4px] border-[#061726] bg-khawater-blue p-4 text-xl font-extrabold uppercase tracking-widest text-[#FFFFFF]">
+                        <div className="flex items-center gap-3 border-b-[4px] border-[#061726] bg-[#F4EED7] p-4 text-xl font-extrabold uppercase tracking-widest text-[#061726]">
                           <TeamLogo teamName={team.name} logoUrl={team.logoUrl} />
                           <span>{team.name}</span>
                         </div>
