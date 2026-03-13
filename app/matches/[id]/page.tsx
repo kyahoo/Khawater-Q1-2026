@@ -829,7 +829,7 @@ export default function MatchRoomPage() {
   ) {
     event.preventDefault();
 
-    if (!matchId) {
+    if (!matchId || !data) {
       return;
     }
 
