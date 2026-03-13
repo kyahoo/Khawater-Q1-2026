@@ -906,8 +906,8 @@ export default function TournamentPage() {
                           <span>{team.name}</span>
                         </div>
                         <div className="flex-1">
-                          <div className="h-full bg-[#F4EED7] px-3 text-[#061726]">
-                            <span className="block py-3 text-xs font-bold uppercase text-[#061726]/70">
+                          <div className="h-full bg-white/10 px-3 backdrop-blur-md">
+                            <span className="block py-3 text-xs font-bold uppercase text-white/90">
                               Состав:
                             </span>
                             {team.roster?.length ? (
@@ -915,16 +915,16 @@ export default function TournamentPage() {
                                 return (
                                   <div
                                     key={player.id}
-                                    className="flex items-center justify-between gap-3 border-b border-[#061726]/15 py-1 text-sm last:border-0"
+                                    className="flex items-center justify-between gap-3 border-b border-white/15 py-1 text-sm last:border-0"
                                   >
-                                    <span className="min-w-0 flex-1 font-bold text-[#061726]">
+                                    <span className="min-w-0 flex-1 font-bold text-gray-100">
                                       {player.nickname}
                                     </span>
                                     <div className="flex shrink-0 items-center gap-2">
                                       {player.isMMRVerified && player.mmr !== null ? (
                                         <RosterBadge
                                           label={`MMR: ${player.mmr}`}
-                                          className="border-green-500 text-green-500"
+                                          className="border-green-400 text-white/90"
                                           title="MMR аккаунта подтвержден администратором"
                                         />
                                       ) : null}
@@ -934,7 +934,7 @@ export default function TournamentPage() {
                                 );
                               })
                             ) : (
-                              <div className="py-2 text-sm text-[#061726]/70">
+                              <div className="py-2 text-sm text-white/80">
                                 Игроков пока нет
                               </div>
                             )}
