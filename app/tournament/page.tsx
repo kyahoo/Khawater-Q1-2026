@@ -906,8 +906,8 @@ export default function TournamentPage() {
                           <span>{team.name}</span>
                         </div>
                         <div className="flex-1">
-                          <div className="h-full border-[3px] border-white/10 bg-black/40 px-3 backdrop-blur-md">
-                            <span className="block py-3 text-xs font-bold uppercase text-white/70">
+                          <div className="h-full bg-[#F4EED7] px-3 text-[#061726]">
+                            <span className="block py-3 text-xs font-bold uppercase text-[#061726]/70">
                               Состав:
                             </span>
                             {team.roster?.length ? (
@@ -915,9 +915,9 @@ export default function TournamentPage() {
                                 return (
                                   <div
                                     key={player.id}
-                                    className="flex items-center justify-between gap-3 border-b border-white/10 py-1 text-sm last:border-0"
+                                    className="flex items-center justify-between gap-3 border-b border-[#061726]/15 py-1 text-sm last:border-0"
                                   >
-                                    <span className="min-w-0 flex-1 font-bold text-white">
+                                    <span className="min-w-0 flex-1 font-bold text-[#061726]">
                                       {player.nickname}
                                     </span>
                                     <div className="flex shrink-0 items-center gap-2">
@@ -934,7 +934,7 @@ export default function TournamentPage() {
                                 );
                               })
                             ) : (
-                              <div className="py-2 text-sm text-white/70">
+                              <div className="py-2 text-sm text-[#061726]/70">
                                 Игроков пока нет
                               </div>
                             )}
