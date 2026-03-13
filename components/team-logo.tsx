@@ -19,7 +19,7 @@ export function TeamLogo({
 
   return (
     <div
-      className={`flex shrink-0 items-center justify-center overflow-hidden border-2 border-[#061726] bg-[#061726] ${sizeClassName}`}
+      className={`flex shrink-0 items-center justify-center overflow-hidden border-2 border-[#061726] ${logoUrl ? "bg-transparent" : "bg-[#061726]"} ${sizeClassName}`}
     >
       {logoUrl ? (
         <Image

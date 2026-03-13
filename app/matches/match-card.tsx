@@ -105,7 +105,9 @@ function TeamLogoBox({
   logoUrl: string | null;
 }) {
   return (
-    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-none border-[2px] border-[#061726] bg-[#061726] md:h-12 md:w-12">
+    <div
+      className={`h-10 w-10 shrink-0 overflow-hidden rounded-none border-[2px] border-[#061726] ${logoUrl ? "bg-transparent" : "bg-[#061726]"} md:h-12 md:w-12`}
+    >
       {logoUrl ? (
         <Image
           src={logoUrl}
