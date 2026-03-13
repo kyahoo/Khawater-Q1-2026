@@ -131,8 +131,8 @@ export function SiteHeaderClient({
   function dropdownLinkClass(href: string) {
     return `block whitespace-nowrap px-4 py-3 text-sm font-bold uppercase tracking-wide transition-colors ${
       isActivePath(href)
-        ? "bg-[#145266] text-[#CD9C3E]"
-        : "bg-[#0B3A4A] text-white hover:bg-[#145266]"
+        ? "bg-white/10 text-[#CD9C3E]"
+        : "text-white hover:bg-white/10"
     }`;
   }
 
@@ -177,7 +177,7 @@ export function SiteHeaderClient({
           <Link href="/history" className={`${navLinkClass("/history")} md:hidden`}>
             Зал славы
           </Link>
-          <div className="group relative hidden shrink-0 cursor-pointer md:block">
+          <div className="relative group hidden cursor-pointer items-center md:flex">
             <button
               type="button"
               className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap border-b-4 pb-1 text-base font-bold uppercase tracking-wide transition-colors md:text-lg ${
@@ -188,7 +188,7 @@ export function SiteHeaderClient({
             >
               Прочее
             </button>
-            <div className="absolute left-0 top-full z-50 hidden min-w-[150px] flex-col border border-[#061726] bg-[#0B3A4A] shadow-lg group-hover:flex group-focus-within:flex">
+            <div className="absolute top-[100%] left-0 z-[100] hidden min-w-[160px] flex-col bg-[#0B3A4A] shadow-2xl group-hover:flex">
               <Link href="/rules" className={dropdownLinkClass("/rules")}>
                 Правила
               </Link>
