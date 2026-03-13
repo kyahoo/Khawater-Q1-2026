@@ -298,7 +298,7 @@ export default function MyTeamPage() {
                     alt={`Логотип команды ${teamData.team.name}`}
                     width={48}
                     height={48}
-                    className="w-12 h-12 object-cover border border-gray-600"
+                    className="h-12 w-12 border-none object-cover outline-none"
                   />
                 ) : null}
                 <h1 className="text-3xl font-black text-white md:text-4xl">

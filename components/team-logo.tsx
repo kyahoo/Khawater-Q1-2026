@@ -19,7 +19,7 @@ export function TeamLogo({
 
   return (
     <div
-      className={`flex shrink-0 items-center justify-center overflow-hidden border-2 border-[#061726] ${logoUrl ? "bg-transparent" : "bg-[#061726]"} ${sizeClassName}`}
+      className={`flex shrink-0 items-center justify-center overflow-hidden ${logoUrl ? "border-none bg-transparent outline-none" : "border-2 border-[#061726] bg-[#061726]"} ${sizeClassName}`}
     >
       {logoUrl ? (
         <Image
@@ -27,7 +27,7 @@ export function TeamLogo({
           alt={`Логотип команды ${teamName}`}
           width={48}
           height={48}
-          className="aspect-square h-full w-full object-cover"
+          className="aspect-square h-full w-full border-none object-cover outline-none"
         />
       ) : (
         <span

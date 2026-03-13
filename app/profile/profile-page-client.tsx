@@ -102,7 +102,7 @@ function TeamIdentityRow({
             alt={`Логотип команды ${teamName}`}
             width={56}
             height={56}
-            className="h-14 w-14 rounded-sm border border-gray-600 object-cover"
+            className="h-14 w-14 rounded-sm border-none object-cover outline-none"
           />
         ) : (
           <div className="flex h-14 w-14 items-center justify-center rounded-sm border border-gray-600 bg-[#123C4D] text-base font-black uppercase text-white">

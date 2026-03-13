@@ -106,7 +106,7 @@ function TeamLogoBox({
 }) {
   return (
     <div
-      className={`h-10 w-10 shrink-0 overflow-hidden rounded-none border-[2px] border-[#061726] ${logoUrl ? "bg-transparent" : "bg-[#061726]"} md:h-12 md:w-12`}
+      className={`h-10 w-10 shrink-0 overflow-hidden rounded-none ${logoUrl ? "border-none bg-transparent outline-none" : "border-[2px] border-[#061726] bg-[#061726]"} md:h-12 md:w-12`}
     >
       {logoUrl ? (
         <Image
@@ -114,7 +114,7 @@ function TeamLogoBox({
           alt={`Логотип команды ${teamName}`}
           width={48}
           height={48}
-          className="h-full w-full object-cover"
+          className="h-full w-full border-none object-cover outline-none"
         />
       ) : null}
     </div>
