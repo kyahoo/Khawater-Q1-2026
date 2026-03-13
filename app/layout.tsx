@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Image from "next/image";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { AutoRefreshHandler } from "@/components/AutoRefreshHandler";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
 
@@ -34,6 +35,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-[100dvh] overflow-x-hidden bg-[#0B3A4A] font-sans text-slate-900 antialiased`}
       >
+        <AutoRefreshHandler />
         <div
           aria-hidden="true"
           className="pointer-events-none fixed inset-0 overflow-hidden"
