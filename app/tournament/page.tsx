@@ -907,18 +907,18 @@ export default function TournamentPage() {
                         </div>
                         <div className="flex-1 p-4">
                           <div className="text-sm font-medium text-arcade-black">
-                            <span className="mb-2 block text-xs font-bold uppercase text-arcade-muted">
+                            <span className="mb-2 block text-xs font-bold uppercase text-white/70">
                               Состав:
                             </span>
-                            <div className="border-[3px] border-[#061726] bg-[#F4EED7] px-3">
+                            <div className="border-[3px] border-white/10 bg-black/40 px-3 backdrop-blur-sm">
                               {team.roster?.length ? (
                                 team.roster.map((player) => {
                                   return (
                                     <div
                                       key={player.id}
-                                      className="flex items-center justify-between gap-3 border-b border-gray-800 py-1 text-sm last:border-0"
+                                      className="flex items-center justify-between gap-3 border-b border-white/10 py-1 text-sm last:border-0"
                                     >
-                                      <span className="min-w-0 flex-1 font-bold text-[#061726]">
+                                      <span className="min-w-0 flex-1 font-bold text-white">
                                         {player.nickname}
                                       </span>
                                       <div className="flex shrink-0 items-center gap-2">
@@ -935,7 +935,7 @@ export default function TournamentPage() {
                                   );
                                 })
                               ) : (
-                                <div className="py-2 text-sm text-[#061726]/70">
+                                <div className="py-2 text-sm text-white/70">
                                   Игроков пока нет
                                 </div>
                               )}
