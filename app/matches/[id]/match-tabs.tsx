@@ -11,6 +11,7 @@ import type { MatchRoomData } from "@/lib/supabase/matches";
 import { CheckInGate } from "./check-in-gate";
 
 const LOBBY_MAP_NUMBERS = [1, 2, 3] as const;
+const REQUIRED_TEAM_CHECK_INS = 5;
 
 type LobbyMapNumber = (typeof LOBBY_MAP_NUMBERS)[number];
 
@@ -70,6 +71,7 @@ type MatchTabsProps = {
     isCurrentUserLobbyHost: boolean;
     hasReportedMatchResult: boolean;
     isScorePending: boolean;
+    isCheckInExpired: boolean;
     reportedWinnerName: string | null;
     safeResultScreenshotUrls: string[];
     reportedResultScreenshotSlots: Array<{
@@ -317,6 +319,28 @@ export function MatchTabs({
     isCurrentUserBiometricallyVerified,
     hasPendingLobbyPhotoAction,
   } = lobby;
+  const checkedInUserIdSet = new Set(checkedInUserIds);
+  const teamACheckInCount = teamA.roster.filter((player) =>
+    checkedInUserIdSet.has(player.userId)
+  ).length;
+  const teamBCheckInCount = teamB.roster.filter((player) =>
+    checkedInUserIdSet.has(player.userId)
+  ).length;
+  const hasTechnicalCheckInResult =
+    results.isCheckInExpired &&
+    (teamACheckInCount < REQUIRED_TEAM_CHECK_INS ||
+      teamBCheckInCount < REQUIRED_TEAM_CHECK_INS);
+  const technicalResultMessage =
+    teamACheckInCount < REQUIRED_TEAM_CHECK_INS &&
+    teamBCheckInCount < REQUIRED_TEAM_CHECK_INS
+      ? "Обе команды не прошли чек-ин. Техническое поражение обеим командам."
+      : teamACheckInCount >= REQUIRED_TEAM_CHECK_INS &&
+          teamBCheckInCount < REQUIRED_TEAM_CHECK_INS
+        ? `Команда ${teamB.name} не прошла чек-ин. Техническая победа присуждается ${teamA.name}.`
+        : teamBCheckInCount >= REQUIRED_TEAM_CHECK_INS &&
+            teamACheckInCount < REQUIRED_TEAM_CHECK_INS
+          ? `Команда ${teamA.name} не прошла чек-ин. Техническая победа присуждается ${teamB.name}.`
+          : null;
 
   const showTieError =
     !results.hasInvalidResultSeriesLength &&
@@ -894,6 +918,38 @@ export function MatchTabs({
                     Скриншоты серии пока недоступны.
                   </div>
                 )}
+              </div>
+            </div>
+          ) : hasTechnicalCheckInResult && technicalResultMessage ? (
+            <div className="mt-5 border-[4px] border-[#7F1D1D] bg-[#450A0A] p-5 shadow-[6px_6px_0px_0px_#061726]">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-[#FCA5A5]">
+                Технический результат
+              </p>
+              <h3 className="mt-2 text-2xl font-black uppercase text-white">
+                ЧЕК-ИН НЕ ПРОЙДЕН
+              </h3>
+              <p className="mt-4 text-sm font-bold leading-7 text-white/90">
+                {technicalResultMessage}
+              </p>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                <div className="border-[3px] border-[#7F1D1D] bg-[#061726] px-4 py-4 shadow-[4px_4px_0px_0px_#061726]">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-[#FCA5A5]">
+                    {teamA.name}
+                  </p>
+                  <p className="mt-3 text-3xl font-black uppercase text-white">
+                    {teamACheckInCount}/{REQUIRED_TEAM_CHECK_INS}
+                  </p>
+                </div>
+
+                <div className="border-[3px] border-[#7F1D1D] bg-[#061726] px-4 py-4 shadow-[4px_4px_0px_0px_#061726]">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-[#FCA5A5]">
+                    {teamB.name}
+                  </p>
+                  <p className="mt-3 text-3xl font-black uppercase text-white">
+                    {teamBCheckInCount}/{REQUIRED_TEAM_CHECK_INS}
+                  </p>
+                </div>
               </div>
             </div>
           ) : (

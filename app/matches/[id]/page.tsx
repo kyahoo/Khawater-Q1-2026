@@ -1024,11 +1024,11 @@ export default function MatchRoomPage() {
   const scheduledTimeMs = data.match.scheduledAt
     ? new Date(data.match.scheduledAt).getTime()
     : Number.NaN;
-  const isLateCheckInLockout =
+  const isCheckInExpired =
     Number.isFinite(scheduledTimeMs) &&
-    Date.now() > scheduledTimeMs + 15 * 60 * 1000 &&
-    !teamAHasCheckedIn &&
-    !teamBHasCheckedIn;
+    Date.now() > scheduledTimeMs + 15 * 60 * 1000;
+  const isLateCheckInLockout =
+    isCheckInExpired && !teamAHasCheckedIn && !teamBHasCheckedIn;
   const currentUserLobbyPhotos = currentUserId
     ? data.lobbyPhotos.filter((photo) => photo.playerId === currentUserId)
     : [];
@@ -1183,6 +1183,7 @@ export default function MatchRoomPage() {
               isCurrentUserLobbyHost,
               hasReportedMatchResult,
               isScorePending,
+              isCheckInExpired,
               reportedWinnerName,
               safeResultScreenshotUrls,
               reportedResultScreenshotSlots,
