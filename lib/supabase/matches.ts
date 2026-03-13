@@ -2,6 +2,10 @@ import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  listPlayerMedalsForUsersWithClient,
+  type PlayerMedalWithTournament,
+} from "@/lib/supabase/player-medals";
 
 function createLiveSupabaseBrowserClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -25,6 +29,7 @@ export type MatchRoomTeam = {
     userId: string;
     nickname: string;
     isCaptain: boolean;
+    medals: PlayerMedalWithTournament[];
   }>;
 };
 
@@ -132,6 +137,7 @@ function normalizeMatchRoomTeam(params: {
   teamRow: MatchRoomTeamQueryRow | null;
   teamId: string;
   fallbackName: string;
+  medalsByUserId: Record<string, PlayerMedalWithTournament[]>;
 }) {
   const sortedMemberships = (params.teamRow?.team_members ?? []).slice().sort(
     (membershipA, membershipB) =>
@@ -147,6 +153,7 @@ function normalizeMatchRoomTeam(params: {
       userId: membership.user_id,
       nickname: profile?.nickname ?? "Player",
       isCaptain: membership.is_captain,
+      medals: params.medalsByUserId[membership.user_id] ?? [],
     };
   });
 
@@ -326,9 +333,19 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
   const teamBId = typedMatch.team_b_id;
   const teamRows = (teamsResult.data ?? []) as unknown as MatchRoomTeamQueryRow[];
   const teamById = new Map(teamRows.map((team) => [team.id, team]));
+  const rosterUserIds = teamRows.flatMap((team) =>
+    (team.team_members ?? []).map((membership) => membership.user_id)
+  );
+  let medalsByUserId = {} as Record<string, PlayerMedalWithTournament[]>;
 
   if (teamsResult.error) {
     console.error("Match teams fetch failed:", teamsResult.error);
+  }
+
+  try {
+    medalsByUserId = await listPlayerMedalsForUsersWithClient(supabase, rosterUserIds);
+  } catch (medalsError) {
+    console.error("Match player medals fetch failed:", medalsError);
   }
 
   const resultScreenshotUrls = Array.isArray(typedMatch.result_screenshot_urls)
@@ -340,11 +357,13 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
     teamRow: teamById.get(teamAId) ?? null,
     teamId: teamAId,
     fallbackName: "Team A",
+    medalsByUserId,
   });
   const teamB = normalizeMatchRoomTeam({
     teamRow: teamById.get(teamBId) ?? null,
     teamId: teamBId,
     fallbackName: "Team B",
+    medalsByUserId,
   });
 
   return {

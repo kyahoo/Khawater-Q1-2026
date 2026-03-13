@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ForfeitClaimButton } from "@/components/matches/ForfeitClaimButton";
 import { NotifyButton } from "@/components/matches/NotifyButton";
+import { PlayerMedals } from "@/components/player-medals";
 import type { MatchRoomData } from "@/lib/supabase/matches";
 import { CheckInGate } from "./check-in-gate";
 
@@ -108,26 +109,29 @@ const urgentActionBadgeClassName =
 
 function PlayerRow({
   nickname,
+  medals,
   isCaptain,
   isCheckedIn,
 }: {
   nickname: string;
+  medals: MatchRoomData["teamA"]["roster"][number]["medals"];
   isCaptain: boolean;
   isCheckedIn: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between border-t-[3px] border-[#061726] bg-[#061726]/35 px-4 py-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex items-center justify-between gap-3 border-t-[3px] border-[#061726] bg-[#061726]/35 px-4 py-3">
+      <div className="min-w-0 flex flex-1 flex-wrap items-center gap-2">
         <span className="text-sm font-black uppercase tracking-wide text-white">
           {nickname}
         </span>
+        <PlayerMedals medals={medals} className="shrink-0 gap-1.5" />
         {isCaptain && (
           <span className="border-[2px] border-[#061726] bg-[#CD9C3E] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-[#061726]">
             Капитан
           </span>
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         {isCheckedIn ? (
           <span className="border-[2px] border-[#061726] bg-[#163f1d] px-2 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#D9F99D]">
             Чек-ин
@@ -458,6 +462,7 @@ export function MatchTabs({
                   <PlayerRow
                     key={player.userId}
                     nickname={player.nickname}
+                    medals={player.medals}
                     isCaptain={player.isCaptain}
                     isCheckedIn={checkedInUserIds.includes(player.userId)}
                   />
@@ -479,6 +484,7 @@ export function MatchTabs({
                   <PlayerRow
                     key={player.userId}
                     nickname={player.nickname}
+                    medals={player.medals}
                     isCaptain={player.isCaptain}
                     isCheckedIn={checkedInUserIds.includes(player.userId)}
                   />
