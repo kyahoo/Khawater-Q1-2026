@@ -27,25 +27,6 @@
 }
 
 @layer utilities {
-  @keyframes ambient-breathe {
-    0% {
-      transform: scale(1) translate(0px, 0px);
-    }
-
-    50% {
-      transform: scale(1.03) translate(-8px, 4px);
-    }
-
-    100% {
-      transform: scale(1) translate(0px, 0px);
-    }
-  }
-
-  .animate-ambient-breathe {
-    animation: ambient-breathe 15s ease-in-out infinite;
-    will-change: transform;
-  }
-
   .clip-chamfer {
     clip-path: polygon(
       10px 0,

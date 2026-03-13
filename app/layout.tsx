@@ -45,7 +45,7 @@ export default function RootLayout({
             unoptimized={true}
             priority
             sizes="100vw"
-            className="animate-ambient-breathe object-cover object-[75%_center] md:object-center"
+            className="object-cover object-[75%_center] md:object-center"
           />
         </div>
 

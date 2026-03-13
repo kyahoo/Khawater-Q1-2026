@@ -832,7 +832,7 @@ export default function TournamentPage() {
                       unoptimized={!activeTournament?.banner_url}
                       priority={true}
                       sizes="100vw"
-                      className="absolute inset-0 z-0 h-full w-full animate-ambient-breathe object-cover object-right"
+                      className="absolute inset-0 z-0 h-full w-full object-cover object-right"
                     />
                     <div className="absolute inset-0 z-0 bg-gradient-to-r from-gray-900 via-gray-900/70 to-transparent" />
                   </>
