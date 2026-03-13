@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Image from "next/image";
+import NextTopLoader from "nextjs-toploader";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AutoRefreshHandler } from "@/components/AutoRefreshHandler";
 import { SiteHeader } from "@/components/site-header";
@@ -36,6 +37,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} min-h-[100dvh] overflow-x-hidden bg-[#0B3A4A] font-sans text-slate-900 antialiased`}
       >
         <AutoRefreshHandler />
+        <NextTopLoader color="#CD9C3E" showSpinner={false} height={3} />
         <div
           aria-hidden="true"
           className="pointer-events-none fixed inset-0 overflow-hidden"
