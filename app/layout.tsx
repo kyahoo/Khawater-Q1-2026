@@ -1,10 +1,11 @@
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Image from "next/image";
 import NextTopLoader from "nextjs-toploader";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AutoRefreshHandler } from "@/components/AutoRefreshHandler";
-import { SiteHeader } from "@/components/site-header";
+import { SiteHeaderData, SiteHeaderSkeleton } from "@/components/site-header";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -54,7 +55,9 @@ export default function RootLayout({
         </div>
 
         <div className="relative z-0 min-h-[100dvh]">
-          <SiteHeader />
+          <Suspense fallback={<SiteHeaderSkeleton />}>
+            <SiteHeaderData />
+          </Suspense>
           {children}
         </div>
         <SpeedInsights />
