@@ -91,6 +91,8 @@ export type TournamentMatch = {
   status: string;
   teamAScore: number | null;
   teamBScore: number | null;
+  winnerTeamId: string | null;
+  isForfeit: boolean;
   displayOrder: number;
   format: string;
   adminOverride: boolean;
@@ -651,7 +653,7 @@ export async function getTournamentMatchesForTournament(
   const { data: matches, error: matchesError } = await supabase
     .from("tournament_matches")
     .select(
-      "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at, admin_override, team_a:teams!tournament_matches_team_a_id_fkey(id, name, logo_url), team_b:teams!tournament_matches_team_b_id_fkey(id, name, logo_url)"
+      "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, winner_team_id, is_forfeit, display_order, format, created_at, admin_override, team_a:teams!tournament_matches_team_a_id_fkey(id, name, logo_url), team_b:teams!tournament_matches_team_b_id_fkey(id, name, logo_url)"
     )
     .eq("tournament_id", tournamentId)
     .order("scheduled_at", { ascending: true })
@@ -671,6 +673,8 @@ export async function getTournamentMatchesForTournament(
     admin_override?: boolean | null;
     team_a_score: number | null;
     team_b_score: number | null;
+    winner_team_id: string | null;
+    is_forfeit?: boolean | null;
     display_order: number;
     format: string;
     team_a:
@@ -788,6 +792,8 @@ export async function getTournamentMatchesForTournament(
     status: match.status,
     teamAScore: match.team_a_score,
     teamBScore: match.team_b_score,
+    winnerTeamId: match.winner_team_id ?? null,
+    isForfeit: match.is_forfeit ?? false,
     displayOrder: match.display_order,
     format: match.format,
     adminOverride: match.admin_override ?? false,

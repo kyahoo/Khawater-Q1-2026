@@ -78,8 +78,7 @@ export function calculateGroupStageStandings(
     (match) =>
       match.status === "finished" &&
       match.roundLabel === "Group Stage" &&
-      match.teamAScore !== null &&
-      match.teamBScore !== null
+      (match.isForfeit || (match.teamAScore !== null && match.teamBScore !== null))
   );
 
   const standingsByTeam = new Map<string, GroupStageStanding>();
@@ -105,15 +104,46 @@ export function calculateGroupStageStandings(
     return nextTeam;
   };
 
+  const recordWin = (
+    winner: GroupStageStanding,
+    loser: GroupStageStanding,
+    format: TournamentMatch["format"]
+  ) => {
+    winner.wins += 1;
+    loser.losses += 1;
+    winner.points += format === "BO2" ? 3 : 1;
+  };
+
   for (const match of groupMatches) {
     const teamA = ensureTeam(match.teamAId, match.teamAName, match.teamALogoUrl);
     const teamB = ensureTeam(match.teamBId, match.teamBName, match.teamBLogoUrl);
-    const scoreText = `${match.teamAScore} - ${match.teamBScore}`;
-    const [teamAScoreText, teamBScoreText] = scoreText.split(" - ");
-    const teamAScore = Number(teamAScoreText);
-    const teamBScore = Number(teamBScoreText);
+    const teamAScore = match.teamAScore;
+    const teamBScore = match.teamBScore;
+    const isMutualForfeit = teamAScore === 0 && teamBScore === 0;
 
-    if (Number.isNaN(teamAScore) || Number.isNaN(teamBScore)) {
+    if (match.isForfeit) {
+      if (!isMutualForfeit && match.winnerTeamId === match.teamAId) {
+        recordWin(teamA, teamB, match.format);
+        continue;
+      }
+
+      if (!isMutualForfeit && match.winnerTeamId === match.teamBId) {
+        recordWin(teamB, teamA, match.format);
+        continue;
+      }
+
+      teamA.losses += 1;
+      teamB.losses += 1;
+      continue;
+    }
+
+    if (teamAScore === null || teamBScore === null) {
+      continue;
+    }
+
+    if (isMutualForfeit) {
+      teamA.losses += 1;
+      teamB.losses += 1;
       continue;
     }
 
@@ -124,26 +154,18 @@ export function calculateGroupStageStandings(
         teamA.points += 1;
         teamB.points += 1;
       } else if (teamAScore > teamBScore) {
-        teamA.wins += 1;
-        teamB.losses += 1;
-        teamA.points += 3;
+        recordWin(teamA, teamB, match.format);
       } else {
-        teamB.wins += 1;
-        teamA.losses += 1;
-        teamB.points += 3;
+        recordWin(teamB, teamA, match.format);
       }
 
       continue;
     }
 
     if (teamAScore > teamBScore) {
-      teamA.wins += 1;
-      teamB.losses += 1;
-      teamA.points += 1;
+      recordWin(teamA, teamB, match.format);
     } else if (teamBScore > teamAScore) {
-      teamB.wins += 1;
-      teamA.losses += 1;
-      teamB.points += 1;
+      recordWin(teamB, teamA, match.format);
     }
   }
 
