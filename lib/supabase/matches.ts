@@ -604,36 +604,36 @@ export async function getMatchesForUserTeamWithClient(
   supabase: SupabaseClient<Database>,
   userId: string
 ): Promise<UserTeamMatch[]> {
-  const { data: membership, error: membershipError } = await supabase
-    .from("team_members")
-    .select("team_id")
-    .eq("user_id", userId)
-    .maybeSingle();
+  const [membershipResult, activeTournamentResult] = await Promise.all([
+    supabase
+      .from("team_members")
+      .select("team_id")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    supabase
+      .from("tournaments")
+      .select("id")
+      .eq("is_active", true)
+      .maybeSingle(),
+  ]);
+  const membership = membershipResult.data;
+  const membershipError = membershipResult.error;
+  const activeTournament = activeTournamentResult.data;
+  const tournamentError = activeTournamentResult.error;
 
   if (membershipError) {
     throw membershipError;
   }
 
-  if (!membership) {
-    return [];
-  }
-
-  const teamId = (membership as { team_id: string }).team_id;
-
-  const { data: activeTournament, error: tournamentError } = await supabase
-    .from("tournaments")
-    .select("id")
-    .eq("is_active", true)
-    .maybeSingle();
-
   if (tournamentError) {
     throw tournamentError;
   }
 
-  if (!activeTournament) {
+  if (!membership || !activeTournament) {
     return [];
   }
 
+  const teamId = (membership as { team_id: string }).team_id;
   const tournamentId = (activeTournament as { id: string }).id;
 
   const primaryMatchesResult = await supabase
