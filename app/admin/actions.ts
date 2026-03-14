@@ -93,6 +93,14 @@ type DeleteMatchResult = {
   error: string | null;
 };
 
+type EnableTournamentMatchAdminOverrideResult = {
+  error: string | null;
+};
+
+type ResolveTimedOutTournamentMatchResult = {
+  error: string | null;
+};
+
 type DeleteMultipleMatchesResult = {
   error: string | null;
 };
@@ -1750,6 +1758,9 @@ type GenerateGroupStageMatchesResult = {
   matchCount: number;
 };
 
+const REQUIRED_TEAM_CHECK_INS = 5;
+const MATCH_CHECK_IN_TIMEOUT_MS = 15 * 60 * 1000;
+
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
@@ -2262,6 +2273,250 @@ export async function updateTournamentMatchAction(
       error: error instanceof Error ? error.message : "Could not update match.",
     };
   }
+}
+
+export async function enableTournamentMatchAdminOverride(
+  matchId: string,
+  accessToken: string
+): Promise<EnableTournamentMatchAdminOverrideResult> {
+  const normalizedMatchId = matchId.trim();
+
+  if (!normalizedMatchId) {
+    return {
+      error: "Match is required.",
+    };
+  }
+
+  const authResult = await verifyAdminAction(accessToken);
+
+  if (authResult.error || !authResult.context) {
+    return {
+      error: authResult.error,
+    };
+  }
+
+  const adminClient = createClient<Database>(
+    authResult.context.supabaseUrl,
+    authResult.context.serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+
+  const { error } = await adminClient
+    .from("tournament_matches")
+    .update({
+      admin_override: true,
+    } as Database["public"]["Tables"]["tournament_matches"]["Update"] & {
+      admin_override: boolean;
+    })
+    .eq("id", normalizedMatchId);
+
+  if (error) {
+    return {
+      error: error.message,
+    };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/tournament");
+  revalidatePath("/matches");
+  revalidatePath(`/matches/${normalizedMatchId}`);
+  revalidatePath("/", "layout");
+
+  return {
+    error: null,
+  };
+}
+
+export async function resolveTimedOutTournamentMatch(
+  matchId: string,
+  accessToken: string
+): Promise<ResolveTimedOutTournamentMatchResult> {
+  const normalizedMatchId = matchId.trim();
+
+  if (!normalizedMatchId) {
+    return {
+      error: "Match is required.",
+    };
+  }
+
+  const authResult = await verifyAdminAction(accessToken);
+
+  if (authResult.error || !authResult.context) {
+    return {
+      error: authResult.error,
+    };
+  }
+
+  const adminClient = createClient<Database>(
+    authResult.context.supabaseUrl,
+    authResult.context.serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+
+  const { data: match, error: matchError } = await adminClient
+    .from("tournament_matches")
+    .select("id, team_a_id, team_b_id, scheduled_at, status, admin_override")
+    .eq("id", normalizedMatchId)
+    .maybeSingle();
+
+  if (matchError) {
+    return {
+      error: matchError.message,
+    };
+  }
+
+  const typedMatch = match as
+    | {
+        id: string;
+        team_a_id: string;
+        team_b_id: string;
+        scheduled_at: string | null;
+        status: string;
+        admin_override?: boolean | null;
+      }
+    | null;
+
+  if (!typedMatch) {
+    return {
+      error: "Match not found.",
+    };
+  }
+
+  const normalizedStatus = typedMatch.status.trim().toLowerCase();
+
+  if (normalizedStatus === "finished" || normalizedStatus === "completed") {
+    return {
+      error: "This match has already been completed.",
+    };
+  }
+
+  if (typedMatch.admin_override ?? false) {
+    return {
+      error: "Disable or avoid admin override before applying a technical result.",
+    };
+  }
+
+  const scheduledTimeMs = typedMatch.scheduled_at
+    ? new Date(typedMatch.scheduled_at).getTime()
+    : Number.NaN;
+
+  if (
+    !Number.isFinite(scheduledTimeMs) ||
+    Date.now() <= scheduledTimeMs + MATCH_CHECK_IN_TIMEOUT_MS
+  ) {
+    return {
+      error: "This match has not reached the 15-minute check-in timeout yet.",
+    };
+  }
+
+  const [teamMembershipsResult, checkInsResult] = await Promise.all([
+    adminClient
+      .from("team_members")
+      .select("team_id, user_id")
+      .in("team_id", [typedMatch.team_a_id, typedMatch.team_b_id]),
+    adminClient
+      .from("match_check_ins")
+      .select("player_id, is_checked_in, is_ready")
+      .eq("match_id", normalizedMatchId),
+  ]);
+
+  if (teamMembershipsResult.error) {
+    return {
+      error: teamMembershipsResult.error.message,
+    };
+  }
+
+  if (checkInsResult.error) {
+    return {
+      error: checkInsResult.error.message,
+    };
+  }
+
+  const playerTeamIdByUserId = new Map(
+    (teamMembershipsResult.data ?? []).map((membership) => [
+      membership.user_id,
+      membership.team_id,
+    ])
+  );
+  const teamAPlayerIds = new Set<string>();
+  const teamBPlayerIds = new Set<string>();
+
+  for (const row of checkInsResult.data ?? []) {
+    if (!(row.is_ready || row.is_checked_in)) {
+      continue;
+    }
+
+    const playerTeamId = playerTeamIdByUserId.get(row.player_id);
+
+    if (playerTeamId === typedMatch.team_a_id) {
+      teamAPlayerIds.add(row.player_id);
+      continue;
+    }
+
+    if (playerTeamId === typedMatch.team_b_id) {
+      teamBPlayerIds.add(row.player_id);
+    }
+  }
+
+  const teamACheckInCount = teamAPlayerIds.size;
+  const teamBCheckInCount = teamBPlayerIds.size;
+  const teamAMissingPlayers = teamACheckInCount < REQUIRED_TEAM_CHECK_INS;
+  const teamBMissingPlayers = teamBCheckInCount < REQUIRED_TEAM_CHECK_INS;
+
+  if (!teamAMissingPlayers && !teamBMissingPlayers) {
+    return {
+      error: "Both teams already have all required check-ins.",
+    };
+  }
+
+  let teamAScore = 0;
+  let teamBScore = 0;
+  let winnerTeamId: string | null = null;
+
+  if (teamAMissingPlayers && !teamBMissingPlayers) {
+    teamBScore = 1;
+    winnerTeamId = typedMatch.team_b_id;
+  } else if (!teamAMissingPlayers && teamBMissingPlayers) {
+    teamAScore = 1;
+    winnerTeamId = typedMatch.team_a_id;
+  }
+
+  const { error: updateError } = await adminClient
+    .from("tournament_matches")
+    .update({
+      status: "finished",
+      team_a_score: teamAScore,
+      team_b_score: teamBScore,
+      winner_team_id: winnerTeamId,
+      is_forfeit: true,
+    })
+    .eq("id", normalizedMatchId);
+
+  if (updateError) {
+    return {
+      error: updateError.message,
+    };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/tournament");
+  revalidatePath("/matches");
+  revalidatePath(`/matches/${normalizedMatchId}`);
+  revalidatePath("/", "layout");
+
+  return {
+    error: null,
+  };
 }
 
 export async function generateGroupStageMatches(

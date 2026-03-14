@@ -93,6 +93,9 @@ export type TournamentMatch = {
   teamBScore: number | null;
   displayOrder: number;
   format: string;
+  adminOverride: boolean;
+  teamACheckInCount: number;
+  teamBCheckInCount: number;
 };
 
 export type AdminTournamentEntryTeam = {
@@ -120,6 +123,18 @@ type TeamMembershipJoin = {
   is_captain: boolean;
   created_at: string;
   profiles: TeamProfileJoin | TeamProfileJoin[] | null;
+};
+
+type TeamMembershipRow = {
+  team_id: string;
+  user_id: string;
+};
+
+type MatchCheckInListRow = {
+  match_id: string;
+  player_id: string;
+  is_checked_in: boolean;
+  is_ready?: boolean | null;
 };
 
 type TeamMetaJoinRow = {
@@ -605,7 +620,7 @@ export async function getTournamentMatchesForTournament(
   const { data: matches, error: matchesError } = await supabase
     .from("tournament_matches")
     .select(
-      "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at, team_a:teams!tournament_matches_team_a_id_fkey(id, name, logo_url), team_b:teams!tournament_matches_team_b_id_fkey(id, name, logo_url)"
+      "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at, admin_override, team_a:teams!tournament_matches_team_a_id_fkey(id, name, logo_url), team_b:teams!tournament_matches_team_b_id_fkey(id, name, logo_url)"
     )
     .eq("tournament_id", tournamentId)
     .order("scheduled_at", { ascending: true })
@@ -622,6 +637,7 @@ export async function getTournamentMatchesForTournament(
     round_label: string;
     scheduled_at: string | null;
     status: string;
+    admin_override?: boolean | null;
     team_a_score: number | null;
     team_b_score: number | null;
     display_order: number;
@@ -656,6 +672,76 @@ export async function getTournamentMatchesForTournament(
     return [];
   }
 
+  const teamIds = Array.from(
+    new Set(typedMatches.flatMap((match) => [match.team_a_id, match.team_b_id]))
+  );
+  const matchIds = typedMatches.map((match) => match.id);
+
+  const [teamMembershipsResult, checkInsResult] = await Promise.all([
+    supabase.from("team_members").select("team_id, user_id").in("team_id", teamIds),
+    supabase
+      .from("match_check_ins")
+      .select("match_id, player_id, is_checked_in, is_ready")
+      .in("match_id", matchIds),
+  ]);
+
+  if (teamMembershipsResult.error) {
+    throw teamMembershipsResult.error;
+  }
+
+  if (checkInsResult.error) {
+    throw checkInsResult.error;
+  }
+
+  const playerTeamIdByUserId = new Map(
+    ((teamMembershipsResult.data ?? []) as TeamMembershipRow[]).map((membership) => [
+      membership.user_id,
+      membership.team_id,
+    ])
+  );
+  const matchById = new Map(typedMatches.map((match) => [match.id, match]));
+  const checkInCountsByMatchId = new Map<
+    string,
+    { teamAPlayerIds: Set<string>; teamBPlayerIds: Set<string> }
+  >();
+
+  for (const row of (checkInsResult.data ?? []) as MatchCheckInListRow[]) {
+    if (!(row.is_ready || row.is_checked_in)) {
+      continue;
+    }
+
+    const match = matchById.get(row.match_id);
+
+    if (!match) {
+      continue;
+    }
+
+    const playerTeamId = playerTeamIdByUserId.get(row.player_id);
+
+    if (!playerTeamId) {
+      continue;
+    }
+
+    let counts = checkInCountsByMatchId.get(row.match_id);
+
+    if (!counts) {
+      counts = {
+        teamAPlayerIds: new Set<string>(),
+        teamBPlayerIds: new Set<string>(),
+      };
+      checkInCountsByMatchId.set(row.match_id, counts);
+    }
+
+    if (playerTeamId === match.team_a_id) {
+      counts.teamAPlayerIds.add(row.player_id);
+      continue;
+    }
+
+    if (playerTeamId === match.team_b_id) {
+      counts.teamBPlayerIds.add(row.player_id);
+    }
+  }
+
   return typedMatches.map((match) => ({
     id: match.id,
     roundLabel: match.round_label,
@@ -673,6 +759,11 @@ export async function getTournamentMatchesForTournament(
     teamBScore: match.team_b_score,
     displayOrder: match.display_order,
     format: match.format,
+    adminOverride: match.admin_override ?? false,
+    teamACheckInCount:
+      checkInCountsByMatchId.get(match.id)?.teamAPlayerIds.size ?? 0,
+    teamBCheckInCount:
+      checkInCountsByMatchId.get(match.id)?.teamBPlayerIds.size ?? 0,
   }));
 }
 

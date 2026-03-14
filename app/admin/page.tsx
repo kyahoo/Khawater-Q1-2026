@@ -14,12 +14,14 @@ import {
   deleteMultipleMatches,
   deleteMatch,
   deleteTeam,
+  enableTournamentMatchAdminOverride,
   generateGroupStageMatches,
   listAdminPlayers,
   listAdminTournamentResults,
   recordTournamentResult,
   resetPlayerBehaviorScore,
   resetPlayerDeviceBinding,
+  resolveTimedOutTournamentMatch,
   toggleTeamSuspension,
   updateAdminPlayerMMR,
   updateMMRStatus,
@@ -32,6 +34,13 @@ import {
   PLAYER_MEDAL_META,
   type PlayerMedalValue,
 } from "@/lib/supabase/player-medals";
+import {
+  getAlmatyWallClockTimeMs,
+  getCurrentAlmatyWallClockTimeMs,
+  isUserTeamMatchCompleted,
+  MATCH_CHECK_IN_TIMEOUT_MS,
+  REQUIRED_TEAM_CHECK_INS,
+} from "@/lib/supabase/matches";
 import {
   getProfileByUserId,
   listProfilesWithTeamMeta,
@@ -106,6 +115,7 @@ const PLAYOFF_FORMAT_OPTIONS = [
 const ALMATY_TIME_ZONE = "Asia/Almaty";
 const STANDINGS_BACKGROUND_FILE_NAME = "standings-bg.png";
 const SCHEDULE_BACKGROUND_FILE_NAME = "schedule-bg.png";
+const ACTIVE_MATCH_STATUS_REFRESH_MS = 60 * 1000;
 
 const ADMIN_TABS = [
   { id: "players", label: "Игроки" },
@@ -148,6 +158,7 @@ type AdminTabId = (typeof ADMIN_TABS)[number]["id"];
 type ScheduleDayParam = "today" | "tomorrow";
 type TournamentPlacement = 1 | 2 | 3;
 type AdminMedalSelectionValue = "" | PlayerMedalValue | "clear";
+type TimedOutMatchAction = "override" | "technical-defeat";
 
 function getSupabaseLikeErrorMessage(error: unknown, fallbackMessage: string) {
   if (error instanceof Error && error.message) {
@@ -209,6 +220,41 @@ function getTimeZoneDateStamp(dayOffset = 0, timeZone = ALMATY_TIME_ZONE) {
   const day = String(date.getUTCDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+}
+
+function isTimedOutTournamentMatch(
+  match: Pick<
+    TournamentMatch,
+    | "adminOverride"
+    | "scheduledAt"
+    | "status"
+    | "teamACheckInCount"
+    | "teamBCheckInCount"
+  >,
+  currentTimeMs: number | null
+) {
+  if (
+    currentTimeMs === null ||
+    match.adminOverride ||
+    isUserTeamMatchCompleted(match) ||
+    !match.scheduledAt
+  ) {
+    return false;
+  }
+
+  const scheduledTimeMs = getAlmatyWallClockTimeMs(match.scheduledAt);
+
+  if (
+    scheduledTimeMs === null ||
+    currentTimeMs <= scheduledTimeMs + MATCH_CHECK_IN_TIMEOUT_MS
+  ) {
+    return false;
+  }
+
+  return (
+    match.teamACheckInCount < REQUIRED_TEAM_CHECK_INS ||
+    match.teamBCheckInCount < REQUIRED_TEAM_CHECK_INS
+  );
 }
 
 function renderTemplateStatusBadge(hasBackground: boolean | null) {
@@ -409,6 +455,10 @@ export default function AdminPage() {
   >(null);
   const [isDeletingTeamId, setIsDeletingTeamId] = useState<string | null>(null);
   const [isDeletingMatchId, setIsDeletingMatchId] = useState<string | null>(null);
+  const [pendingTimedOutMatchAction, setPendingTimedOutMatchAction] = useState<{
+    matchId: string;
+    action: TimedOutMatchAction;
+  } | null>(null);
   const [editingLogoTeamId, setEditingLogoTeamId] = useState<string | null>(null);
   const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
   const [isUploadingLogoTeamId, setIsUploadingLogoTeamId] = useState<string | null>(null);
@@ -455,6 +505,9 @@ export default function AdminPage() {
   );
   const [playerMMRInputs, setPlayerMMRInputs] = useState<Record<string, string>>({});
   const [openPlayerMenuId, setOpenPlayerMenuId] = useState<string | null>(null);
+  const [currentTimeMs, setCurrentTimeMs] = useState<number | null>(() =>
+    typeof window === "undefined" ? null : getCurrentAlmatyWallClockTimeMs()
+  );
   const [, startMMRUpdateTransition] = useTransition();
   const [, startTournamentDeleteTransition] = useTransition();
   const [isTournamentResultPending, startTournamentResultTransition] = useTransition();
@@ -616,6 +669,16 @@ export default function AdminPage() {
   useEffect(() => {
     void loadAdminPage();
   }, [router]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setCurrentTimeMs(getCurrentAlmatyWallClockTimeMs());
+    }, ACTIVE_MATCH_STATUS_REFRESH_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   useEffect(() => {
     if (!openPlayerMenuId) {
@@ -1178,6 +1241,82 @@ export default function AdminPage() {
       window.alert(message);
     } finally {
       setIsDeletingMatchId(null);
+    }
+  }
+
+  async function handleEnableMatchAdminOverride(matchId: string) {
+    setPendingTimedOutMatchAction({
+      matchId,
+      action: "override",
+    });
+    setErrorMessage("");
+
+    try {
+      const accessToken = await getCurrentAdminAccessToken();
+      const result = await enableTournamentMatchAdminOverride(matchId, accessToken);
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      await refreshAdminData();
+      router.refresh();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Could not enable admin override for this match.";
+      setErrorMessage(message);
+      window.alert(message);
+    } finally {
+      setPendingTimedOutMatchAction((current) =>
+        current?.matchId === matchId && current.action === "override" ? null : current
+      );
+    }
+  }
+
+  async function handleResolveTimedOutMatch(matchId: string) {
+    const shouldResolve = window.confirm(
+      "Оформить техническое поражение и завершить этот матч?"
+    );
+
+    if (!shouldResolve) {
+      return;
+    }
+
+    setPendingTimedOutMatchAction({
+      matchId,
+      action: "technical-defeat",
+    });
+    setErrorMessage("");
+
+    try {
+      const accessToken = await getCurrentAdminAccessToken();
+      const result = await resolveTimedOutTournamentMatch(matchId, accessToken);
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      if (editingMatchId === matchId) {
+        resetMatchForm();
+      }
+
+      await refreshAdminData();
+      router.refresh();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Could not apply a technical result to this match.";
+      setErrorMessage(message);
+      window.alert(message);
+    } finally {
+      setPendingTimedOutMatchAction((current) =>
+        current?.matchId === matchId && current.action === "technical-defeat"
+          ? null
+          : current
+      );
     }
   }
 
@@ -3824,73 +3963,132 @@ export default function AdminPage() {
                             </button>
                           )}
                         </div>
-                        {matches.map((match) => (
-                          <div
-                            key={match.id}
-                            className="flex flex-col gap-3 border border-zinc-200 bg-zinc-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                          >
-                            <div className="flex items-start gap-3">
-                              <input
-                                type="checkbox"
-                                checked={selectedMatches.includes(match.id)}
-                                onChange={() => toggleSelectedMatch(match.id)}
-                                className="mt-1 h-4 w-4 rounded border-zinc-300"
-                              />
-                              <div>
-                                <div className="font-medium">
-                                  {match.teamAName} vs {match.teamBName}
-                                </div>
-                                <div className="mt-1 text-sm text-zinc-500">
-                                  Round: {match.roundLabel}
-                                </div>
-                                <div className="text-sm text-zinc-500">
-                                  Format: {match.format}
-                                </div>
-                                <div className="text-sm text-zinc-500">
-                                  Status: {match.status}
-                                </div>
-                                {match.scheduledAt && (
-                                  <div className="text-sm text-zinc-500">
-                                    Scheduled: {new Date(
-                                      match.scheduledAt
-                                    ).toLocaleString()}
+                        {matches.map((match) => {
+                          const isTimedOut = isTimedOutTournamentMatch(
+                            match,
+                            currentTimeMs
+                          );
+                          const isCompletedMatch = isUserTeamMatchCompleted(match);
+                          const isOverridePending =
+                            pendingTimedOutMatchAction?.matchId === match.id &&
+                            pendingTimedOutMatchAction.action === "override";
+                          const isTechnicalDefeatPending =
+                            pendingTimedOutMatchAction?.matchId === match.id &&
+                            pendingTimedOutMatchAction.action === "technical-defeat";
+                          const isTimedOutMatchActionPending =
+                            isOverridePending || isTechnicalDefeatPending;
+                          const isMutatingMatch =
+                            isDeletingMatchId === match.id ||
+                            isDeletingMatchId === "__bulk__" ||
+                            isTimedOutMatchActionPending;
+
+                          return (
+                            <div
+                              key={match.id}
+                              className={`flex flex-col gap-3 border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
+                                isTimedOut
+                                  ? "border-red-200 bg-red-50"
+                                  : "border-zinc-200 bg-zinc-50"
+                              }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedMatches.includes(match.id)}
+                                  onChange={() => toggleSelectedMatch(match.id)}
+                                  className="mt-1 h-4 w-4 rounded border-zinc-300"
+                                />
+                                <div>
+                                  <div className="font-medium">
+                                    {match.teamAName} vs {match.teamBName}
                                   </div>
-                                )}
-                                {match.status === "finished" &&
-                                  match.teamAScore !== null &&
-                                  match.teamBScore !== null && (
-                                    <div className="text-sm text-zinc-500">
-                                      Score: {match.teamAScore} - {match.teamBScore}
+                                  {isTimedOut && (
+                                    <div className="mt-2 inline-flex w-fit border border-red-300 bg-red-100 px-2 py-1 text-xs font-black uppercase tracking-wide text-red-700">
+                                      ⚠️ ЧЕК-ИН ПРОВАЛЕН
                                     </div>
                                   )}
+                                  <div className="mt-1 text-sm text-zinc-500">
+                                    Round: {match.roundLabel}
+                                  </div>
+                                  <div className="text-sm text-zinc-500">
+                                    Format: {match.format}
+                                  </div>
+                                  <div className="text-sm text-zinc-500">
+                                    Status: {match.status}
+                                  </div>
+                                  {match.scheduledAt && (
+                                    <div className="text-sm text-zinc-500">
+                                      Scheduled: {new Date(
+                                        match.scheduledAt
+                                      ).toLocaleString()}
+                                    </div>
+                                  )}
+                                  {isTimedOut && (
+                                    <div className="text-sm font-medium text-red-700">
+                                      Check-ins: {match.teamAName} (
+                                      {match.teamACheckInCount}/{REQUIRED_TEAM_CHECK_INS}) ·{" "}
+                                      {match.teamBName} ({match.teamBCheckInCount}/
+                                      {REQUIRED_TEAM_CHECK_INS})
+                                    </div>
+                                  )}
+                                  {isCompletedMatch &&
+                                    match.teamAScore !== null &&
+                                    match.teamBScore !== null && (
+                                      <div className="text-sm text-zinc-500">
+                                        Score: {match.teamAScore} - {match.teamBScore}
+                                      </div>
+                                    )}
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+                                {isTimedOut && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void handleEnableMatchAdminOverride(match.id)
+                                      }
+                                      disabled={isMutatingMatch}
+                                      className="rounded border border-amber-300 bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-200 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                                    >
+                                      {isOverridePending
+                                        ? "Включение..."
+                                        : "Включить Admin Override"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void handleResolveTimedOutMatch(match.id)
+                                      }
+                                      disabled={isMutatingMatch}
+                                      className="rounded border border-red-300 bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-200 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                                    >
+                                      {isTechnicalDefeatPending
+                                        ? "Оформление..."
+                                        : "Оформить Тех. Поражение"}
+                                    </button>
+                                  </>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditMatch(match)}
+                                  disabled={isMutatingMatch}
+                                  className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
+                                >
+                                  Edit Match
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDeleteMatch(match.id)}
+                                  disabled={isMutatingMatch}
+                                  className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
+                                >
+                                  {isDeletingMatchId === match.id ? "Deleting..." : "Delete"}
+                                </button>
                               </div>
                             </div>
-                            <div className="flex flex-col gap-2 sm:flex-row">
-                              <button
-                                type="button"
-                                onClick={() => handleEditMatch(match)}
-                                disabled={
-                                  isDeletingMatchId === match.id ||
-                                  isDeletingMatchId === "__bulk__"
-                                }
-                                className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium"
-                              >
-                                Edit Match
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => void handleDeleteMatch(match.id)}
-                                disabled={
-                                  isDeletingMatchId === match.id ||
-                                  isDeletingMatchId === "__bulk__"
-                                }
-                                className="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500"
-                              >
-                                {isDeletingMatchId === match.id ? "Deleting..." : "Delete"}
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
