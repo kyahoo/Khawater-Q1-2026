@@ -829,12 +829,6 @@ export function MatchTabs({
                         })}
                       </div>
 
-                      {!isLobbyPhotoRequired ? (
-                        <div className="mt-5 border-[3px] border-[#163f1d] bg-[#061726] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#D9F99D] shadow-[4px_4px_0px_0px_#061726]">
-                          ФОТО ЛОББИ НЕ ТРЕБУЕТСЯ. МОЖНО СРАЗУ ПЕРЕХОДИТЬ К СЛЕДУЮЩЕМУ
-                          ЭТАПУ.
-                        </div>
-                      ) : null}
                     </>
                   </div>
                 )}
