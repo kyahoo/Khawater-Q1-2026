@@ -1,6 +1,7 @@
 "use client";
 
 import { GroupStageStandingsTable } from "@/components/group-stage-standings-table";
+import { TournamentMatchTechnicalBadges } from "@/components/tournament-match-technical-badges";
 import { useEffect, useEffectEvent, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -4252,9 +4253,24 @@ export default function AdminPage() {
                                   {isCompletedMatch &&
                                     match.teamAScore !== null &&
                                     match.teamBScore !== null && (
-                                      <div className="text-sm text-zinc-500">
-                                        Score: {match.teamAScore} - {match.teamBScore}
+                                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                                        <div className="text-sm text-zinc-500">
+                                          Score: {match.teamAScore} - {match.teamBScore}
+                                        </div>
+                                        <TournamentMatchTechnicalBadges
+                                          match={match}
+                                          variant="admin"
+                                        />
                                       </div>
+                                    )}
+                                  {isCompletedMatch &&
+                                    (match.teamAScore === null || match.teamBScore === null) &&
+                                    match.isForfeit && (
+                                      <TournamentMatchTechnicalBadges
+                                        match={match}
+                                        variant="admin"
+                                        className="mt-1"
+                                      />
                                     )}
                                 </div>
                               </div>

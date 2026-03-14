@@ -9,6 +9,7 @@ import {
   type MatchType,
 } from "@g-loot/react-tournament-brackets";
 import { GroupStageStandingsTable } from "@/components/group-stage-standings-table";
+import { TournamentMatchTechnicalBadges } from "@/components/tournament-match-technical-badges";
 import { PlayerMedals } from "@/components/player-medals";
 import { TeamLogo } from "@/components/team-logo";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -473,7 +474,17 @@ export default function TournamentPage() {
             </div>
           </div>
           {matchResult && (
-            <div className="mt-2 text-sm font-bold text-white">Счет: {matchResult}</div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="text-sm font-bold text-white">Счет: {matchResult}</div>
+              <TournamentMatchTechnicalBadges match={match} variant="public" />
+            </div>
+          )}
+          {!matchResult && match.isForfeit && (
+            <TournamentMatchTechnicalBadges
+              match={match}
+              variant="public"
+              className="mt-2"
+            />
           )}
         </div>
         <div className="mt-2 text-base font-medium text-gray-300 md:mt-0 md:pl-6 md:text-lg">
