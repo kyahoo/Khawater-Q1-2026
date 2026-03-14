@@ -2,38 +2,13 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { MatchCard } from "@/app/matches/match-card";
-import type { UserTeamMatch } from "@/lib/supabase/matches";
+import {
+  getCurrentAlmatyWallClockTimeMs,
+  isUserTeamMatchPast,
+  type UserTeamMatch,
+} from "@/lib/supabase/matches";
 
 const LIVE_STATUS_REFRESH_MS = 60 * 1000;
-
-const almatyWallClockFormatter = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Asia/Almaty",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: false,
-});
-
-function getCurrentAlmatyWallClockTimeMs() {
-  const parts = almatyWallClockFormatter.formatToParts(new Date());
-  const values = Object.fromEntries(
-    parts
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, part.value])
-  );
-
-  const year = Number(values.year);
-  const month = Number(values.month);
-  const day = Number(values.day);
-  const hour = Number(values.hour);
-  const minute = Number(values.minute);
-  const second = Number(values.second);
-
-  return Date.UTC(year, month - 1, day, hour, minute, second);
-}
 
 function StatePanel({
   tone,
@@ -92,17 +67,16 @@ export function MatchesClient({
     return <StatePanel tone="danger">{initialErrorMessage}</StatePanel>;
   }
 
-  const isCompletedMatch = (match: UserTeamMatch) =>
-    match.status === "finished" || match.status === "completed";
-
   if (initialMatches.length === 0) {
     return <EmptyStateBlock message="У ВАС ПОКА НЕТ ЗАПЛАНИРОВАННЫХ МАТЧЕЙ" />;
   }
 
   const upcomingMatches = initialMatches.filter(
-    (match) => !isCompletedMatch(match)
+    (match) => !isUserTeamMatchPast(match, currentTimeMs ?? undefined)
   );
-  const finishedMatches = initialMatches.filter((match) => isCompletedMatch(match));
+  const finishedMatches = initialMatches.filter((match) =>
+    isUserTeamMatchPast(match, currentTimeMs ?? undefined)
+  );
 
   return (
     <div>

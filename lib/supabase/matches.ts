@@ -125,17 +125,59 @@ export type UserTeamMatch = {
   format: string;
   scheduledAt: string | null;
   status: string;
+  adminOverride: boolean;
   teamAScore: number | null;
   teamAName: string;
   teamALogoUrl: string | null;
+  teamACheckInCount: number;
   teamBScore: number | null;
   teamBName: string;
   teamBLogoUrl: string | null;
+  teamBCheckInCount: number;
   teamAId: string;
   teamBId: string;
+  userTeamId: string;
 };
 
-const PRE_MATCH_OPEN_WINDOW_MS = 30 * 60 * 1000;
+type UserTeamMatchQueryRow = {
+  id: string;
+  team_a_id: string;
+  team_b_id: string;
+  round_label: string;
+  scheduled_at: string | null;
+  status: string;
+  admin_override?: boolean | null;
+  team_a_score: number | null;
+  team_b_score: number | null;
+  format: string;
+};
+
+type TeamRow = {
+  id: string;
+  name: string;
+  logo_url: string | null;
+};
+
+type TeamMembershipRow = {
+  team_id: string;
+  user_id: string;
+};
+
+type MatchCheckInListRow = {
+  match_id: string;
+  player_id: string;
+  is_checked_in: boolean;
+  is_ready?: boolean | null;
+};
+
+export type UserTeamMatchTechnicalOutcome =
+  | "technical-loss"
+  | "technical-win"
+  | "technical-double-forfeit";
+
+export const REQUIRED_TEAM_CHECK_INS = 5;
+export const PRE_MATCH_OPEN_WINDOW_MS = 30 * 60 * 1000;
+export const MATCH_CHECK_IN_TIMEOUT_MS = 15 * 60 * 1000;
 
 const almatyWallClockFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Almaty",
@@ -148,7 +190,7 @@ const almatyWallClockFormatter = new Intl.DateTimeFormat("en-CA", {
   hour12: false,
 });
 
-function getAlmatyWallClockTimeMs(dateInput: string | Date) {
+export function getAlmatyWallClockTimeMs(dateInput: string | Date) {
   const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
 
   if (Number.isNaN(date.getTime())) {
@@ -176,14 +218,104 @@ function getAlmatyWallClockTimeMs(dateInput: string | Date) {
   return Date.UTC(year, month - 1, day, hour, minute, second);
 }
 
-function isUserTeamMatchLive(match: UserTeamMatch) {
-  if (!match.scheduledAt) {
-    return false;
+export function getCurrentAlmatyWallClockTimeMs() {
+  return getAlmatyWallClockTimeMs(new Date()) ?? Date.now();
+}
+
+function normalizeMatchStatus(status: string) {
+  return status.trim().toLowerCase();
+}
+
+export function isUserTeamMatchCompleted(
+  match: Pick<UserTeamMatch, "status">
+) {
+  const normalizedStatus = normalizeMatchStatus(match.status);
+  return normalizedStatus === "finished" || normalizedStatus === "completed";
+}
+
+export function getUserTeamMatchTechnicalOutcome(
+  match: Pick<
+    UserTeamMatch,
+    | "adminOverride"
+    | "scheduledAt"
+    | "status"
+    | "teamAId"
+    | "teamACheckInCount"
+    | "teamBId"
+    | "teamBCheckInCount"
+    | "userTeamId"
+  >,
+  currentTimeMs = getCurrentAlmatyWallClockTimeMs()
+): UserTeamMatchTechnicalOutcome | null {
+  if (match.adminOverride || isUserTeamMatchCompleted(match) || !match.scheduledAt) {
+    return null;
   }
 
-  const normalizedStatus = match.status.trim().toLowerCase();
+  const scheduledTimeMs = getAlmatyWallClockTimeMs(match.scheduledAt);
 
-  if (normalizedStatus === "finished" || normalizedStatus === "completed") {
+  if (
+    scheduledTimeMs === null ||
+    currentTimeMs <= scheduledTimeMs + MATCH_CHECK_IN_TIMEOUT_MS
+  ) {
+    return null;
+  }
+
+  const teamAMissingPlayers = match.teamACheckInCount < REQUIRED_TEAM_CHECK_INS;
+  const teamBMissingPlayers = match.teamBCheckInCount < REQUIRED_TEAM_CHECK_INS;
+
+  if (!teamAMissingPlayers && !teamBMissingPlayers) {
+    return null;
+  }
+
+  const userTeamCheckInCount =
+    match.userTeamId === match.teamAId
+      ? match.teamACheckInCount
+      : match.userTeamId === match.teamBId
+        ? match.teamBCheckInCount
+        : null;
+  const opponentTeamCheckInCount =
+    match.userTeamId === match.teamAId
+      ? match.teamBCheckInCount
+      : match.userTeamId === match.teamBId
+        ? match.teamACheckInCount
+        : null;
+
+  if (
+    userTeamCheckInCount !== null &&
+    userTeamCheckInCount < REQUIRED_TEAM_CHECK_INS &&
+    opponentTeamCheckInCount !== null &&
+    opponentTeamCheckInCount >= REQUIRED_TEAM_CHECK_INS
+  ) {
+    return "technical-loss";
+  }
+
+  if (
+    userTeamCheckInCount !== null &&
+    userTeamCheckInCount >= REQUIRED_TEAM_CHECK_INS &&
+    opponentTeamCheckInCount !== null &&
+    opponentTeamCheckInCount < REQUIRED_TEAM_CHECK_INS
+  ) {
+    return "technical-win";
+  }
+
+  return "technical-double-forfeit";
+}
+
+export function isUserTeamMatchPast(
+  match: UserTeamMatch,
+  currentTimeMs = getCurrentAlmatyWallClockTimeMs()
+) {
+  return (
+    isUserTeamMatchCompleted(match) ||
+    getUserTeamMatchTechnicalOutcome(match, currentTimeMs) !== null
+  );
+}
+
+export function isUserTeamMatchLive(
+  match: UserTeamMatch,
+  currentTimeMs = getCurrentAlmatyWallClockTimeMs()
+) {
+  if (!match.scheduledAt || isUserTeamMatchPast(match, currentTimeMs)) {
     return false;
   }
 
@@ -193,7 +325,7 @@ function isUserTeamMatchLive(match: UserTeamMatch) {
     return false;
   }
 
-  return Date.now() >= scheduledTimeMs - PRE_MATCH_OPEN_WINDOW_MS;
+  return currentTimeMs >= scheduledTimeMs - PRE_MATCH_OPEN_WINDOW_MS;
 }
 
 function normalizeMatchRoomTeam(params: {
@@ -504,14 +636,41 @@ export async function getMatchesForUserTeamWithClient(
 
   const tournamentId = (activeTournament as { id: string }).id;
 
-  const { data: matches, error: matchesError } = await supabase
+  const primaryMatchesResult = await supabase
     .from("tournament_matches")
     .select(
-      "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, created_at"
+      "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, admin_override"
     )
     .eq("tournament_id", tournamentId)
     .or(`team_a_id.eq.${teamId},team_b_id.eq.${teamId}`)
     .order("scheduled_at", { ascending: true });
+  let matches = primaryMatchesResult.data as UserTeamMatchQueryRow[] | null;
+  let matchesError = primaryMatchesResult.error;
+
+  if (
+    matchesError?.message.includes("column tournament_matches.") &&
+    matchesError.message.includes("does not exist")
+  ) {
+    console.warn(
+      "My matches fetch is falling back to the legacy tournament_matches schema:",
+      matchesError.message
+    );
+
+    const legacyMatchesResult = await supabase
+      .from("tournament_matches")
+      .select(
+        "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format"
+      )
+      .eq("tournament_id", tournamentId)
+      .or(`team_a_id.eq.${teamId},team_b_id.eq.${teamId}`)
+      .order("scheduled_at", { ascending: true });
+
+    matches = (legacyMatchesResult.data ?? []).map((match) => ({
+      ...match,
+      admin_override: false,
+    })) as UserTeamMatchQueryRow[];
+    matchesError = legacyMatchesResult.error;
+  }
 
   if (matchesError) {
     throw matchesError;
@@ -523,25 +682,38 @@ export async function getMatchesForUserTeamWithClient(
 
   const teamIds = Array.from(
     new Set(
-      (matches as Array<{ team_a_id: string; team_b_id: string }>).flatMap(
+      (matches as UserTeamMatchQueryRow[]).flatMap(
         (m) => [m.team_a_id, m.team_b_id]
       )
     )
   );
+  const matchIds = (matches as UserTeamMatchQueryRow[]).map((match) => match.id);
 
-  const { data: teams, error: teamsError } = await supabase
-    .from("teams")
-    .select("id, name, logo_url")
-    .in("id", teamIds);
+  const [teamsResult, teamMembershipsResult, checkInsResult] = await Promise.all([
+    supabase.from("teams").select("id, name, logo_url").in("id", teamIds),
+    supabase.from("team_members").select("team_id, user_id").in("team_id", teamIds),
+    supabase
+      .from("match_check_ins")
+      .select("match_id, player_id, is_checked_in, is_ready")
+      .in("match_id", matchIds),
+  ]);
+  const teams = teamsResult.data;
+  const teamsError = teamsResult.error;
 
   if (teamsError) {
     throw teamsError;
   }
 
+  if (teamMembershipsResult.error) {
+    throw teamMembershipsResult.error;
+  }
+
+  if (checkInsResult.error) {
+    throw checkInsResult.error;
+  }
+
   const teamNameById = new Map(
-    (
-      (teams ?? []) as Array<{ id: string; name: string; logo_url: string | null }>
-    ).map((team) => [
+    ((teams ?? []) as TeamRow[]).map((team) => [
       team.id,
       {
         name: team.name,
@@ -549,31 +721,77 @@ export async function getMatchesForUserTeamWithClient(
       },
     ])
   );
+  const playerTeamIdByUserId = new Map(
+    ((teamMembershipsResult.data ?? []) as TeamMembershipRow[]).map((membership) => [
+      membership.user_id,
+      membership.team_id,
+    ])
+  );
+  const matchById = new Map(
+    (matches as UserTeamMatchQueryRow[]).map((match) => [match.id, match])
+  );
+  const checkInCountsByMatchId = new Map<
+    string,
+    { teamAPlayerIds: Set<string>; teamBPlayerIds: Set<string> }
+  >();
 
-  return (matches as Array<{
-    id: string;
-    team_a_id: string;
-    team_b_id: string;
-    round_label: string;
-    scheduled_at: string | null;
-    status: string;
-    team_a_score: number | null;
-    team_b_score: number | null;
-    format: string;
-  }>).map((m) => ({
+  for (const row of (checkInsResult.data ?? []) as MatchCheckInListRow[]) {
+    if (!(row.is_ready || row.is_checked_in)) {
+      continue;
+    }
+
+    const match = matchById.get(row.match_id);
+
+    if (!match) {
+      continue;
+    }
+
+    const playerTeamId = playerTeamIdByUserId.get(row.player_id);
+
+    if (!playerTeamId) {
+      continue;
+    }
+
+    let counts = checkInCountsByMatchId.get(row.match_id);
+
+    if (!counts) {
+      counts = {
+        teamAPlayerIds: new Set<string>(),
+        teamBPlayerIds: new Set<string>(),
+      };
+      checkInCountsByMatchId.set(row.match_id, counts);
+    }
+
+    if (playerTeamId === match.team_a_id) {
+      counts.teamAPlayerIds.add(row.player_id);
+      continue;
+    }
+
+    if (playerTeamId === match.team_b_id) {
+      counts.teamBPlayerIds.add(row.player_id);
+    }
+  }
+
+  return (matches as UserTeamMatchQueryRow[]).map((m) => ({
     id: m.id,
     roundLabel: m.round_label,
     format: m.format,
     scheduledAt: m.scheduled_at,
     status: m.status,
+    adminOverride: m.admin_override ?? false,
     teamAScore: m.team_a_score,
     teamAName: teamNameById.get(m.team_a_id)?.name ?? "Team A",
     teamALogoUrl: teamNameById.get(m.team_a_id)?.logoUrl ?? null,
+    teamACheckInCount:
+      checkInCountsByMatchId.get(m.id)?.teamAPlayerIds.size ?? 0,
     teamBScore: m.team_b_score,
     teamBName: teamNameById.get(m.team_b_id)?.name ?? "Team B",
     teamBLogoUrl: teamNameById.get(m.team_b_id)?.logoUrl ?? null,
+    teamBCheckInCount:
+      checkInCountsByMatchId.get(m.id)?.teamBPlayerIds.size ?? 0,
     teamAId: m.team_a_id,
     teamBId: m.team_b_id,
+    userTeamId: teamId,
   }));
 }
 

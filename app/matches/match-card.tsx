@@ -2,9 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import type { UserTeamMatch } from "@/lib/supabase/matches";
-
-const PRE_MATCH_OPEN_WINDOW_MS = 30 * 60 * 1000;
+import {
+  getUserTeamMatchTechnicalOutcome,
+  isUserTeamMatchCompleted,
+  isUserTeamMatchLive,
+  type UserTeamMatch,
+} from "@/lib/supabase/matches";
 
 const almatyDateTimeFormatter = new Intl.DateTimeFormat("ru-RU", {
   timeZone: "Asia/Almaty",
@@ -12,17 +15,6 @@ const almatyDateTimeFormatter = new Intl.DateTimeFormat("ru-RU", {
   month: "long",
   hour: "2-digit",
   minute: "2-digit",
-});
-
-const almatyWallClockFormatter = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Asia/Almaty",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: false,
 });
 
 function formatRoundLabel(roundLabel: string) {
@@ -37,58 +29,8 @@ function formatMatchDateTime(dateInput: string) {
   return almatyDateTimeFormatter.format(new Date(dateInput));
 }
 
-function getAlmatyWallClockTimeMs(dateInput: string | Date) {
-  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  const parts = almatyWallClockFormatter.formatToParts(date);
-  const values = Object.fromEntries(
-    parts
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, part.value])
-  );
-
-  const year = Number(values.year);
-  const month = Number(values.month);
-  const day = Number(values.day);
-  const hour = Number(values.hour);
-  const minute = Number(values.minute);
-  const second = Number(values.second);
-
-  if ([year, month, day, hour, minute, second].some((value) => Number.isNaN(value))) {
-    return null;
-  }
-
-  return Date.UTC(year, month - 1, day, hour, minute, second);
-}
-
 function hasMatchResult(match: UserTeamMatch) {
   return match.teamAScore !== null && match.teamBScore !== null;
-}
-
-function isMatchCompleted(match: UserTeamMatch) {
-  return match.status === "finished" || match.status === "completed";
-}
-
-function isMatchActive(match: UserTeamMatch, currentTimeMs: number | null, hasMounted: boolean) {
-  if (!hasMounted || currentTimeMs === null || !match.scheduledAt) {
-    return false;
-  }
-
-  if (isMatchCompleted(match)) {
-    return false;
-  }
-
-  const scheduledTimeMs = getAlmatyWallClockTimeMs(match.scheduledAt);
-
-  if (scheduledTimeMs === null) {
-    return false;
-  }
-
-  return currentTimeMs >= scheduledTimeMs - PRE_MATCH_OPEN_WINDOW_MS;
 }
 
 type MatchCardProps = {
@@ -122,14 +64,33 @@ function TeamLogoBox({
 }
 
 export function MatchCard({ match, currentTimeMs, hasMounted }: MatchCardProps) {
-  const isActive = isMatchActive(match, currentTimeMs, hasMounted);
-  const isFinished = isMatchCompleted(match);
+  const effectiveCurrentTimeMs = hasMounted ? currentTimeMs ?? undefined : undefined;
+  const technicalOutcome = getUserTeamMatchTechnicalOutcome(
+    match,
+    effectiveCurrentTimeMs
+  );
+  const isFinished = isUserTeamMatchCompleted(match);
+  const isPast = isFinished || technicalOutcome !== null;
+  const isActive =
+    hasMounted && isUserTeamMatchLive(match, effectiveCurrentTimeMs);
   const formattedSchedule = match.scheduledAt
-    ? `${formatMatchDateTime(match.scheduledAt)}${isFinished ? " - Завершен" : ""}`
+    ? `${formatMatchDateTime(match.scheduledAt)}${isPast ? " - Завершен" : ""}`
     : "Время будет объявлено позже";
   const centerLabel = hasMatchResult(match)
     ? `${match.teamAScore} - ${match.teamBScore}`
     : "VS";
+  const statusLabel = isActive
+    ? "МАТЧ ОТКРЫТ"
+    : technicalOutcome === "technical-loss"
+      ? "ТЕХНИЧЕСКОЕ ПОРАЖЕНИЕ"
+      : isPast
+        ? "ЗАВЕРШЕН"
+        : null;
+  const statusClassName = isActive
+    ? "text-[#39FF14]"
+    : technicalOutcome === "technical-loss"
+      ? "text-red-400"
+      : "text-gray-400";
 
   return (
     <Link
@@ -137,14 +98,14 @@ export function MatchCard({ match, currentTimeMs, hasMounted }: MatchCardProps) 
       className={`block rounded-none border-[3px] p-4 transition-all md:p-5 ${
         isActive
           ? "border-[#39FF14] bg-[#0B3A4A] shadow-[0_0_10px_#39FF14]"
-          : isFinished
+          : isPast
             ? "border-[#061726] bg-[#061726]/95 shadow-[4px_4px_0px_0px_#061726] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
             : "border-[#061726] bg-[#0B3A4A] shadow-[4px_4px_0px_0px_#061726] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
       }`}
     >
       <div
         className={`text-xs font-bold uppercase tracking-[0.2em] md:text-sm ${
-          isFinished ? "text-gray-400" : "text-[#CD9C3E]"
+          isPast ? "text-gray-400" : "text-[#CD9C3E]"
         }`}
       >
         {formatRoundLabel(match.roundLabel)} - {match.format}
@@ -154,7 +115,7 @@ export function MatchCard({ match, currentTimeMs, hasMounted }: MatchCardProps) 
           <TeamLogoBox teamName={match.teamAName} logoUrl={match.teamALogoUrl} />
           <span
             className={`min-w-0 truncate text-sm font-bold uppercase tracking-wide md:text-2xl ${
-              isFinished ? "text-gray-300" : "text-white"
+              isPast ? "text-gray-300" : "text-white"
             }`}
           >
             {match.teamAName}
@@ -162,7 +123,7 @@ export function MatchCard({ match, currentTimeMs, hasMounted }: MatchCardProps) 
         </div>
         <div
           className={`shrink-0 text-center text-lg font-black uppercase ${
-            isFinished
+            isPast
               ? "text-white md:text-2xl"
               : "tracking-[0.25em] text-[#CD9C3E] md:text-3xl"
           }`}
@@ -172,7 +133,7 @@ export function MatchCard({ match, currentTimeMs, hasMounted }: MatchCardProps) 
         <div className="flex min-w-0 flex-1 items-center justify-end gap-3 text-right">
           <span
             className={`min-w-0 truncate text-sm font-bold uppercase tracking-wide md:text-2xl ${
-              isFinished ? "text-gray-300" : "text-white"
+              isPast ? "text-gray-300" : "text-white"
             }`}
           >
             {match.teamBName}
@@ -182,14 +143,16 @@ export function MatchCard({ match, currentTimeMs, hasMounted }: MatchCardProps) 
       </div>
       <div
         className={`mt-4 text-sm font-medium md:text-base ${
-          isFinished ? "text-gray-400" : "text-gray-300"
+          isPast ? "text-gray-400" : "text-gray-300"
         }`}
       >
         {formattedSchedule}
       </div>
-      {isActive && (
-        <div className="mt-3 text-xs font-black uppercase tracking-[0.2em] text-[#39FF14] md:text-sm">
-          МАТЧ ОТКРЫТ
+      {statusLabel && (
+        <div
+          className={`mt-3 text-xs font-black uppercase tracking-[0.2em] md:text-sm ${statusClassName}`}
+        >
+          {statusLabel}
         </div>
       )}
     </Link>
