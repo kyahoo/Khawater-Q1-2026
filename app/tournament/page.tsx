@@ -12,6 +12,12 @@ import { GroupStageStandingsTable } from "@/components/group-stage-standings-tab
 import { TournamentMatchTechnicalBadges } from "@/components/tournament-match-technical-badges";
 import { PlayerMedals } from "@/components/player-medals";
 import { TeamLogo } from "@/components/team-logo";
+import {
+  getPlayoffBracketSlot,
+  GROUP_STAGE_ROUND_LABEL,
+  isPlayoffRoundLabel,
+  type PlayoffBracketSlot,
+} from "@/lib/playoff-bracket";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   getActiveTournament,
@@ -38,6 +44,18 @@ type BracketParticipant = {
   status: null;
   isSuspended?: boolean;
 };
+
+type PlayoffMatchBuckets = Record<PlayoffBracketSlot, TournamentMatch[]>;
+
+function createEmptyPlayoffMatchBuckets(): PlayoffMatchBuckets {
+  return {
+    upperRoundOne: [],
+    upperFinal: [],
+    lowerRoundOne: [],
+    lowerFinal: [],
+    grandFinal: [],
+  };
+}
 
 function RosterBadge({
   label,
@@ -129,7 +147,7 @@ function formatAlmatyDateTime(
 }
 
 function formatRoundLabel(roundLabel: string) {
-  if (roundLabel === "Group Stage") {
+  if (roundLabel === GROUP_STAGE_ROUND_LABEL) {
     return "Групповой этап";
   }
 
@@ -244,29 +262,33 @@ export default function TournamentPage() {
   const [matchesErrorMessage, setMatchesErrorMessage] = useState("");
   const [activeTab, setActiveTab] = useState<TournamentTabId>("teams");
 
-  const advancingCount = Math.max(
-    0,
-    enteredTeams.length - (activeTournament?.teams_eliminated_per_group ?? enteredTeams.length)
-  );
   const suspendedTeamIds = new Set(
     enteredTeams.filter((team) => team.isSuspended).map((team) => team.id)
   );
+  const playoffMatches = matches.filter((match) => isPlayoffRoundLabel(match.roundLabel));
 
   function buildDoubleEliminationMatches(): {
     upper: MatchType[];
     lower: MatchType[];
   } {
-    const upperBracketRoundOneMatches = matches.filter(
-      (match) => match.roundLabel === "Upper Bracket Round 1"
+    const playoffMatchesBySlot = playoffMatches.reduce<PlayoffMatchBuckets>(
+      (buckets, match) => {
+        const slot = getPlayoffBracketSlot(match.roundLabel);
+
+        if (!slot) {
+          return buckets;
+        }
+
+        buckets[slot].push(match);
+        return buckets;
+      },
+      createEmptyPlayoffMatchBuckets()
     );
-    const upperBracketFinalMatch =
-      matches.find((match) => match.roundLabel === "Upper Bracket Round 2") ?? null;
-    const lowerBracketRoundOneMatch =
-      matches.find((match) => match.roundLabel === "Lower Bracket Round 1") ?? null;
-    const lowerBracketFinalMatch =
-      matches.find((match) => match.roundLabel === "Lower Bracket Round 2") ?? null;
-    const grandFinalMatch =
-      matches.find((match) => match.roundLabel === "Grand Finals") ?? null;
+    const upperBracketRoundOneMatches = playoffMatchesBySlot.upperRoundOne;
+    const upperBracketFinalMatch = playoffMatchesBySlot.upperFinal[0] ?? null;
+    const lowerBracketRoundOneMatch = playoffMatchesBySlot.lowerRoundOne[0] ?? null;
+    const lowerBracketFinalMatch = playoffMatchesBySlot.lowerFinal[0] ?? null;
+    const grandFinalMatch = playoffMatchesBySlot.grandFinal[0] ?? null;
 
     const createParticipant = (
       id: string,
@@ -786,10 +808,9 @@ export default function TournamentPage() {
                   Сетка плей-офф
                 </h2>
 
-                {advancingCount !== 4 ? (
+                {playoffMatches.length === 0 ? (
                   <p className="text-sm text-zinc-600">
-                    A 4-team double elimination bracket is available once four teams
-                    advance from the group stage.
+                    Playoff matches have not been published yet.
                   </p>
                 ) : (
                   <div className="overflow-x-auto">

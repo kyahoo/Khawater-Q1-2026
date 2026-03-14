@@ -71,6 +71,7 @@ import {
   type TournamentMatch,
   type Tournament,
 } from "@/lib/supabase/tournaments";
+import { MATCH_ROUND_OPTIONS } from "@/lib/playoff-bracket";
 
 const EMPTY_MATCH_FORM = {
   teamAId: "",
@@ -96,17 +97,6 @@ const EMPTY_GROUP_STAGE_FORM = {
 
 const MATCH_FORMAT_OPTIONS = ["BO1", "BO2", "BO3"] as const;
 const GROUP_STAGE_MATCH_FORMAT_OPTIONS = ["BO1", "BO2", "BO3", "BO5"] as const;
-
-const MATCH_ROUND_OPTIONS = [
-  "Group Stage",
-  "Upper Bracket Round 1",
-  "Lower Bracket Round 1",
-  "Upper Bracket Round 2",
-  "Lower Bracket Round 2",
-  "Upper Bracket Finals",
-  "Lower Bracket Finals",
-  "Grand Finals",
-] as const;
 
 const TOURNAMENT_GROUP_OPTIONS = [1, 2, 4] as const;
 const TEAMS_ELIMINATED_OPTIONS = [0, 1, 2, 3, 4] as const;
