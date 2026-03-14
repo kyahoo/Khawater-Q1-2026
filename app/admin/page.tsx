@@ -84,6 +84,7 @@ const EMPTY_MATCH_FORM = {
   format: "BO3",
   requireLobbyPhoto: true,
   lobbyPhotoMap1Only: false,
+  requirePhotoUnconfirmedMMROnly: false,
 };
 
 const EMPTY_GROUP_STAGE_FORM = {
@@ -2315,6 +2316,9 @@ export default function AdminPage() {
       lobbyPhotoMap1Only: match.requireLobbyPhoto
         ? match.lobbyPhotoMap1Only
         : false,
+      requirePhotoUnconfirmedMMROnly: match.requireLobbyPhoto
+        ? match.requirePhotoUnconfirmedMMROnly
+        : false,
     });
   }
 
@@ -2381,6 +2385,8 @@ export default function AdminPage() {
           format: matchForm.format,
           requireLobbyPhoto: matchForm.requireLobbyPhoto,
           lobbyPhotoMap1Only: matchForm.lobbyPhotoMap1Only,
+          requirePhotoUnconfirmedMMROnly:
+            matchForm.requirePhotoUnconfirmedMMROnly,
         });
       }
 
@@ -4076,6 +4082,9 @@ export default function AdminPage() {
                                 lobbyPhotoMap1Only: event.target.checked
                                   ? current.lobbyPhotoMap1Only
                                   : false,
+                                requirePhotoUnconfirmedMMROnly: event.target.checked
+                                  ? current.requirePhotoUnconfirmedMMROnly
+                                  : false,
                               }))
                             }
                             className="h-4 w-4 rounded border-zinc-400 text-zinc-900"
@@ -4083,22 +4092,38 @@ export default function AdminPage() {
                           <span>Требовать фото лобби</span>
                         </label>
 
-                        {matchForm.requireLobbyPhoto && (
-                          <label className="flex items-center gap-3 rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900">
-                            <input
-                              type="checkbox"
-                              checked={matchForm.lobbyPhotoMap1Only}
-                              onChange={(event) =>
-                                setMatchForm((current) => ({
-                                  ...current,
-                                  lobbyPhotoMap1Only: event.target.checked,
-                                }))
-                              }
-                              className="h-4 w-4 rounded border-zinc-400 text-zinc-900"
-                            />
-                            <span>Только для Карты 1</span>
-                          </label>
-                        )}
+                        <label className="flex items-center gap-3 rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60">
+                          <input
+                            type="checkbox"
+                            checked={matchForm.lobbyPhotoMap1Only}
+                            disabled={!matchForm.requireLobbyPhoto}
+                            onChange={(event) =>
+                              setMatchForm((current) => ({
+                                ...current,
+                                lobbyPhotoMap1Only: event.target.checked,
+                              }))
+                            }
+                            className="h-4 w-4 rounded border-zinc-400 text-zinc-900"
+                          />
+                          <span>Только для Карты 1</span>
+                        </label>
+
+                        <label className="flex items-center gap-3 rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60">
+                          <input
+                            type="checkbox"
+                            checked={matchForm.requirePhotoUnconfirmedMMROnly}
+                            disabled={!matchForm.requireLobbyPhoto}
+                            onChange={(event) =>
+                              setMatchForm((current) => ({
+                                ...current,
+                                requirePhotoUnconfirmedMMROnly:
+                                  event.target.checked,
+                              }))
+                            }
+                            className="h-4 w-4 rounded border-zinc-400 text-zinc-900"
+                          />
+                          <span>Только для неподтвержденного MMR</span>
+                        </label>
 
                         {isEditingMatch && (
                           <select

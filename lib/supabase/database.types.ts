@@ -326,6 +326,7 @@ export type Database = {
           winner_team_id: string | null;
           require_lobby_photo: boolean;
           lobby_photo_map1_only: boolean;
+          require_photo_unconfirmed_mmr_only: boolean;
           reminder_1h_sent: boolean;
           reminder_30m_sent: boolean;
           opponent_notified: boolean;
@@ -350,6 +351,7 @@ export type Database = {
           winner_team_id?: string | null;
           require_lobby_photo?: boolean;
           lobby_photo_map1_only?: boolean;
+          require_photo_unconfirmed_mmr_only?: boolean;
           reminder_1h_sent?: boolean;
           reminder_30m_sent?: boolean;
           opponent_notified?: boolean;
@@ -374,6 +376,7 @@ export type Database = {
           winner_team_id?: string | null;
           require_lobby_photo?: boolean;
           lobby_photo_map1_only?: boolean;
+          require_photo_unconfirmed_mmr_only?: boolean;
           reminder_1h_sent?: boolean;
           reminder_30m_sent?: boolean;
           opponent_notified?: boolean;

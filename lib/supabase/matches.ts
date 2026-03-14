@@ -29,6 +29,7 @@ export type MatchRoomTeam = {
     userId: string;
     nickname: string;
     isCaptain: boolean;
+    isMMRVerified: boolean;
     medals: PlayerMedalWithTournament[];
   }>;
 };
@@ -41,6 +42,7 @@ export type MatchRoomData = {
     adminOverride: boolean;
     requireLobbyPhoto: boolean;
     lobbyPhotoMap1Only: boolean;
+    requirePhotoUnconfirmedMMROnly: boolean;
     checkInThreshold: number;
     scheduledAt: string | null;
     status: string;
@@ -89,12 +91,14 @@ type MatchRoomBaseRow = Pick<
   | "result_screenshot_urls"
   | "require_lobby_photo"
   | "lobby_photo_map1_only"
+  | "require_photo_unconfirmed_mmr_only"
 >;
 
 type MatchRoomQueryRow = MatchRoomBaseRow & {
   admin_override?: boolean | null;
   require_lobby_photo?: boolean | null;
   lobby_photo_map1_only?: boolean | null;
+  require_photo_unconfirmed_mmr_only?: boolean | null;
   result_screenshot_urls: string[] | null;
   winner_team_id?: string | null;
   opponent_notified: boolean | null;
@@ -115,10 +119,12 @@ type MatchRoomTeamQueryRow = {
           | {
               id: string;
               nickname: string;
+              mmr_status: string | null;
             }
           | Array<{
               id: string;
               nickname: string;
+              mmr_status: string | null;
             }>
           | null;
       }>
@@ -354,6 +360,7 @@ function normalizeMatchRoomTeam(params: {
       userId: membership.user_id,
       nickname: profile?.nickname ?? "Player",
       isCaptain: membership.is_captain,
+      isMMRVerified: profile?.mmr_status === "verified",
       medals: params.medalsByUserId[membership.user_id] ?? [],
     };
   });
@@ -377,7 +384,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
   const initialMatchResult = await supabase
     .from("tournament_matches")
     .select(
-      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls, winner_team_id, opponent_notified, reminder_1h_sent, reminder_30m_sent, is_forfeit, admin_override, require_lobby_photo, lobby_photo_map1_only"
+      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls, winner_team_id, opponent_notified, reminder_1h_sent, reminder_30m_sent, is_forfeit, admin_override, require_lobby_photo, lobby_photo_map1_only, require_photo_unconfirmed_mmr_only"
     )
     .eq("id", matchId)
     .maybeSingle();
@@ -410,6 +417,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
           is_forfeit: null,
           require_lobby_photo: true,
           lobby_photo_map1_only: false,
+          require_photo_unconfirmed_mmr_only: false,
         } as MatchRoomQueryRow)
       : null;
     matchError = legacyResult.error;
@@ -455,7 +463,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
       supabase
         .from("teams")
         .select(
-          "id, name, team_members(user_id, is_captain, created_at, profiles(id, nickname))"
+          "id, name, team_members(user_id, is_captain, created_at, profiles(id, nickname, mmr_status))"
         )
         .in("id", [typedMatch.team_a_id, typedMatch.team_b_id]),
     ]);
@@ -580,6 +588,9 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
         lobbyPhotoMap1Only:
           (typedMatch.require_lobby_photo ?? true) &&
           (typedMatch.lobby_photo_map1_only ?? false),
+        requirePhotoUnconfirmedMMROnly:
+          (typedMatch.require_lobby_photo ?? true) &&
+          (typedMatch.require_photo_unconfirmed_mmr_only ?? false),
         checkInThreshold,
         scheduledAt: typedMatch.scheduled_at,
         status: typedMatch.status,

@@ -1744,6 +1744,7 @@ type UpdateTournamentMatchActionInput = {
   format: string;
   requireLobbyPhoto: boolean;
   lobbyPhotoMap1Only: boolean;
+  requirePhotoUnconfirmedMMROnly: boolean;
 };
 
 type UpdateTournamentMatchActionResult = {
@@ -1779,6 +1780,7 @@ function normalizeAdminMatchPayload(params: {
   format: string;
   requireLobbyPhoto?: boolean;
   lobbyPhotoMap1Only?: boolean;
+  requirePhotoUnconfirmedMMROnly?: boolean;
 }): TournamentMatchInsert {
   const roundLabel = params.roundLabel.trim();
 
@@ -1840,6 +1842,9 @@ function normalizeAdminMatchPayload(params: {
     require_lobby_photo: requireLobbyPhoto,
     lobby_photo_map1_only: requireLobbyPhoto
       ? params.lobbyPhotoMap1Only ?? false
+      : false,
+    require_photo_unconfirmed_mmr_only: requireLobbyPhoto
+      ? params.requirePhotoUnconfirmedMMROnly ?? false
       : false,
   };
 }

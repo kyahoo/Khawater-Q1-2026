@@ -328,7 +328,7 @@ async function getAuthorizedMatchActionContext(
   const { data: matchRow, error: matchError } = await adminClient
     .from("tournament_matches")
     .select(
-      "id, team_a_id, team_b_id, round_label, scheduled_at, lobby_name, lobby_password, require_lobby_photo, lobby_photo_map1_only"
+      "id, team_a_id, team_b_id, round_label, scheduled_at, lobby_name, lobby_password, require_lobby_photo, lobby_photo_map1_only, require_photo_unconfirmed_mmr_only"
     )
     .eq("id", matchId)
     .maybeSingle();

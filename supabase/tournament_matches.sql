@@ -36,3 +36,6 @@ add column if not exists require_lobby_photo boolean not null default true;
 
 alter table public.tournament_matches
 add column if not exists lobby_photo_map1_only boolean not null default false;
+
+alter table public.tournament_matches
+add column if not exists require_photo_unconfirmed_mmr_only boolean not null default false;

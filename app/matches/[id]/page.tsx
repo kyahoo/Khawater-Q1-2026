@@ -177,14 +177,42 @@ function getSeriesMaxWins(format: string) {
   return seriesLength ? Math.floor(seriesLength / 2) + 1 : null;
 }
 
-function getRequiredLobbyMapNumbers(
-  match: Pick<MatchRoomData["match"], "requireLobbyPhoto" | "lobbyPhotoMap1Only">
-) {
-  if (!match.requireLobbyPhoto) {
+function shouldRequireLobbyPhoto(params: {
+  match: Pick<
+    MatchRoomData["match"],
+    | "requireLobbyPhoto"
+    | "lobbyPhotoMap1Only"
+    | "requirePhotoUnconfirmedMMROnly"
+  >;
+  teamA: MatchRoomData["teamA"];
+  teamB: MatchRoomData["teamB"];
+}) {
+  if (!params.match.requireLobbyPhoto) {
+    return false;
+  }
+
+  if (!params.match.requirePhotoUnconfirmedMMROnly) {
+    return true;
+  }
+
+  const allPlayers = [...params.teamA.roster, ...params.teamB.roster];
+
+  if (allPlayers.length === 0) {
+    return true;
+  }
+
+  return allPlayers.some((player) => !player.isMMRVerified);
+}
+
+function getRequiredLobbyMapNumbers(params: {
+  match: Pick<MatchRoomData["match"], "lobbyPhotoMap1Only">;
+  isLobbyPhotoRequired: boolean;
+}) {
+  if (!params.isLobbyPhotoRequired) {
     return [] as LobbyMapNumber[];
   }
 
-  if (match.lobbyPhotoMap1Only) {
+  if (params.match.lobbyPhotoMap1Only) {
     return [LOBBY_MAP_NUMBERS[0]];
   }
 
@@ -1054,7 +1082,15 @@ export default function MatchRoomPage() {
       currentUserLobbyPhotos.find((photo) => photo.mapNumber === mapNumber)
         ?.photoUrl ?? null
   );
-  const requiredLobbyMapNumbers = getRequiredLobbyMapNumbers(data.match);
+  const isLobbyPhotoRequired = shouldRequireLobbyPhoto({
+    match: data.match,
+    teamA: data.teamA,
+    teamB: data.teamB,
+  });
+  const requiredLobbyMapNumbers = getRequiredLobbyMapNumbers({
+    match: data.match,
+    isLobbyPhotoRequired,
+  });
   const currentLobbyMapNumber =
     requiredLobbyMapNumbers.find(
       (mapNumber) => !currentUserLobbyPhotoUrlByMap[mapNumber]
@@ -1178,7 +1214,7 @@ export default function MatchRoomPage() {
               currentTeamId: currentUserTeam?.id ?? null,
               opponentTeamId: opponentTeam?.id ?? null,
               requiredLobbyMapNumbers,
-              isLobbyPhotoRequired: requiredLobbyMapNumbers.length > 0,
+              isLobbyPhotoRequired,
               currentLobbyMapNumber,
               uploadedLobbyPhotoUrlByMap: currentUserLobbyPhotoUrlByMap,
               waitingLobbyMapNumber,

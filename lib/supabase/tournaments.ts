@@ -98,6 +98,7 @@ export type TournamentMatch = {
   adminOverride: boolean;
   requireLobbyPhoto: boolean;
   lobbyPhotoMap1Only: boolean;
+  requirePhotoUnconfirmedMMROnly: boolean;
   teamACheckInCount: number;
   teamBCheckInCount: number;
 };
@@ -655,7 +656,7 @@ export async function getTournamentMatchesForTournament(
   const { data: matches, error: matchesError } = await supabase
     .from("tournament_matches")
     .select(
-      "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, winner_team_id, is_forfeit, display_order, format, created_at, admin_override, require_lobby_photo, lobby_photo_map1_only, team_a:teams!tournament_matches_team_a_id_fkey(id, name, logo_url), team_b:teams!tournament_matches_team_b_id_fkey(id, name, logo_url)"
+      "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, winner_team_id, is_forfeit, display_order, format, created_at, admin_override, require_lobby_photo, lobby_photo_map1_only, require_photo_unconfirmed_mmr_only, team_a:teams!tournament_matches_team_a_id_fkey(id, name, logo_url), team_b:teams!tournament_matches_team_b_id_fkey(id, name, logo_url)"
     )
     .eq("tournament_id", tournamentId)
     .order("scheduled_at", { ascending: true })
@@ -675,6 +676,7 @@ export async function getTournamentMatchesForTournament(
     admin_override?: boolean | null;
     require_lobby_photo?: boolean | null;
     lobby_photo_map1_only?: boolean | null;
+    require_photo_unconfirmed_mmr_only?: boolean | null;
     team_a_score: number | null;
     team_b_score: number | null;
     winner_team_id: string | null;
@@ -804,6 +806,9 @@ export async function getTournamentMatchesForTournament(
     requireLobbyPhoto: match.require_lobby_photo ?? true,
     lobbyPhotoMap1Only:
       (match.require_lobby_photo ?? true) && (match.lobby_photo_map1_only ?? false),
+    requirePhotoUnconfirmedMMROnly:
+      (match.require_lobby_photo ?? true) &&
+      (match.require_photo_unconfirmed_mmr_only ?? false),
     teamACheckInCount:
       checkInCountsByMatchId.get(match.id)?.teamAPlayerIds.size ?? 0,
     teamBCheckInCount:
@@ -823,6 +828,7 @@ function normalizeMatchPayload(params: {
   format: string;
   requireLobbyPhoto?: boolean;
   lobbyPhotoMap1Only?: boolean;
+  requirePhotoUnconfirmedMMROnly?: boolean;
 }) {
   const roundLabel = params.roundLabel.trim();
 
@@ -884,6 +890,9 @@ function normalizeMatchPayload(params: {
     lobby_photo_map1_only: requireLobbyPhoto
       ? params.lobbyPhotoMap1Only ?? false
       : false,
+    require_photo_unconfirmed_mmr_only: requireLobbyPhoto
+      ? params.requirePhotoUnconfirmedMMROnly ?? false
+      : false,
   };
 }
 
@@ -896,6 +905,7 @@ export async function createTournamentMatch(params: {
   format: string;
   requireLobbyPhoto?: boolean;
   lobbyPhotoMap1Only?: boolean;
+  requirePhotoUnconfirmedMMROnly?: boolean;
 }) {
   const supabase = getSupabaseBrowserClient();
   const payload: TournamentMatchInsert = normalizeMatchPayload({
@@ -908,7 +918,7 @@ export async function createTournamentMatch(params: {
     .from("tournament_matches")
     .insert(payload)
     .select(
-      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at, require_lobby_photo, lobby_photo_map1_only"
+      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at, require_lobby_photo, lobby_photo_map1_only, require_photo_unconfirmed_mmr_only"
     )
     .single();
 
@@ -932,6 +942,7 @@ export async function updateTournamentMatch(params: {
   format: string;
   requireLobbyPhoto?: boolean;
   lobbyPhotoMap1Only?: boolean;
+  requirePhotoUnconfirmedMMROnly?: boolean;
 }) {
   const supabase = getSupabaseBrowserClient();
   const payload: TournamentMatchUpdate = normalizeMatchPayload(params);
@@ -976,7 +987,7 @@ export async function updateTournamentMatch(params: {
     .update(payload)
     .eq("id", params.matchId)
     .select(
-      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at, require_lobby_photo, lobby_photo_map1_only"
+      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at, require_lobby_photo, lobby_photo_map1_only, require_photo_unconfirmed_mmr_only"
     )
     .single();
 
