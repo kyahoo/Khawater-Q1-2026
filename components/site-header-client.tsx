@@ -10,6 +10,7 @@ import { getActiveTaskCountForUser } from "@/lib/supabase/tasks";
 type SiteHeaderClientProps = {
   initialBehaviorScore: number | null;
   initialCurrentUserId: string | null;
+  initialHasLiveMatch: boolean;
 };
 
 function getBehaviorBadgeTone(score: number) {
@@ -42,6 +43,7 @@ async function getBehaviorScoreForUser(userId: string) {
 export function SiteHeaderClient({
   initialBehaviorScore,
   initialCurrentUserId,
+  initialHasLiveMatch,
 }: SiteHeaderClientProps) {
   const pathname = usePathname();
   const [currentUserId, setCurrentUserId] = useState<string | null>(initialCurrentUserId);
@@ -50,7 +52,7 @@ export function SiteHeaderClient({
     initialCurrentUserId ? null : 0
   );
   const [behaviorScore, setBehaviorScore] = useState<number | null>(initialBehaviorScore);
-  const [hasLiveMatch, setHasLiveMatch] = useState(false);
+  const [hasLiveMatch, setHasLiveMatch] = useState(initialHasLiveMatch);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 

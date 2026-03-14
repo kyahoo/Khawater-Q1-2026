@@ -800,7 +800,15 @@ export async function getMatchesForUserTeam(userId: string): Promise<UserTeamMat
   return getMatchesForUserTeamWithClient(supabase, userId);
 }
 
-export async function getHasLiveMatchForUser(userId: string): Promise<boolean> {
-  const matches = await getMatchesForUserTeam(userId);
+export async function getHasLiveMatchForUserWithClient(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<boolean> {
+  const matches = await getMatchesForUserTeamWithClient(supabase, userId);
   return matches.some(isUserTeamMatchLive);
+}
+
+export async function getHasLiveMatchForUser(userId: string): Promise<boolean> {
+  const supabase = getSupabaseBrowserClient();
+  return getHasLiveMatchForUserWithClient(supabase, userId);
 }
