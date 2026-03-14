@@ -96,6 +96,8 @@ export type TournamentMatch = {
   displayOrder: number;
   format: string;
   adminOverride: boolean;
+  requireLobbyPhoto: boolean;
+  lobbyPhotoMap1Only: boolean;
   teamACheckInCount: number;
   teamBCheckInCount: number;
 };
@@ -653,7 +655,7 @@ export async function getTournamentMatchesForTournament(
   const { data: matches, error: matchesError } = await supabase
     .from("tournament_matches")
     .select(
-      "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, winner_team_id, is_forfeit, display_order, format, created_at, admin_override, team_a:teams!tournament_matches_team_a_id_fkey(id, name, logo_url), team_b:teams!tournament_matches_team_b_id_fkey(id, name, logo_url)"
+      "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, winner_team_id, is_forfeit, display_order, format, created_at, admin_override, require_lobby_photo, lobby_photo_map1_only, team_a:teams!tournament_matches_team_a_id_fkey(id, name, logo_url), team_b:teams!tournament_matches_team_b_id_fkey(id, name, logo_url)"
     )
     .eq("tournament_id", tournamentId)
     .order("scheduled_at", { ascending: true })
@@ -671,6 +673,8 @@ export async function getTournamentMatchesForTournament(
     scheduled_at: string | null;
     status: string;
     admin_override?: boolean | null;
+    require_lobby_photo?: boolean | null;
+    lobby_photo_map1_only?: boolean | null;
     team_a_score: number | null;
     team_b_score: number | null;
     winner_team_id: string | null;
@@ -797,6 +801,9 @@ export async function getTournamentMatchesForTournament(
     displayOrder: match.display_order,
     format: match.format,
     adminOverride: match.admin_override ?? false,
+    requireLobbyPhoto: match.require_lobby_photo ?? true,
+    lobbyPhotoMap1Only:
+      (match.require_lobby_photo ?? true) && (match.lobby_photo_map1_only ?? false),
     teamACheckInCount:
       checkInCountsByMatchId.get(match.id)?.teamAPlayerIds.size ?? 0,
     teamBCheckInCount:
@@ -814,6 +821,8 @@ function normalizeMatchPayload(params: {
   teamAScore: string;
   teamBScore: string;
   format: string;
+  requireLobbyPhoto?: boolean;
+  lobbyPhotoMap1Only?: boolean;
 }) {
   const roundLabel = params.roundLabel.trim();
 
@@ -858,6 +867,7 @@ function normalizeMatchPayload(params: {
 
   const teamAScore = normalizedStatus === "finished" ? parseScore(params.teamAScore) : null;
   const teamBScore = normalizedStatus === "finished" ? parseScore(params.teamBScore) : null;
+  const requireLobbyPhoto = params.requireLobbyPhoto ?? true;
 
   return {
     tournament_id: params.tournamentId,
@@ -870,6 +880,10 @@ function normalizeMatchPayload(params: {
     team_b_score: teamBScore,
     display_order: 0,
     format: normalizedFormat,
+    require_lobby_photo: requireLobbyPhoto,
+    lobby_photo_map1_only: requireLobbyPhoto
+      ? params.lobbyPhotoMap1Only ?? false
+      : false,
   };
 }
 
@@ -880,6 +894,8 @@ export async function createTournamentMatch(params: {
   roundLabel: string;
   scheduledAt: string;
   format: string;
+  requireLobbyPhoto?: boolean;
+  lobbyPhotoMap1Only?: boolean;
 }) {
   const supabase = getSupabaseBrowserClient();
   const payload: TournamentMatchInsert = normalizeMatchPayload({
@@ -892,7 +908,7 @@ export async function createTournamentMatch(params: {
     .from("tournament_matches")
     .insert(payload)
     .select(
-      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at"
+      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at, require_lobby_photo, lobby_photo_map1_only"
     )
     .single();
 
@@ -914,6 +930,8 @@ export async function updateTournamentMatch(params: {
   teamAScore: string;
   teamBScore: string;
   format: string;
+  requireLobbyPhoto?: boolean;
+  lobbyPhotoMap1Only?: boolean;
 }) {
   const supabase = getSupabaseBrowserClient();
   const payload: TournamentMatchUpdate = normalizeMatchPayload(params);
@@ -958,7 +976,7 @@ export async function updateTournamentMatch(params: {
     .update(payload)
     .eq("id", params.matchId)
     .select(
-      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at"
+      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at, require_lobby_photo, lobby_photo_map1_only"
     )
     .single();
 

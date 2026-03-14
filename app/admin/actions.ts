@@ -1742,6 +1742,8 @@ type UpdateTournamentMatchActionInput = {
   teamAScore: string;
   teamBScore: string;
   format: string;
+  requireLobbyPhoto: boolean;
+  lobbyPhotoMap1Only: boolean;
 };
 
 type UpdateTournamentMatchActionResult = {
@@ -1775,6 +1777,8 @@ function normalizeAdminMatchPayload(params: {
   teamAScore: string;
   teamBScore: string;
   format: string;
+  requireLobbyPhoto?: boolean;
+  lobbyPhotoMap1Only?: boolean;
 }): TournamentMatchInsert {
   const roundLabel = params.roundLabel.trim();
 
@@ -1820,6 +1824,7 @@ function normalizeAdminMatchPayload(params: {
 
     return nextValue;
   };
+  const requireLobbyPhoto = params.requireLobbyPhoto ?? true;
 
   return {
     tournament_id: params.tournamentId,
@@ -1832,6 +1837,10 @@ function normalizeAdminMatchPayload(params: {
     team_b_score: normalizedStatus === "finished" ? parseScore(params.teamBScore) : null,
     display_order: 0,
     format: normalizedFormat,
+    require_lobby_photo: requireLobbyPhoto,
+    lobby_photo_map1_only: requireLobbyPhoto
+      ? params.lobbyPhotoMap1Only ?? false
+      : false,
   };
 }
 

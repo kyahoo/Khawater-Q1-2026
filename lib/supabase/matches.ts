@@ -39,6 +39,8 @@ export type MatchRoomData = {
     roundLabel: string;
     format: string;
     adminOverride: boolean;
+    requireLobbyPhoto: boolean;
+    lobbyPhotoMap1Only: boolean;
     checkInThreshold: number;
     scheduledAt: string | null;
     status: string;
@@ -85,10 +87,14 @@ type MatchRoomBaseRow = Pick<
   | "lobby_name"
   | "lobby_password"
   | "result_screenshot_urls"
+  | "require_lobby_photo"
+  | "lobby_photo_map1_only"
 >;
 
 type MatchRoomQueryRow = MatchRoomBaseRow & {
   admin_override?: boolean | null;
+  require_lobby_photo?: boolean | null;
+  lobby_photo_map1_only?: boolean | null;
   result_screenshot_urls: string[] | null;
   winner_team_id?: string | null;
   opponent_notified: boolean | null;
@@ -371,7 +377,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
   const initialMatchResult = await supabase
     .from("tournament_matches")
     .select(
-      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls, winner_team_id, opponent_notified, reminder_1h_sent, reminder_30m_sent, is_forfeit, admin_override"
+      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls, winner_team_id, opponent_notified, reminder_1h_sent, reminder_30m_sent, is_forfeit, admin_override, require_lobby_photo, lobby_photo_map1_only"
     )
     .eq("id", matchId)
     .maybeSingle();
@@ -402,6 +408,8 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
           reminder_1h_sent: null,
           reminder_30m_sent: null,
           is_forfeit: null,
+          require_lobby_photo: true,
+          lobby_photo_map1_only: false,
         } as MatchRoomQueryRow)
       : null;
     matchError = legacyResult.error;
@@ -568,6 +576,10 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
         roundLabel: typedMatch.round_label,
         format: typedMatch.format,
         adminOverride: typedMatch.admin_override ?? false,
+        requireLobbyPhoto: typedMatch.require_lobby_photo ?? true,
+        lobbyPhotoMap1Only:
+          (typedMatch.require_lobby_photo ?? true) &&
+          (typedMatch.lobby_photo_map1_only ?? false),
         checkInThreshold,
         scheduledAt: typedMatch.scheduled_at,
         status: typedMatch.status,

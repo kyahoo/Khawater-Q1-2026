@@ -327,7 +327,9 @@ async function getAuthorizedMatchActionContext(
   const { adminClient, user } = authResult.context;
   const { data: matchRow, error: matchError } = await adminClient
     .from("tournament_matches")
-    .select("id, team_a_id, team_b_id, round_label, scheduled_at, lobby_name, lobby_password")
+    .select(
+      "id, team_a_id, team_b_id, round_label, scheduled_at, lobby_name, lobby_password, require_lobby_photo, lobby_photo_map1_only"
+    )
     .eq("id", matchId)
     .maybeSingle();
 

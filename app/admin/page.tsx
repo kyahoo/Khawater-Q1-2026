@@ -82,6 +82,8 @@ const EMPTY_MATCH_FORM = {
   teamAScore: "",
   teamBScore: "",
   format: "BO3",
+  requireLobbyPhoto: true,
+  lobbyPhotoMap1Only: false,
 };
 
 const EMPTY_GROUP_STAGE_FORM = {
@@ -2309,6 +2311,10 @@ export default function AdminPage() {
       teamAScore: match.teamAScore === null ? "" : String(match.teamAScore),
       teamBScore: match.teamBScore === null ? "" : String(match.teamBScore),
       format: match.format,
+      requireLobbyPhoto: match.requireLobbyPhoto,
+      lobbyPhotoMap1Only: match.requireLobbyPhoto
+        ? match.lobbyPhotoMap1Only
+        : false,
     });
   }
 
@@ -2373,6 +2379,8 @@ export default function AdminPage() {
           roundLabel: matchForm.roundLabel,
           scheduledAt: scheduledAtIso,
           format: matchForm.format,
+          requireLobbyPhoto: matchForm.requireLobbyPhoto,
+          lobbyPhotoMap1Only: matchForm.lobbyPhotoMap1Only,
         });
       }
 
@@ -4056,6 +4064,41 @@ export default function AdminPage() {
                           }
                           className="rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
                         />
+
+                        <label className="flex items-center gap-3 rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900">
+                          <input
+                            type="checkbox"
+                            checked={matchForm.requireLobbyPhoto}
+                            onChange={(event) =>
+                              setMatchForm((current) => ({
+                                ...current,
+                                requireLobbyPhoto: event.target.checked,
+                                lobbyPhotoMap1Only: event.target.checked
+                                  ? current.lobbyPhotoMap1Only
+                                  : false,
+                              }))
+                            }
+                            className="h-4 w-4 rounded border-zinc-400 text-zinc-900"
+                          />
+                          <span>Требовать фото лобби</span>
+                        </label>
+
+                        {matchForm.requireLobbyPhoto && (
+                          <label className="flex items-center gap-3 rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900">
+                            <input
+                              type="checkbox"
+                              checked={matchForm.lobbyPhotoMap1Only}
+                              onChange={(event) =>
+                                setMatchForm((current) => ({
+                                  ...current,
+                                  lobbyPhotoMap1Only: event.target.checked,
+                                }))
+                              }
+                              className="h-4 w-4 rounded border-zinc-400 text-zinc-900"
+                            />
+                            <span>Только для Карты 1</span>
+                          </label>
+                        )}
 
                         {isEditingMatch && (
                           <select

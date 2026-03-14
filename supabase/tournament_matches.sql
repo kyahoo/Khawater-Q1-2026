@@ -30,3 +30,9 @@ add column if not exists result_screenshot_urls text[] not null default '{}'::te
 
 alter table public.tournament_matches
 add column if not exists winner_team_id uuid null references public.teams (id);
+
+alter table public.tournament_matches
+add column if not exists require_lobby_photo boolean not null default true;
+
+alter table public.tournament_matches
+add column if not exists lobby_photo_map1_only boolean not null default false;

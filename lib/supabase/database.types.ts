@@ -324,6 +324,8 @@ export type Database = {
           lobby_password: string | null;
           result_screenshot_urls: string[] | null;
           winner_team_id: string | null;
+          require_lobby_photo: boolean;
+          lobby_photo_map1_only: boolean;
           reminder_1h_sent: boolean;
           reminder_30m_sent: boolean;
           opponent_notified: boolean;
@@ -346,6 +348,8 @@ export type Database = {
           lobby_password?: string | null;
           result_screenshot_urls?: string[] | null;
           winner_team_id?: string | null;
+          require_lobby_photo?: boolean;
+          lobby_photo_map1_only?: boolean;
           reminder_1h_sent?: boolean;
           reminder_30m_sent?: boolean;
           opponent_notified?: boolean;
@@ -368,6 +372,8 @@ export type Database = {
           lobby_password?: string | null;
           result_screenshot_urls?: string[] | null;
           winner_team_id?: string | null;
+          require_lobby_photo?: boolean;
+          lobby_photo_map1_only?: boolean;
           reminder_1h_sent?: boolean;
           reminder_30m_sent?: boolean;
           opponent_notified?: boolean;

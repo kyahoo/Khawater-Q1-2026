@@ -177,6 +177,20 @@ function getSeriesMaxWins(format: string) {
   return seriesLength ? Math.floor(seriesLength / 2) + 1 : null;
 }
 
+function getRequiredLobbyMapNumbers(
+  match: Pick<MatchRoomData["match"], "requireLobbyPhoto" | "lobbyPhotoMap1Only">
+) {
+  if (!match.requireLobbyPhoto) {
+    return [] as LobbyMapNumber[];
+  }
+
+  if (match.lobbyPhotoMap1Only) {
+    return [LOBBY_MAP_NUMBERS[0]];
+  }
+
+  return [...LOBBY_MAP_NUMBERS];
+}
+
 function normalizeScoreInput(value: string, maxWins: number | null) {
   const digitsOnly = value.replace(/[^\d]/g, "");
 
@@ -1040,8 +1054,9 @@ export default function MatchRoomPage() {
       currentUserLobbyPhotos.find((photo) => photo.mapNumber === mapNumber)
         ?.photoUrl ?? null
   );
+  const requiredLobbyMapNumbers = getRequiredLobbyMapNumbers(data.match);
   const currentLobbyMapNumber =
-    LOBBY_MAP_NUMBERS.find(
+    requiredLobbyMapNumbers.find(
       (mapNumber) => !currentUserLobbyPhotoUrlByMap[mapNumber]
     ) ?? null;
   const hasPendingLobbyPhotoAction = Boolean(
@@ -1162,6 +1177,8 @@ export default function MatchRoomPage() {
               isCurrentUserCheckedIn,
               currentTeamId: currentUserTeam?.id ?? null,
               opponentTeamId: opponentTeam?.id ?? null,
+              requiredLobbyMapNumbers,
+              isLobbyPhotoRequired: requiredLobbyMapNumbers.length > 0,
               currentLobbyMapNumber,
               uploadedLobbyPhotoUrlByMap: currentUserLobbyPhotoUrlByMap,
               waitingLobbyMapNumber,
