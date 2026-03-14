@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -52,6 +52,7 @@ export function SiteHeaderClient({
   const [behaviorScore, setBehaviorScore] = useState<number | null>(initialBehaviorScore);
   const [hasLiveMatch, setHasLiveMatch] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const loadUserNavigationState = useEffectEvent(async (userId: string) => {
     try {
@@ -123,6 +124,24 @@ export function SiteHeaderClient({
 
     void loadUserNavigationState(currentUserId);
   }, [pathname, hasSession, currentUserId, initialBehaviorScore]);
+
+  useEffect(() => {
+    const handleMouseDown = (event: MouseEvent) => {
+      if (
+        isMoreOpen &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsMoreOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleMouseDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+    };
+  }, [isMoreOpen]);
 
   function isActivePath(href: string) {
     return pathname === href || pathname.startsWith(`${href}/`);
@@ -227,7 +246,7 @@ export function SiteHeaderClient({
           ) : (
             <div className="h-9 w-24 shrink-0 bg-white/10" />
           )}
-          <div className="relative flex items-center">
+          <div ref={dropdownRef} className="relative flex items-center">
             <button
               type="button"
               onClick={() => setIsMoreOpen(!isMoreOpen)}
