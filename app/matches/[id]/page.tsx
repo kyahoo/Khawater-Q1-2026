@@ -178,16 +178,19 @@ function getSeriesMaxWins(format: string) {
 }
 
 function shouldRequireLobbyPhoto(params: {
-  match: Pick<
-    MatchRoomData["match"],
-    | "requireLobbyPhoto"
-    | "lobbyPhotoMap1Only"
-    | "requirePhotoUnconfirmedMMROnly"
-  >;
-  teamA: MatchRoomData["teamA"];
-  teamB: MatchRoomData["teamB"];
+  match:
+    | Pick<
+        MatchRoomData["match"],
+        | "requireLobbyPhoto"
+        | "lobbyPhotoMap1Only"
+        | "requirePhotoUnconfirmedMMROnly"
+      >
+    | null
+    | undefined;
+  teamA: MatchRoomData["teamA"] | null | undefined;
+  teamB: MatchRoomData["teamB"] | null | undefined;
 }) {
-  if (!params.match.requireLobbyPhoto) {
+  if (!params.match?.requireLobbyPhoto) {
     return false;
   }
 
@@ -195,7 +198,9 @@ function shouldRequireLobbyPhoto(params: {
     return true;
   }
 
-  const allPlayers = [...params.teamA.roster, ...params.teamB.roster];
+  const teamARoster = Array.isArray(params.teamA?.roster) ? params.teamA.roster : [];
+  const teamBRoster = Array.isArray(params.teamB?.roster) ? params.teamB.roster : [];
+  const allPlayers = [...teamARoster, ...teamBRoster];
 
   if (allPlayers.length === 0) {
     return true;
@@ -205,14 +210,14 @@ function shouldRequireLobbyPhoto(params: {
 }
 
 function getRequiredLobbyMapNumbers(params: {
-  match: Pick<MatchRoomData["match"], "lobbyPhotoMap1Only">;
+  match: Pick<MatchRoomData["match"], "lobbyPhotoMap1Only"> | null | undefined;
   isLobbyPhotoRequired: boolean;
 }) {
   if (!params.isLobbyPhotoRequired) {
     return [] as LobbyMapNumber[];
   }
 
-  if (params.match.lobbyPhotoMap1Only) {
+  if (params.match?.lobbyPhotoMap1Only) {
     return [LOBBY_MAP_NUMBERS[0]];
   }
 
@@ -1011,22 +1016,27 @@ export default function MatchRoomPage() {
     );
   }
 
+  const safeTeamARoster = Array.isArray(data.teamA?.roster) ? data.teamA.roster : [];
+  const safeTeamBRoster = Array.isArray(data.teamB?.roster) ? data.teamB.roster : [];
+  const safeTeamA = { ...data.teamA, roster: safeTeamARoster };
+  const safeTeamB = { ...data.teamB, roster: safeTeamBRoster };
+  const safeLobbyPhotos = Array.isArray(data.lobbyPhotos) ? data.lobbyPhotos : [];
   const isCurrentUserParticipant = Boolean(
     currentUserId &&
-      (data.teamA.roster.some((player) => player.userId === currentUserId) ||
-        data.teamB.roster.some((player) => player.userId === currentUserId))
+      (safeTeamARoster.some((player) => player.userId === currentUserId) ||
+        safeTeamBRoster.some((player) => player.userId === currentUserId))
   );
   const currentUserTeam =
-    currentUserId && data.teamA.roster.some((player) => player.userId === currentUserId)
-      ? data.teamA
-      : currentUserId && data.teamB.roster.some((player) => player.userId === currentUserId)
-        ? data.teamB
+    currentUserId && safeTeamARoster.some((player) => player.userId === currentUserId)
+      ? safeTeamA
+      : currentUserId && safeTeamBRoster.some((player) => player.userId === currentUserId)
+        ? safeTeamB
         : null;
   const opponentTeam =
-    currentUserTeam?.id === data.teamA.id
-      ? data.teamB
-      : currentUserTeam?.id === data.teamB.id
-        ? data.teamA
+    currentUserTeam?.id === safeTeamA.id
+      ? safeTeamB
+      : currentUserTeam?.id === safeTeamB.id
+        ? safeTeamA
         : null;
   const isCurrentUserCaptain = Boolean(
     currentUserId &&
@@ -1044,8 +1054,8 @@ export default function MatchRoomPage() {
   const checkInCount = data.checkedInUserIds.length;
   const allCheckedIn = checkInCount >= checkInThreshold;
 
-  const hostTeam = data.teamA;
-  const hostCaptain = hostTeam.roster.find((player) => player.isCaptain);
+  const hostTeam = safeTeamA;
+  const hostCaptain = safeTeamARoster.find((player) => player.isCaptain);
   const hostCaptainUserId = hostCaptain?.userId ?? null;
   const hostTeamId = hostTeam.id;
   const hostLabel = hostCaptain
@@ -1057,10 +1067,10 @@ export default function MatchRoomPage() {
   const isCurrentUserHostCaptain = Boolean(
     isCurrentUserCaptain && currentUserTeam?.id === hostTeamId
   );
-  const teamAHasCheckedIn = data.teamA.roster.some((player) =>
+  const teamAHasCheckedIn = safeTeamARoster.some((player) =>
     data.checkedInUserIds.includes(player.userId)
   );
-  const teamBHasCheckedIn = data.teamB.roster.some((player) =>
+  const teamBHasCheckedIn = safeTeamBRoster.some((player) =>
     data.checkedInUserIds.includes(player.userId)
   );
   const scheduledTimeMs = data.match.scheduledAt
@@ -1075,7 +1085,7 @@ export default function MatchRoomPage() {
   const isLateCheckInLockout =
     isCheckInExpired && !teamAHasCheckedIn && !teamBHasCheckedIn;
   const currentUserLobbyPhotos = currentUserId
-    ? data.lobbyPhotos.filter((photo) => photo.playerId === currentUserId)
+    ? safeLobbyPhotos.filter((photo) => photo.playerId === currentUserId)
     : [];
   const currentUserLobbyPhotoUrlByMap = createLobbyMapRecord(
     (mapNumber) =>
@@ -1195,8 +1205,8 @@ export default function MatchRoomPage() {
           <MatchTabs
             matchId={matchId}
             match={data.match}
-            teamA={data.teamA}
-            teamB={data.teamB}
+            teamA={safeTeamA}
+            teamB={safeTeamB}
             checkedInUserIds={data.checkedInUserIds}
             hostLabel={hostLabel}
             checkInThreshold={checkInThreshold}

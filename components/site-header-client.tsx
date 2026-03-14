@@ -56,6 +56,8 @@ export function SiteHeaderClient({
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isClientAuthReady, setIsClientAuthReady] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const navigationLoadRequestIdRef = useRef(0);
+  const hasCompletedInitialNavigationSyncRef = useRef(false);
 
   const resetNavigationState = useEffectEvent(() => {
     setHasSession(false);
@@ -66,16 +68,38 @@ export function SiteHeaderClient({
   });
 
   const loadUserNavigationState = useEffectEvent(async (userId: string) => {
+    const requestId = navigationLoadRequestIdRef.current + 1;
+    navigationLoadRequestIdRef.current = requestId;
+
     try {
       const [nextTaskCount, nextBehaviorScore, nextHasLiveMatch] = await Promise.all([
         getActiveTaskCountForUser(userId),
         getBehaviorScoreForUser(userId),
         getHasLiveMatchForUser(userId),
       ]);
+
+      if (requestId !== navigationLoadRequestIdRef.current) {
+        return;
+      }
+
       setActiveTaskCount(nextTaskCount);
       setBehaviorScore(nextBehaviorScore);
-      setHasLiveMatch(nextHasLiveMatch);
+
+      const shouldPreserveInitialLiveMatch =
+        initialHasLiveMatch &&
+        !hasCompletedInitialNavigationSyncRef.current &&
+        !nextHasLiveMatch;
+
+      if (!shouldPreserveInitialLiveMatch) {
+        setHasLiveMatch(nextHasLiveMatch);
+      }
+
+      hasCompletedInitialNavigationSyncRef.current = true;
     } catch (error) {
+      if (requestId !== navigationLoadRequestIdRef.current) {
+        return;
+      }
+
       console.error("Navigation state load failed:", error);
     }
   });
