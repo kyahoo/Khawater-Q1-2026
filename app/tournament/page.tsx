@@ -8,6 +8,7 @@ import {
   type MatchComponentProps,
   type MatchType,
 } from "@g-loot/react-tournament-brackets";
+import { GroupStageStandingsTable } from "@/components/group-stage-standings-table";
 import { PlayerMedals } from "@/components/player-medals";
 import { TeamLogo } from "@/components/team-logo";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -111,110 +112,6 @@ function TournamentMatchesSection({
         <p className="text-sm text-gray-300">Матчи пока не опубликованы.</p>
       ) : (
         <div>{matches.map((match) => renderMatchCard(match))}</div>
-      )}
-    </section>
-  );
-}
-
-function TournamentGroupStandingsSection({
-  isLoading,
-  matchesErrorMessage,
-  groupStandings,
-}: {
-  isLoading: boolean;
-  matchesErrorMessage: string;
-  groupStandings: Array<{
-    teamId: string;
-    teamName: string;
-    teamLogoUrl: string | null;
-    wins: number;
-    losses: number;
-    draws: number;
-    points: number;
-  }>;
-}) {
-  if (isLoading) {
-    return <TournamentSectionSkeleton title="Таблица группового этапа" rows={5} />;
-  }
-
-  return (
-    <section className="w-full overflow-x-auto border-[3px] border-[#061726] bg-[#061726]/85 p-6 shadow-[6px_6px_0px_0px_#061726] backdrop-blur-md md:p-8">
-      <h2 className="mb-8 text-4xl font-black uppercase text-[#CD9C3E] md:text-5xl">
-        Таблица группового этапа
-      </h2>
-
-      {matchesErrorMessage ? (
-        <p className="text-sm text-gray-300">{matchesErrorMessage}</p>
-      ) : groupStandings.length === 0 ? (
-        <p className="text-sm text-gray-300">
-          Таблица появится после завершения матчей группового этапа.
-        </p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[600px] border-collapse text-left">
-            <thead className="border-b-[3px] border-[#061726] text-[#CD9C3E]">
-              <tr>
-                <th className="px-4 pb-4 text-sm font-bold uppercase tracking-wider md:text-base">
-                  Место
-                </th>
-                <th className="px-4 pb-4 text-sm font-bold uppercase tracking-wider md:text-base">
-                  Команда
-                </th>
-                <th className="px-4 pb-4 text-sm font-bold uppercase tracking-wider md:text-base">
-                  В
-                </th>
-                <th className="px-4 pb-4 text-sm font-bold uppercase tracking-wider md:text-base">
-                  П
-                </th>
-                <th className="px-4 pb-4 text-sm font-bold uppercase tracking-wider md:text-base">
-                  Н
-                </th>
-                <th className="px-4 pb-4 text-sm font-bold uppercase tracking-wider md:text-base">
-                  Очки
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {groupStandings.map((team, index) => (
-                <tr
-                  key={team.teamId}
-                  className="border-b-2 border-[#061726] bg-[#0B3A4A] transition-colors hover:bg-[#0d4a5e]"
-                >
-                  <td
-                    className={`p-4 text-base font-medium md:text-lg ${
-                      index === 0 ? "font-black text-[#CD9C3E]" : "text-white"
-                    }`}
-                  >
-                    {index + 1}
-                  </td>
-                  <td className="p-4 text-base font-medium text-white md:text-lg">
-                    <div className="flex items-center gap-4">
-                      <TeamLogo
-                        teamName={team.teamName}
-                        logoUrl={team.teamLogoUrl}
-                        sizeClassName="aspect-square h-10 w-10 md:h-12 md:w-12"
-                        textClassName="text-lg md:text-xl"
-                      />
-                      <span>{team.teamName}</span>
-                    </div>
-                  </td>
-                  <td className="p-4 text-base font-medium text-white md:text-lg">
-                    {team.wins}
-                  </td>
-                  <td className="p-4 text-base font-medium text-white md:text-lg">
-                    {team.losses}
-                  </td>
-                  <td className="p-4 text-base font-medium text-white md:text-lg">
-                    {team.draws}
-                  </td>
-                  <td className="p-4 text-base font-medium text-white md:text-lg">
-                    {team.points}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       )}
     </section>
   );
@@ -346,105 +243,6 @@ export default function TournamentPage() {
   const [matchesErrorMessage, setMatchesErrorMessage] = useState("");
   const [activeTab, setActiveTab] = useState<TournamentTabId>("teams");
 
-  function calculateGroupStandings(matchesToRank: TournamentMatch[]) {
-    const groupMatches = matchesToRank.filter(
-      (match) =>
-        match.status === "finished" &&
-        match.roundLabel === "Group Stage" &&
-        match.teamAScore !== null &&
-        match.teamBScore !== null
-    );
-
-    const standingsByTeam = new Map<
-      string,
-      {
-        teamId: string;
-        teamName: string;
-        teamLogoUrl: string | null;
-        wins: number;
-        losses: number;
-        draws: number;
-        points: number;
-      }
-    >();
-
-    const ensureTeam = (teamId: string, teamName: string, teamLogoUrl: string | null) => {
-      const existing = standingsByTeam.get(teamId);
-
-      if (existing) {
-        return existing;
-      }
-
-      const nextTeam = {
-        teamId,
-        teamName,
-        teamLogoUrl,
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        points: 0,
-      };
-
-      standingsByTeam.set(teamId, nextTeam);
-      return nextTeam;
-    };
-
-    for (const match of groupMatches) {
-      const teamA = ensureTeam(match.teamAId, match.teamAName, match.teamALogoUrl);
-      const teamB = ensureTeam(match.teamBId, match.teamBName, match.teamBLogoUrl);
-      const scoreText = `${match.teamAScore} - ${match.teamBScore}`;
-      const [teamAScoreText, teamBScoreText] = scoreText.split(" - ");
-      const teamAScore = Number(teamAScoreText);
-      const teamBScore = Number(teamBScoreText);
-
-      if (Number.isNaN(teamAScore) || Number.isNaN(teamBScore)) {
-        continue;
-      }
-
-      if (match.format === "BO2") {
-        if (teamAScore === teamBScore) {
-          teamA.draws += 1;
-          teamB.draws += 1;
-          teamA.points += 1;
-          teamB.points += 1;
-        } else if (teamAScore > teamBScore) {
-          teamA.wins += 1;
-          teamB.losses += 1;
-          teamA.points += 3;
-        } else {
-          teamB.wins += 1;
-          teamA.losses += 1;
-          teamB.points += 3;
-        }
-
-        continue;
-      }
-
-      if (teamAScore > teamBScore) {
-        teamA.wins += 1;
-        teamB.losses += 1;
-        teamA.points += 1;
-      } else if (teamBScore > teamAScore) {
-        teamB.wins += 1;
-        teamA.losses += 1;
-        teamB.points += 1;
-      }
-    }
-
-    return Array.from(standingsByTeam.values()).sort((teamA, teamB) => {
-      if (teamB.points !== teamA.points) {
-        return teamB.points - teamA.points;
-      }
-
-      if (teamB.wins !== teamA.wins) {
-        return teamB.wins - teamA.wins;
-      }
-
-      return teamA.teamName.localeCompare(teamB.teamName);
-    });
-  }
-
-  const groupStandings = calculateGroupStandings(matches);
   const advancingCount = Math.max(
     0,
     enteredTeams.length - (activeTournament?.teams_eliminated_per_group ?? enteredTeams.length)
@@ -962,10 +760,11 @@ export default function TournamentPage() {
               <Suspense
                 fallback={<TournamentSectionSkeleton title="Таблица группового этапа" rows={5} />}
               >
-                <TournamentGroupStandingsSection
+                <GroupStageStandingsTable
                   isLoading={isLoading}
-                  matchesErrorMessage={matchesErrorMessage}
-                  groupStandings={groupStandings}
+                  errorMessage={matchesErrorMessage}
+                  matches={matches}
+                  variant="public"
                 />
               </Suspense>
             )}

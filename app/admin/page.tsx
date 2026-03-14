@@ -1,5 +1,6 @@
 "use client";
 
+import { GroupStageStandingsTable } from "@/components/group-stage-standings-table";
 import { useEffect, useEffectEvent, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -3939,6 +3940,24 @@ export default function AdminPage() {
                   </div>
                 )}
               </section>
+
+              <GroupStageStandingsTable
+                title="Group Stage Standings"
+                description={
+                  activeTournament
+                    ? `Current active tournament: ${activeTournament.name}`
+                    : undefined
+                }
+                isLoading={isLoading}
+                errorMessage={matchesSectionErrorMessage}
+                matches={matches}
+                emptyMessage={
+                  activeTournament
+                    ? "Standings will appear after finished Group Stage matches are available."
+                    : "No active tournament selected yet."
+                }
+                variant="admin"
+              />
 
               <section className="border border-zinc-300 bg-white p-5 shadow-md">
                 <h2 className="mb-4 text-lg font-semibold text-zinc-500">
