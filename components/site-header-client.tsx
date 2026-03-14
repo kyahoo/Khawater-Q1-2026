@@ -54,7 +54,16 @@ export function SiteHeaderClient({
   const [behaviorScore, setBehaviorScore] = useState<number | null>(initialBehaviorScore);
   const [hasLiveMatch, setHasLiveMatch] = useState(initialHasLiveMatch);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [isClientAuthReady, setIsClientAuthReady] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const resetNavigationState = useEffectEvent(() => {
+    setHasSession(false);
+    setCurrentUserId(null);
+    setActiveTaskCount(0);
+    setBehaviorScore(null);
+    setHasLiveMatch(false);
+  });
 
   const loadUserNavigationState = useEffectEvent(async (userId: string) => {
     try {
@@ -68,8 +77,6 @@ export function SiteHeaderClient({
       setHasLiveMatch(nextHasLiveMatch);
     } catch (error) {
       console.error("Navigation state load failed:", error);
-      setActiveTaskCount(0);
-      setHasLiveMatch(false);
     }
   });
 
@@ -77,55 +84,115 @@ export function SiteHeaderClient({
     const supabase = getSupabaseBrowserClient();
     let isMounted = true;
 
-    void supabase.auth.getSession().then(({ data }) => {
+    const applySessionUser = (sessionUserId: string) => {
+      setHasSession(true);
+      setCurrentUserId(sessionUserId);
+      setIsClientAuthReady(true);
+    };
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) {
         return;
       }
 
-      const sessionUserId = data.session?.user.id ?? null;
-      setHasSession(Boolean(sessionUserId));
-      setCurrentUserId(sessionUserId);
-
-      if (sessionUserId) {
-        void loadUserNavigationState(sessionUserId);
-        return;
-      }
-
-      setActiveTaskCount(0);
-      setBehaviorScore(null);
-      setHasLiveMatch(false);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
       const sessionUserId = session?.user.id ?? null;
-      setHasSession(Boolean(sessionUserId));
-      setCurrentUserId(sessionUserId);
 
       if (sessionUserId) {
-        void loadUserNavigationState(sessionUserId);
+        applySessionUser(sessionUserId);
         return;
       }
 
-      setActiveTaskCount(0);
-      setBehaviorScore(null);
-      setHasLiveMatch(false);
+      if (event === "SIGNED_OUT") {
+        resetNavigationState();
+        setIsClientAuthReady(true);
+        return;
+      }
+
+      if (!initialCurrentUserId) {
+        resetNavigationState();
+        setIsClientAuthReady(true);
+      }
     });
+
+    void supabase.auth
+      .getSession()
+      .then(async ({ data, error }) => {
+        if (!isMounted) {
+          return;
+        }
+
+        if (error) {
+          console.error("Header session bootstrap failed:", error);
+
+          if (!initialCurrentUserId) {
+            resetNavigationState();
+            setIsClientAuthReady(true);
+          }
+
+          return;
+        }
+
+        const sessionUserId = data.session?.user.id ?? null;
+
+        if (sessionUserId) {
+          applySessionUser(sessionUserId);
+          return;
+        }
+
+        if (!initialCurrentUserId) {
+          resetNavigationState();
+          setIsClientAuthReady(true);
+          return;
+        }
+
+        // Preserve the server-rendered header until the browser can confirm auth.
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (userError) {
+          console.error("Header user bootstrap failed:", userError);
+          return;
+        }
+
+        if (userData.user?.id) {
+          applySessionUser(userData.user.id);
+          return;
+        }
+
+        resetNavigationState();
+        setIsClientAuthReady(true);
+      })
+      .catch((error) => {
+        if (!isMounted) {
+          return;
+        }
+
+        console.error("Header auth bootstrap failed:", error);
+
+        if (!initialCurrentUserId) {
+          resetNavigationState();
+          setIsClientAuthReady(true);
+        }
+      });
 
     return () => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [initialCurrentUserId]);
 
   useEffect(() => {
-    if (!currentUserId || !hasSession) {
+    if (!isClientAuthReady || !currentUserId || !hasSession) {
       return;
     }
 
     void loadUserNavigationState(currentUserId);
-  }, [pathname, hasSession, currentUserId, initialBehaviorScore]);
+  }, [pathname, hasSession, currentUserId, isClientAuthReady]);
 
   useEffect(() => {
     const handleMouseDown = (event: MouseEvent) => {
