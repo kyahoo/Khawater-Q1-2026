@@ -190,6 +190,8 @@ export type UserTeamMatchTechnicalOutcome =
 export const REQUIRED_TEAM_CHECK_INS = 5;
 export const PRE_MATCH_OPEN_WINDOW_MS = 30 * 60 * 1000;
 export const MATCH_CHECK_IN_TIMEOUT_MS = 15 * 60 * 1000;
+const COMPLETED_MATCH_STATUSES = new Set(["finished", "completed"]);
+const ACTIVE_MATCH_STATUSES = new Set(["open", "live", "in_progress"]);
 
 const almatyWallClockFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Almaty",
@@ -235,14 +237,17 @@ export function getCurrentAlmatyWallClockTimeMs() {
 }
 
 function normalizeMatchStatus(status: string) {
-  return status.trim().toLowerCase();
+  return status.trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
+
+export function isActiveMatchStatus(status: string) {
+  return ACTIVE_MATCH_STATUSES.has(normalizeMatchStatus(status));
 }
 
 export function isUserTeamMatchCompleted(
   match: Pick<UserTeamMatch, "status">
 ) {
-  const normalizedStatus = normalizeMatchStatus(match.status);
-  return normalizedStatus === "finished" || normalizedStatus === "completed";
+  return COMPLETED_MATCH_STATUSES.has(normalizeMatchStatus(match.status));
 }
 
 export function getUserTeamMatchTechnicalOutcome(
@@ -327,6 +332,10 @@ export function isUserTeamMatchLive(
   match: UserTeamMatch,
   currentTimeMs = getCurrentAlmatyWallClockTimeMs()
 ) {
+  if (isActiveMatchStatus(match.status)) {
+    return true;
+  }
+
   if (!match.scheduledAt || isUserTeamMatchPast(match, currentTimeMs)) {
     return false;
   }

@@ -19,58 +19,24 @@ export async function SiteHeaderData() {
 
   try {
     const supabase = await getSupabaseServerClient();
-    const userPromise = supabase.auth.getUser();
-    const liveMatchBootstrapPromise = supabase.auth
-      .getClaims()
-      .then(async ({ data, error }) => {
-        const claimsUserId = typeof data?.claims?.sub === "string" ? data.claims.sub : null;
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-        if (error || !claimsUserId) {
-          if (error) {
-            console.error("Site header claims load failed:", error);
-          }
-
-          return {
-            claimsUserId: null,
-            hasLiveMatch: false,
-          };
-        }
-
-        try {
-          return {
-            claimsUserId,
-            hasLiveMatch: await getHasLiveMatchForUserWithClient(supabase, claimsUserId),
-          };
-        } catch (queryError) {
-          console.error("Site header live match load failed:", queryError);
-
-          return {
-            claimsUserId,
-            hasLiveMatch: false,
-          };
-        }
-      })
-      .catch((claimsError) => {
-        console.error("Site header claims bootstrap failed:", claimsError);
-
-        return {
-          claimsUserId: null,
-          hasLiveMatch: false,
-        };
-      });
-
-    const [
-      {
-        data: { user },
-      },
-      liveMatchBootstrap,
-    ] = await Promise.all([userPromise, liveMatchBootstrapPromise]);
+    if (userError) {
+      throw userError;
+    }
 
     currentUserId = user?.id ?? null;
-    hasLiveMatch =
-      currentUserId !== null &&
-      liveMatchBootstrap.claimsUserId === currentUserId &&
-      liveMatchBootstrap.hasLiveMatch;
+
+    if (currentUserId) {
+      try {
+        hasLiveMatch = await getHasLiveMatchForUserWithClient(supabase, currentUserId);
+      } catch (queryError) {
+        console.error("Site header live match load failed:", queryError);
+      }
+    }
   } catch (error) {
     console.error("Site header bootstrap failed:", error);
   }

@@ -213,9 +213,9 @@ export function SiteHeaderClient({
                 <span className="inline-flex items-center gap-2">
                   <span>Мои матчи</span>
                   {hasLiveMatch && (
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                    <span aria-hidden="true" className="relative flex h-2.5 w-2.5 shrink-0">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                      <span className="relative inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-green-500 shadow-[0_0_8px_#22C55E]"></span>
                     </span>
                   )}
                 </span>
