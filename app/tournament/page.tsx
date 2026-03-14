@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   DoubleEliminationBracket,
@@ -73,6 +73,74 @@ function RosterBadge({
     >
       [ {label} ]
     </span>
+  );
+}
+
+function VerifiedMMRBadge({ mmr }: { mmr: number }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent | TouchEvent) {
+      if (!(event.target instanceof Node)) {
+        return;
+      }
+
+      if (containerRef.current?.contains(event.target)) {
+        return;
+      }
+
+      setIsOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <div ref={containerRef} className="relative z-20 flex items-center">
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
+        onClick={() => setIsOpen((current) => !current)}
+        className="inline-flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CD9C3E] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B3A4A]"
+      >
+        <RosterBadge
+          label={`MMR: ${mmr}`}
+          className="border-green-400 text-white/90 transition-colors hover:border-green-300"
+        />
+        <span
+          aria-hidden="true"
+          className="flex h-5 w-5 items-center justify-center border-2 border-[#CD9C3E]/70 bg-[#061726]/80 text-[10px] font-black uppercase text-[#CD9C3E] backdrop-blur-sm"
+        >
+          i
+        </span>
+      </button>
+
+      {isOpen ? (
+        <div className="absolute right-0 top-full mt-2 w-56 border-[2px] border-white/15 bg-[#061726]/95 px-3 py-2 text-[10px] font-black uppercase leading-relaxed tracking-[0.12em] text-white/90 shadow-[0_12px_32px_rgba(6,23,38,0.5)] backdrop-blur-md">
+          MMR подтвержден администратором
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -730,7 +798,7 @@ export default function TournamentPage() {
                     {enteredTeams.map((team) => (
                       <div
                         key={team.id}
-                        className="group relative flex flex-col overflow-hidden border-[4px] border-[#061726] shadow-[6px_6px_0px_0px_#CD9C3E] transition-all hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#CD9C3E]"
+                        className="group relative flex flex-col overflow-visible border-[4px] border-[#061726] shadow-[6px_6px_0px_0px_#CD9C3E] transition-all hover:-translate-y-1 hover:shadow-[8px_8px_0px_0px_#CD9C3E]"
                       >
                         <div className="flex items-center gap-3 border-b-[4px] border-[#061726] bg-[#F4EED7] p-4 text-xl font-extrabold uppercase tracking-widest text-[#061726]">
                           <TeamLogo teamName={team.name} logoUrl={team.logoUrl} />
@@ -753,11 +821,7 @@ export default function TournamentPage() {
                                     </span>
                                     <div className="flex shrink-0 items-center gap-2">
                                       {player.isMMRVerified && player.mmr !== null ? (
-                                        <RosterBadge
-                                          label={`MMR: ${player.mmr}`}
-                                          className="border-green-400 text-white/90"
-                                          title="MMR аккаунта подтвержден администратором"
-                                        />
+                                        <VerifiedMMRBadge mmr={player.mmr} />
                                       ) : null}
                                       <PlayerMedals medals={player.medals} />
                                     </div>
