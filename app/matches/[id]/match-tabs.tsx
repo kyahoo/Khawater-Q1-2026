@@ -276,6 +276,170 @@ function LobbyPhotoActions({
   );
 }
 
+type LobbyPhotoMapCardProps = {
+  matchStatus: string;
+  mapNumber: LobbyMapNumber;
+  requireLobbyPhoto: boolean;
+  lobbyPhotoMap1Only: boolean;
+  currentLobbyMapNumber: LobbyMapNumber | null;
+  uploadedPhotoUrl: string | null;
+  ocrData: LobbyScreenshotVerificationData | null;
+  errorMessage: string;
+  isCurrentUserCheckedIn: boolean;
+  isConfirmingCurrentMap: boolean;
+  isUploadingCurrentMap: boolean;
+  isWaitingCurrentMap: boolean;
+  isAnalyzingCurrentMap: boolean;
+  isCurrentUserBiometricallyVerified: boolean;
+  onConfirmLobby: (mapNumber: LobbyMapNumber) => Promise<boolean>;
+  onOpenLobbyScreenshotPicker: (mapNumber: LobbyMapNumber) => void;
+  onAnalyze: (mapNumber: LobbyMapNumber) => void;
+};
+
+function LobbyPhotoMapCard({
+  matchStatus,
+  mapNumber,
+  requireLobbyPhoto,
+  lobbyPhotoMap1Only,
+  currentLobbyMapNumber,
+  uploadedPhotoUrl,
+  ocrData,
+  errorMessage,
+  isCurrentUserCheckedIn,
+  isConfirmingCurrentMap,
+  isUploadingCurrentMap,
+  isWaitingCurrentMap,
+  isAnalyzingCurrentMap,
+  isCurrentUserBiometricallyVerified,
+  onConfirmLobby,
+  onOpenLobbyScreenshotPicker,
+  onAnalyze,
+}: LobbyPhotoMapCardProps) {
+  const isBypassed =
+    !requireLobbyPhoto || (mapNumber > 1 && lobbyPhotoMap1Only);
+
+  if (isBypassed) {
+    return (
+      <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
+          Карта {mapNumber}
+        </p>
+        <h4 className="mt-2 text-xl font-black uppercase text-white">
+          ФОТО ЛОББИ
+        </h4>
+        <div className="mt-5 flex items-center justify-center border border-dashed border-gray-500 p-4">
+          <span className="font-bold uppercase text-gray-500">
+            Фото не требуется
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  const isUploaded = Boolean(uploadedPhotoUrl);
+  const isCurrentMap = currentLobbyMapNumber === mapNumber;
+  const isFutureMap =
+    currentLobbyMapNumber !== null &&
+    mapNumber > currentLobbyMapNumber &&
+    !isUploaded;
+
+  return (
+    <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
+      <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
+        Карта {mapNumber}
+      </p>
+      <h4 className="mt-2 text-xl font-black uppercase text-white">
+        ФОТО ЛОББИ
+      </h4>
+
+      {isUploaded ? (
+        <>
+          <div className="mt-5 border-[3px] border-[#061726] bg-[#163f1d] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#D9F99D] shadow-[4px_4px_0px_0px_#061726]">
+            ФОТО ЗАГРУЖЕНО ✅
+          </div>
+          <button
+            type="button"
+            onClick={() => onAnalyze(mapNumber)}
+            disabled={isAnalyzingCurrentMap}
+            className="mt-4 border-[3px] border-[#061726] bg-[#0B3A4A] px-6 py-3 text-sm font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
+          >
+            {isAnalyzingCurrentMap ? "Анализ..." : "АНАЛИЗ СЕКРЕТНЫХ ДАННЫХ"}
+          </button>
+          {ocrData && (
+            <div className="mt-4 border-[3px] border-[#061726] bg-black p-4 shadow-[4px_4px_0px_0px_#061726]">
+              <p className="text-xs font-mono uppercase tracking-[0.18em] text-white/70">
+                Распознанные игроки
+              </p>
+              {ocrData.extracted_players.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {ocrData.extracted_players.map((player, index) => (
+                    <span
+                      key={`${mapNumber}-${player}-${index}`}
+                      className="border-[2px] border-[#061726] bg-[#061726] px-3 py-1 text-xs font-mono font-bold text-[#39FF14]"
+                    >
+                      {player}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm font-mono text-[#F87171]">
+                  Игроки не распознаны.
+                </p>
+              )}
+            </div>
+          )}
+          {uploadedPhotoUrl && (
+            <a
+              href={uploadedPhotoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-4 inline-block border-[3px] border-[#CD9C3E] bg-[#061726] px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+            >
+              ОТКРЫТЬ ФОТО
+            </a>
+          )}
+        </>
+      ) : isFutureMap ? (
+        <div className="mt-5 border-[3px] border-[#061726] bg-[#061726] px-4 py-4 text-sm font-bold text-white/75 shadow-[4px_4px_0px_0px_#061726]">
+          Сначала завершите фото для предыдущей карты.
+        </div>
+      ) : (
+        <>
+          {!isCurrentUserCheckedIn && (
+            <p className="mt-3 text-sm text-white/80">
+              Сначала завершите пре-матч чек-ин.
+            </p>
+          )}
+
+          {!isUploadingCurrentMap && (
+            <LobbyPhotoActions
+              matchStatus={matchStatus}
+              mapNumber={mapNumber}
+              isCurrentUserCheckedIn={isCurrentUserCheckedIn}
+              isCurrentMap={isCurrentMap}
+              isWaitingCurrentMap={isWaitingCurrentMap}
+              isConfirmingCurrentMap={isConfirmingCurrentMap}
+              isCurrentUserBiometricallyVerified={
+                isCurrentUserBiometricallyVerified
+              }
+              onConfirmLobby={onConfirmLobby}
+              onOpenLobbyScreenshotPicker={onOpenLobbyScreenshotPicker}
+            />
+          )}
+
+          {isUploadingCurrentMap && (
+            <p className="mt-5 text-sm text-white/80">Загрузка...</p>
+          )}
+        </>
+      )}
+
+      {errorMessage && (
+        <p className="mt-3 text-sm font-bold text-[#FCA5A5]">{errorMessage}</p>
+      )}
+    </div>
+  );
+}
+
 export function MatchTabs({
   matchId,
   match,
@@ -688,143 +852,37 @@ export function MatchTabs({
                           </div>
                         ) : null}
                         {LOBBY_MAP_NUMBERS.map((mapNumber) => {
-                          const isMapPhotoRequired =
-                            requiredLobbyMapNumbers.includes(mapNumber);
-                          const uploadedPhotoUrl = isMapPhotoRequired
-                            ? uploadedLobbyPhotoUrlByMap[mapNumber]
-                            : null;
-                          const ocrData = isMapPhotoRequired
-                            ? ocrDataByMap[mapNumber]
-                            : null;
-                          const errorMessage = isMapPhotoRequired
-                            ? lobbyErrorMessagesByMap[mapNumber]
-                            : "";
-                          const isUploaded = Boolean(uploadedPhotoUrl);
-                          const isCurrentMap =
-                            isMapPhotoRequired && currentLobbyMapNumber === mapNumber;
-                          const isFutureMap =
-                            isMapPhotoRequired &&
-                            currentLobbyMapNumber !== null &&
-                            mapNumber > currentLobbyMapNumber &&
-                            !isUploaded;
-                          const isConfirmingCurrentMap =
-                            isMapPhotoRequired && confirmingLobbyMapNumber === mapNumber;
-                          const isUploadingCurrentMap =
-                            isMapPhotoRequired && uploadingLobbyMapNumber === mapNumber;
-                          const isWaitingCurrentMap =
-                            isMapPhotoRequired && waitingLobbyMapNumber === mapNumber;
-                          const isAnalyzingCurrentMap =
-                            isMapPhotoRequired && analyzingLobbyMapNumber === mapNumber;
-
                           return (
-                            <div
+                            <LobbyPhotoMapCard
                               key={`lobby-map-${mapNumber}`}
-                              className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]"
-                            >
-                              <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
-                                Карта {mapNumber}
-                              </p>
-                              <h4 className="mt-2 text-xl font-black uppercase text-white">
-                                ФОТО ЛОББИ
-                              </h4>
-
-                              {!isMapPhotoRequired ? (
-                                <div className="mt-5 border-[3px] border-[#061726] bg-[#061726] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-white/45 shadow-[4px_4px_0px_0px_#061726]">
-                                  ФОТО НЕ ТРЕБУЕТСЯ
-                                </div>
-                              ) : isUploaded ? (
-                                <>
-                                  <div className="mt-5 border-[3px] border-[#061726] bg-[#163f1d] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#D9F99D] shadow-[4px_4px_0px_0px_#061726]">
-                                    ФОТО ЗАГРУЖЕНО ✅
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => onAnalyze(mapNumber)}
-                                    disabled={isAnalyzingCurrentMap}
-                                    className="mt-4 border-[3px] border-[#061726] bg-[#0B3A4A] px-6 py-3 text-sm font-black uppercase text-white shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:opacity-50"
-                                  >
-                                    {isAnalyzingCurrentMap
-                                      ? "Анализ..."
-                                      : "АНАЛИЗ СЕКРЕТНЫХ ДАННЫХ"}
-                                  </button>
-                                  {ocrData && (
-                                    <div className="mt-4 border-[3px] border-[#061726] bg-black p-4 shadow-[4px_4px_0px_0px_#061726]">
-                                      <p className="text-xs font-mono uppercase tracking-[0.18em] text-white/70">
-                                        Распознанные игроки
-                                      </p>
-                                      {ocrData.extracted_players.length > 0 ? (
-                                        <div className="mt-3 flex flex-wrap gap-2">
-                                          {ocrData.extracted_players.map((player, index) => (
-                                            <span
-                                              key={`${mapNumber}-${player}-${index}`}
-                                              className="border-[2px] border-[#061726] bg-[#061726] px-3 py-1 text-xs font-mono font-bold text-[#39FF14]"
-                                            >
-                                              {player}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <p className="mt-3 text-sm font-mono text-[#F87171]">
-                                          Игроки не распознаны.
-                                        </p>
-                                      )}
-                                    </div>
-                                  )}
-                                  {uploadedPhotoUrl && (
-                                    <a
-                                      href={uploadedPhotoUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="mt-4 inline-block border-[3px] border-[#CD9C3E] bg-[#061726] px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-[#CD9C3E] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
-                                    >
-                                      ОТКРЫТЬ ФОТО
-                                    </a>
-                                  )}
-                                </>
-                              ) : isFutureMap ? (
-                                <div className="mt-5 border-[3px] border-[#061726] bg-[#061726] px-4 py-4 text-sm font-bold text-white/75 shadow-[4px_4px_0px_0px_#061726]">
-                                  Сначала завершите фото для предыдущей карты.
-                                </div>
-                              ) : (
-                                <>
-                                  {!isCurrentUserCheckedIn && (
-                                    <p className="mt-3 text-sm text-white/80">
-                                      Сначала завершите пре-матч чек-ин.
-                                    </p>
-                                  )}
-
-                                  {!isUploadingCurrentMap && (
-                                    <LobbyPhotoActions
-                                      matchStatus={match.status}
-                                      mapNumber={mapNumber}
-                                      isCurrentUserCheckedIn={isCurrentUserCheckedIn}
-                                      isCurrentMap={isCurrentMap}
-                                      isWaitingCurrentMap={isWaitingCurrentMap}
-                                      isConfirmingCurrentMap={isConfirmingCurrentMap}
-                                      isCurrentUserBiometricallyVerified={
-                                        isCurrentUserBiometricallyVerified
-                                      }
-                                      onConfirmLobby={onConfirmLobby}
-                                      onOpenLobbyScreenshotPicker={
-                                        onOpenLobbyScreenshotPicker
-                                      }
-                                    />
-                                  )}
-
-                                  {isUploadingCurrentMap && (
-                                    <p className="mt-5 text-sm text-white/80">
-                                      Загрузка...
-                                    </p>
-                                  )}
-                                </>
-                              )}
-
-                              {errorMessage && (
-                                <p className="mt-3 text-sm font-bold text-[#FCA5A5]">
-                                  {errorMessage}
-                                </p>
-                              )}
-                            </div>
+                              matchStatus={match.status}
+                              mapNumber={mapNumber}
+                              requireLobbyPhoto={isLobbyPhotoRequired}
+                              lobbyPhotoMap1Only={match.lobbyPhotoMap1Only}
+                              currentLobbyMapNumber={currentLobbyMapNumber}
+                              uploadedPhotoUrl={uploadedLobbyPhotoUrlByMap[mapNumber]}
+                              ocrData={ocrDataByMap[mapNumber]}
+                              errorMessage={lobbyErrorMessagesByMap[mapNumber]}
+                              isCurrentUserCheckedIn={isCurrentUserCheckedIn}
+                              isConfirmingCurrentMap={
+                                confirmingLobbyMapNumber === mapNumber
+                              }
+                              isUploadingCurrentMap={
+                                uploadingLobbyMapNumber === mapNumber
+                              }
+                              isWaitingCurrentMap={waitingLobbyMapNumber === mapNumber}
+                              isAnalyzingCurrentMap={
+                                analyzingLobbyMapNumber === mapNumber
+                              }
+                              isCurrentUserBiometricallyVerified={
+                                isCurrentUserBiometricallyVerified
+                              }
+                              onConfirmLobby={onConfirmLobby}
+                              onOpenLobbyScreenshotPicker={
+                                onOpenLobbyScreenshotPicker
+                              }
+                              onAnalyze={onAnalyze}
+                            />
                           );
                         })}
                       </div>
