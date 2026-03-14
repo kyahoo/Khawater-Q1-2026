@@ -64,6 +64,7 @@ import {
   listTournaments,
   setActiveTournament,
   updateTournamentCheckInThreshold,
+  updateTournamentDetails,
   type AdminTournamentEntryTeam,
   type TournamentMatch,
   type Tournament,
@@ -159,6 +160,7 @@ type ScheduleDayParam = "today" | "tomorrow";
 type TournamentPlacement = 1 | 2 | 3;
 type AdminMedalSelectionValue = "" | PlayerMedalValue | "clear";
 type TimedOutMatchAction = "override" | "technical-defeat";
+type TournamentDetailField = "prizePool" | "dates";
 
 function getSupabaseLikeErrorMessage(error: unknown, fallbackMessage: string) {
   if (error instanceof Error && error.message) {
@@ -414,6 +416,21 @@ export default function AdminPage() {
   >(null);
   const [isSavingCheckInThresholdTournamentId, setIsSavingCheckInThresholdTournamentId] =
     useState<string | null>(null);
+  const [editingTournamentDetailsId, setEditingTournamentDetailsId] = useState<
+    string | null
+  >(null);
+  const [tournamentDetailDrafts, setTournamentDetailDrafts] = useState<
+    Record<
+      string,
+      {
+        prizePool: string;
+        dates: string;
+      }
+    >
+  >({});
+  const [isSavingTournamentDetailsId, setIsSavingTournamentDetailsId] = useState<
+    string | null
+  >(null);
   const [isEnteringTeamId, setIsEnteringTeamId] = useState<string | null>(null);
   const [isForceConfirmingTeamId, setIsForceConfirmingTeamId] = useState<
     string | null
@@ -718,6 +735,15 @@ export default function AdminPage() {
   const availableProfilesToAdd = profiles.filter(
     (candidate) => !candidate.currentTeamId
   );
+
+  function getTournamentDetailDraft(tournament: Tournament) {
+    return (
+      tournamentDetailDrafts[tournament.id] ?? {
+        prizePool: tournament.prize_pool ?? "",
+        dates: tournament.dates ?? "",
+      }
+    );
+  }
 
   useEffect(() => {
     if (!selectedTeamId) {
@@ -1387,6 +1413,89 @@ export default function AdminPage() {
     }
   }
 
+  function handleToggleTournamentDetailsEditor(tournament: Tournament) {
+    setTournamentDetailDrafts((current) => ({
+      ...current,
+      [tournament.id]: {
+        prizePool: tournament.prize_pool ?? "",
+        dates: tournament.dates ?? "",
+      },
+    }));
+    setEditingTournamentDetailsId((current) =>
+      current === tournament.id ? null : tournament.id
+    );
+    setErrorMessage("");
+  }
+
+  function handleTournamentDetailDraftChange(
+    tournament: Tournament,
+    field: TournamentDetailField,
+    value: string
+  ) {
+    setTournamentDetailDrafts((current) => ({
+      ...current,
+      [tournament.id]: {
+        ...(current[tournament.id] ?? {
+          prizePool: tournament.prize_pool ?? "",
+          dates: tournament.dates ?? "",
+        }),
+        [field]: value,
+      },
+    }));
+  }
+
+  async function handleSaveTournamentDetails(tournamentId: string) {
+    const tournament = tournaments.find((item) => item.id === tournamentId);
+
+    if (!tournament) {
+      setErrorMessage("Tournament could not be found.");
+      return;
+    }
+
+    const draft = tournamentDetailDrafts[tournamentId] ?? {
+      prizePool: tournament.prize_pool ?? "",
+      dates: tournament.dates ?? "",
+    };
+
+    setIsSavingTournamentDetailsId(tournamentId);
+    setErrorMessage("");
+
+    try {
+      const updatedTournament = await updateTournamentDetails(tournamentId, {
+        prizePool: draft.prizePool.trim() || null,
+        dates: draft.dates.trim() || null,
+      });
+
+      setTournaments((current) =>
+        current.map((currentTournament) =>
+          currentTournament.id === tournamentId ? updatedTournament : currentTournament
+        )
+      );
+      setTournamentDetailDrafts((current) => ({
+        ...current,
+        [tournamentId]: {
+          prizePool: updatedTournament.prize_pool ?? "",
+          dates: updatedTournament.dates ?? "",
+        },
+      }));
+      setEditingTournamentDetailsId(null);
+
+      try {
+        await refreshAdminData();
+      } catch (refreshError) {
+        console.error("Tournament detail refresh failed:", refreshError);
+      }
+
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not update tournament details."
+      );
+    } finally {
+      setIsSavingTournamentDetailsId(null);
+    }
+  }
+
   function handleDeleteTournament(tournamentId: string) {
     const shouldDelete = window.confirm(
       "Вы уверены, что хотите удалить этот турнир? Это действие необратимо."
@@ -1412,6 +1521,20 @@ export default function AdminPage() {
             setEditingBannerTournamentId(null);
             setSelectedBannerFile(null);
           }
+
+          if (editingTournamentDetailsId === tournamentId) {
+            setEditingTournamentDetailsId(null);
+          }
+
+          setTournamentDetailDrafts((current) => {
+            if (!current[tournamentId]) {
+              return current;
+            }
+
+            const next = { ...current };
+            delete next[tournamentId];
+            return next;
+          });
 
           await refreshAdminData();
           router.refresh();
@@ -3243,12 +3366,33 @@ export default function AdminPage() {
                                 Check-in threshold: {tournament.check_in_threshold}
                               </div>
                               <div className="text-sm text-zinc-500">
+                                Prize Pool: {tournament.prize_pool?.trim() || "Not set"}
+                              </div>
+                              <div className="text-sm text-zinc-500">
+                                Dates: {tournament.dates?.trim() || "Not set"}
+                              </div>
+                              <div className="text-sm text-zinc-500">
                                 {tournament.banner_url
                                   ? "Баннер загружен"
                                   : "Баннер не загружен"}
                               </div>
                             </div>
                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleToggleTournamentDetailsEditor(tournament)
+                                }
+                                className={`rounded border px-4 py-2 text-sm font-medium ${
+                                  editingTournamentDetailsId === tournament.id
+                                    ? "border-[#061726] bg-[#061726] text-white"
+                                    : "border-zinc-400 bg-white text-zinc-900"
+                                }`}
+                              >
+                                {editingTournamentDetailsId === tournament.id
+                                  ? "Hide Details"
+                                  : "Edit Details"}
+                              </button>
                               <button
                                 type="button"
                                 onClick={() =>
@@ -3307,6 +3451,61 @@ export default function AdminPage() {
                               </button>
                             </div>
                           </div>
+                          {editingTournamentDetailsId === tournament.id && (
+                            <div className="border-[3px] border-[#061726] bg-white px-4 py-4 shadow-[4px_4px_0px_0px_#061726]">
+                              <div className="text-sm font-bold uppercase tracking-wide text-[#061726]">
+                                Edit Tournament Details
+                              </div>
+                              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+                                  <span>Prize Pool</span>
+                                  <input
+                                    type="text"
+                                    value={getTournamentDetailDraft(tournament).prizePool}
+                                    onChange={(event) =>
+                                      handleTournamentDetailDraftChange(
+                                        tournament,
+                                        "prizePool",
+                                        event.target.value
+                                      )
+                                    }
+                                    placeholder="100,000 KZT"
+                                    className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                                  />
+                                </label>
+                                <label className="flex flex-col gap-2 text-sm font-medium text-zinc-700">
+                                  <span>Dates</span>
+                                  <input
+                                    type="text"
+                                    value={getTournamentDetailDraft(tournament).dates}
+                                    onChange={(event) =>
+                                      handleTournamentDetailDraftChange(
+                                        tournament,
+                                        "dates",
+                                        event.target.value
+                                      )
+                                    }
+                                    placeholder="May 10 - May 20"
+                                    className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                                  />
+                                </label>
+                              </div>
+                              <div className="mt-4 flex flex-wrap gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void handleSaveTournamentDetails(tournament.id)
+                                  }
+                                  disabled={isSavingTournamentDetailsId === tournament.id}
+                                  className="rounded border-[3px] border-[#061726] bg-[#CD9C3E] px-4 py-2 text-sm font-extrabold uppercase text-[#061726] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726] disabled:translate-y-0 disabled:border-zinc-300 disabled:bg-zinc-100 disabled:text-zinc-500 disabled:shadow-none"
+                                >
+                                  {isSavingTournamentDetailsId === tournament.id
+                                    ? "Saving..."
+                                    : "Save"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
                           <div className="border-[3px] border-[#061726] bg-[#0B3A4A] px-4 py-4 shadow-[4px_4px_0px_0px_#061726]">
                             <div className="text-sm font-black uppercase tracking-[0.18em] text-[#CD9C3E]">
                               ЗАФИКСИРОВАТЬ РЕЗУЛЬТАТЫ

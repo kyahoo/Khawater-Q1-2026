@@ -110,6 +110,7 @@ export type AdminTournamentEntryTeam = {
 };
 
 type TournamentInsert = Database["public"]["Tables"]["tournaments"]["Insert"];
+type TournamentUpdate = Database["public"]["Tables"]["tournaments"]["Update"];
 
 type TeamProfileJoin = {
   id: string;
@@ -361,6 +362,36 @@ export async function updateTournamentCheckInThreshold(
 
   if (!tournament) {
     throw new Error("Tournament could not be reloaded after updating the threshold.");
+  }
+
+  return tournament;
+}
+
+export async function updateTournamentDetails(
+  tournamentId: string,
+  params: {
+    prizePool: string | null;
+    dates: string | null;
+  }
+) {
+  const supabase = getSupabaseBrowserClient();
+  const payload: TournamentUpdate = {
+    prize_pool: params.prizePool,
+    dates: params.dates,
+  };
+  const { error } = await supabase
+    .from("tournaments")
+    .update(payload)
+    .eq("id", tournamentId);
+
+  if (error) {
+    throw error;
+  }
+
+  const tournament = await getTournamentById(tournamentId);
+
+  if (!tournament) {
+    throw new Error("Tournament could not be reloaded after updating its details.");
   }
 
   return tournament;
