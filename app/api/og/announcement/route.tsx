@@ -20,20 +20,31 @@ export async function GET(request: NextRequest) {
   const prize = params.get("prize") || "";
   const dates = params.get("dates") || "";
   const logoUrl = params.get("logoUrl") || "";
+  const bgUrl = params.get("bgUrl") || "";
 
   return new ImageResponse(
     (
       <div
-        tw="flex w-full h-full"
+        tw="flex w-full h-full relative"
         style={{
           background: `linear-gradient(170deg, ${NAVY} 0%, #0B3A4A 50%, ${NAVY} 100%)`,
         }}
       >
+        {bgUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={bgUrl}
+            alt=""
+            tw="absolute top-0 left-0 w-full h-full"
+            style={{ objectFit: "cover" }}
+          />
+        ) : null}
         <div
           tw="flex flex-col w-full h-full relative"
           style={{
-            background:
-              "radial-gradient(ellipse 80% 40% at 50% 20%, rgba(205, 156, 62, 0.10) 0%, transparent 70%)",
+            background: bgUrl
+              ? "linear-gradient(180deg, rgba(6, 23, 38, 0.18) 0%, rgba(6, 23, 38, 0.58) 100%)"
+              : "radial-gradient(ellipse 80% 40% at 50% 20%, rgba(205, 156, 62, 0.10) 0%, transparent 70%)",
           }}
         >
           {/* Decorative corner accents */}

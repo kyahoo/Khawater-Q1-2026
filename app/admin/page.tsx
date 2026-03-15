@@ -112,6 +112,7 @@ const ALMATY_TIME_ZONE = "Asia/Almaty";
 const STANDINGS_BACKGROUND_FILE_NAME = "standings-bg.png";
 const SCHEDULE_BACKGROUND_FILE_NAME = "schedule-bg.png";
 const ANNOUNCEMENT_LOGO_FILE_NAME = "announcement-logo.png";
+const ANNOUNCEMENT_BACKGROUND_FILE_NAME = "announcement-bg.png";
 const ACTIVE_MATCH_STATUS_REFRESH_MS = 60 * 1000;
 
 const ADMIN_TABS = [
@@ -361,6 +362,7 @@ async function getSocialTemplateStatus() {
       hasStandingsBackground: fileNames.has(STANDINGS_BACKGROUND_FILE_NAME),
       hasScheduleBackground: fileNames.has(SCHEDULE_BACKGROUND_FILE_NAME),
       hasAnnouncementLogo: fileNames.has(ANNOUNCEMENT_LOGO_FILE_NAME),
+      hasAnnouncementBackground: fileNames.has(ANNOUNCEMENT_BACKGROUND_FILE_NAME),
     };
   } catch (error) {
     console.error("Social template status failed:", error);
@@ -526,6 +528,11 @@ export default function AdminPage() {
   const [announcementLogoInputKey, setAnnouncementLogoInputKey] = useState(0);
   const [hasAnnouncementLogo, setHasAnnouncementLogo] = useState<boolean | null>(null);
   const [isUploadingAnnouncementLogo, setIsUploadingAnnouncementLogo] = useState(false);
+  const [selectedAnnouncementBgFile, setSelectedAnnouncementBgFile] =
+    useState<File | null>(null);
+  const [announcementBgInputKey, setAnnouncementBgInputKey] = useState(0);
+  const [hasAnnouncementBackground, setHasAnnouncementBackground] = useState<boolean | null>(null);
+  const [isUploadingAnnouncementBg, setIsUploadingAnnouncementBg] = useState(false);
   const [isGeneratingAnnouncement, setIsGeneratingAnnouncement] = useState(false);
   const [selectedMatches, setSelectedMatches] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<AdminTabId>("players");
@@ -699,6 +706,7 @@ export default function AdminPage() {
     setHasStandingsBackground(status.hasStandingsBackground);
     setHasScheduleBackground(status.hasScheduleBackground);
     setHasAnnouncementLogo(status.hasAnnouncementLogo);
+    setHasAnnouncementBackground(status.hasAnnouncementBackground);
   });
 
   useEffect(() => {
@@ -1915,6 +1923,7 @@ export default function AdminPage() {
         setHasStandingsBackground(status.hasStandingsBackground);
         setHasScheduleBackground(status.hasScheduleBackground);
         setHasAnnouncementLogo(status.hasAnnouncementLogo);
+        setHasAnnouncementBackground(status.hasAnnouncementBackground);
       })();
     } catch (error) {
       setSocialErrorMessage(
@@ -1970,6 +1979,7 @@ export default function AdminPage() {
         setHasStandingsBackground(status.hasStandingsBackground);
         setHasScheduleBackground(status.hasScheduleBackground);
         setHasAnnouncementLogo(status.hasAnnouncementLogo);
+        setHasAnnouncementBackground(status.hasAnnouncementBackground);
       })();
     } catch (error) {
       setSocialErrorMessage(
@@ -2119,6 +2129,7 @@ export default function AdminPage() {
         setHasStandingsBackground(status.hasStandingsBackground);
         setHasScheduleBackground(status.hasScheduleBackground);
         setHasAnnouncementLogo(status.hasAnnouncementLogo);
+        setHasAnnouncementBackground(status.hasAnnouncementBackground);
       })();
     } catch (error) {
       setSocialErrorMessage(
@@ -2126,6 +2137,62 @@ export default function AdminPage() {
       );
     } finally {
       setIsUploadingAnnouncementLogo(false);
+    }
+  }
+
+  async function handleUploadAnnouncementBackground() {
+    if (!selectedAnnouncementBgFile) {
+      setSocialErrorMessage("Выберите файл фона.");
+      setSocialSuccessMessage("");
+      return;
+    }
+
+    if (!selectedAnnouncementBgFile.type.startsWith("image/")) {
+      setSocialErrorMessage("Поддерживаются только изображения.");
+      setSocialSuccessMessage("");
+      return;
+    }
+
+    setIsUploadingAnnouncementBg(true);
+    setSocialErrorMessage("");
+    setSocialSuccessMessage("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: uploadError } = await supabase.storage
+        .from("social-templates")
+        .upload(ANNOUNCEMENT_BACKGROUND_FILE_NAME, selectedAnnouncementBgFile, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: selectedAnnouncementBgFile.type,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      setHasAnnouncementBackground(true);
+      setSelectedAnnouncementBgFile(null);
+      setAnnouncementBgInputKey((current) => current + 1);
+      setSocialSuccessMessage("Фон анонса успешно загружен.");
+      void (async () => {
+        const status = await getSocialTemplateStatus();
+
+        if (!status) {
+          return;
+        }
+
+        setHasStandingsBackground(status.hasStandingsBackground);
+        setHasScheduleBackground(status.hasScheduleBackground);
+        setHasAnnouncementLogo(status.hasAnnouncementLogo);
+        setHasAnnouncementBackground(status.hasAnnouncementBackground);
+      })();
+    } catch (error) {
+      setSocialErrorMessage(
+        getSupabaseLikeErrorMessage(error, "Не удалось загрузить фон анонса.")
+      );
+    } finally {
+      setIsUploadingAnnouncementBg(false);
     }
   }
 
@@ -2145,12 +2212,16 @@ export default function AdminPage() {
       const logoUrl = hasAnnouncementLogo
         ? `${supabaseUrl}/storage/v1/object/public/social-templates/${ANNOUNCEMENT_LOGO_FILE_NAME}?t=${Date.now()}`
         : "";
+      const bgUrl = hasAnnouncementBackground
+        ? `${supabaseUrl}/storage/v1/object/public/social-templates/${ANNOUNCEMENT_BACKGROUND_FILE_NAME}?t=${Date.now()}`
+        : "";
 
       const params = new URLSearchParams({
         name: activeTournament.name,
         prize: announcementPrize,
         dates: announcementDates,
         ...(logoUrl ? { logoUrl } : {}),
+        ...(bgUrl ? { bgUrl } : {}),
       });
 
       await downloadSocialImage({
@@ -4754,6 +4825,48 @@ export default function AdminPage() {
                     </p>
 
                     <div className="mt-4 flex flex-col gap-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <div className="flex-1">
+                          {hasAnnouncementBackground === true ? (
+                            <div className="inline-flex w-fit border-2 border-[#061726] bg-[#061726] px-2 py-1 text-xs font-bold uppercase tracking-wide text-[#39FF14]">
+                              🟢 Фон загружен
+                            </div>
+                          ) : hasAnnouncementBackground === false ? (
+                            <div className="inline-flex w-fit border-2 border-[#061726] bg-zinc-100 px-2 py-1 text-xs font-bold uppercase tracking-wide text-zinc-500">
+                              🔴 Фон отсутствует
+                            </div>
+                          ) : (
+                            <div className="inline-flex w-fit border-2 border-[#061726] bg-zinc-100 px-2 py-1 text-xs font-bold uppercase tracking-wide text-zinc-500">
+                              ⚪ Проверка...
+                            </div>
+                          )}
+                          <label className="mt-3 block text-sm font-medium text-zinc-700">
+                            Фон анонса (`announcement-bg.png`)
+                            <input
+                              key={announcementBgInputKey}
+                              type="file"
+                              accept="image/*"
+                              onChange={(event) =>
+                                setSelectedAnnouncementBgFile(
+                                  event.target.files?.[0] ?? null
+                                )
+                              }
+                              className="mt-2 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                            />
+                          </label>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleUploadAnnouncementBackground()}
+                          disabled={
+                            !selectedAnnouncementBgFile || isUploadingAnnouncementBg
+                          }
+                          className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium disabled:opacity-50"
+                        >
+                          {isUploadingAnnouncementBg ? "Загрузка..." : "Загрузить"}
+                        </button>
+                      </div>
+
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                         <div className="flex-1">
                           {hasAnnouncementLogo === true ? (
