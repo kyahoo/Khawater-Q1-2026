@@ -80,6 +80,8 @@ async function sendReminderBatch(params: {
   };
 }
 
+const GRACE_PERIOD_MINUTES = 10;
+
 async function processReminderWindow(params: {
   adminClient: AdminClient;
   reminderField: ReminderField;
@@ -89,6 +91,9 @@ async function processReminderWindow(params: {
 }) {
   const now = new Date();
   const windowEnd = new Date(now.getTime() + params.minutesAhead * 60 * 1000);
+  const graceStart = new Date(
+    now.getTime() - GRACE_PERIOD_MINUTES * 60 * 1000
+  );
 
   const { data: matches, error: matchesError } = await params.adminClient
     .from("tournament_matches")
@@ -96,7 +101,7 @@ async function processReminderWindow(params: {
       "id, team_a_id, team_b_id, scheduled_at, reminder_1h_sent, reminder_30m_sent"
     )
     .eq("status", "scheduled")
-    .gte("scheduled_at", now.toISOString())
+    .gte("scheduled_at", graceStart.toISOString())
     .lte("scheduled_at", windowEnd.toISOString())
     .eq(params.reminderField, false);
 
@@ -189,7 +194,7 @@ export async function GET(request: NextRequest) {
     const oneHourResult = await processReminderWindow({
       adminClient,
       reminderField: "reminder_1h_sent",
-      minutesAhead: 65,
+      minutesAhead: 60,
       title: "МАТЧ ЧЕРЕЗ 1 ЧАС!",
       body: "Собирайте команду, игра скоро начнется.",
     });
@@ -197,7 +202,7 @@ export async function GET(request: NextRequest) {
     const thirtyMinuteResult = await processReminderWindow({
       adminClient,
       reminderField: "reminder_30m_sent",
-      minutesAhead: 35,
+      minutesAhead: 30,
       title: "МАТЧ ЧЕРЕЗ 30 МИНУТ!",
       body: "Всем быть в Discord. Готовьтесь к лобби.",
     });
