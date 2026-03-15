@@ -375,6 +375,7 @@ export default function AdminPage() {
   const [teams, setTeams] = useState<TeamListItem[]>([]);
   const [profiles, setProfiles] = useState<AdminProfileListItem[]>([]);
   const [players, setPlayers] = useState<AdminPlayerListItem[]>([]);
+  const [playerSearchQuery, setPlayerSearchQuery] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedTeamMembers, setSelectedTeamMembers] = useState<
     Awaited<ReturnType<typeof getTeamMembers>>
@@ -2631,11 +2632,37 @@ export default function AdminPage() {
                   Manage Players
                 </h2>
 
-                {players.length === 0 ? (
-                  <p className="text-sm text-zinc-600">No registered players found yet.</p>
-                ) : (
+                <input
+                  type="text"
+                  value={playerSearchQuery}
+                  onChange={(event) => setPlayerSearchQuery(event.target.value)}
+                  placeholder="Поиск по никнейму или email..."
+                  className="mb-4 w-full border-[3px] border-[#061726] bg-white px-4 py-2.5 text-sm font-medium text-[#061726] outline-none placeholder:text-gray-400 focus:ring-2 focus:ring-[#061726]/20"
+                />
+
+                {(() => {
+                  const normalizedQuery = playerSearchQuery.trim().toLowerCase();
+                  const filteredPlayers = normalizedQuery
+                    ? players.filter(
+                        (player) =>
+                          player.nickname.toLowerCase().includes(normalizedQuery) ||
+                          player.email.toLowerCase().includes(normalizedQuery)
+                      )
+                    : players;
+
+                  if (filteredPlayers.length === 0) {
+                    return (
+                      <p className="text-sm text-zinc-600">
+                        {players.length === 0
+                          ? "No registered players found yet."
+                          : "Нет игроков, соответствующих запросу."}
+                      </p>
+                    );
+                  }
+
+                  return (
                   <div className="overflow-visible border-[3px] border-[#061726] bg-white shadow-[4px_4px_0px_0px_#061726]">
-                    {players.map((player) => (
+                    {filteredPlayers.map((player) => (
                       <div
                         key={player.id}
                         className="relative flex flex-col items-start justify-between gap-4 border-b border-gray-700 bg-zinc-50 p-4 pr-16 last:border-b-0 md:flex-row md:items-start"
@@ -2897,7 +2924,8 @@ export default function AdminPage() {
                       </div>
                     ))}
                   </div>
-                )}
+                  );
+                })()}
               </section>
             </div>
           )}
