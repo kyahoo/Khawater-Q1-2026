@@ -12,7 +12,6 @@ export const size = {
 
 const GOLD = "#CD9C3E";
 const NAVY = "#061726";
-const CREAM = "#F4EED7";
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
@@ -39,22 +38,26 @@ export async function GET(request: NextRequest) {
             style={{ objectFit: "cover" }}
           />
         ) : null}
+
+        {/* Dark overlay for contrast — always rendered, stronger when bg image is present */}
         <div
-          tw="flex flex-col w-full h-full relative"
+          tw="absolute top-0 left-0 w-full h-full flex"
           style={{
             background: bgUrl
-              ? "linear-gradient(180deg, rgba(6, 23, 38, 0.18) 0%, rgba(6, 23, 38, 0.58) 100%)"
-              : "radial-gradient(ellipse 80% 40% at 50% 20%, rgba(205, 156, 62, 0.10) 0%, transparent 70%)",
+              ? "rgba(0, 0, 0, 0.45)"
+              : "radial-gradient(ellipse 80% 40% at 50% 30%, rgba(205, 156, 62, 0.08) 0%, transparent 70%)",
           }}
-        >
-          {/* Decorative corner accents */}
+        />
+
+        <div tw="flex flex-col w-full h-full relative">
+          {/* Corner accents */}
           <div
             tw="absolute flex"
             style={{
-              top: 40,
-              left: 40,
-              width: 80,
-              height: 80,
+              top: 48,
+              left: 48,
+              width: 100,
+              height: 100,
               borderTop: `6px solid ${GOLD}`,
               borderLeft: `6px solid ${GOLD}`,
             }}
@@ -62,10 +65,10 @@ export async function GET(request: NextRequest) {
           <div
             tw="absolute flex"
             style={{
-              top: 40,
-              right: 40,
-              width: 80,
-              height: 80,
+              top: 48,
+              right: 48,
+              width: 100,
+              height: 100,
               borderTop: `6px solid ${GOLD}`,
               borderRight: `6px solid ${GOLD}`,
             }}
@@ -73,10 +76,10 @@ export async function GET(request: NextRequest) {
           <div
             tw="absolute flex"
             style={{
-              bottom: 40,
-              left: 40,
-              width: 80,
-              height: 80,
+              bottom: 48,
+              left: 48,
+              width: 100,
+              height: 100,
               borderBottom: `6px solid ${GOLD}`,
               borderLeft: `6px solid ${GOLD}`,
             }}
@@ -84,33 +87,34 @@ export async function GET(request: NextRequest) {
           <div
             tw="absolute flex"
             style={{
-              bottom: 40,
-              right: 40,
-              width: 80,
-              height: 80,
+              bottom: 48,
+              right: 48,
+              width: 100,
+              height: 100,
               borderBottom: `6px solid ${GOLD}`,
               borderRight: `6px solid ${GOLD}`,
             }}
           />
 
           <div
-            tw="flex flex-col items-center justify-center w-full h-full px-16"
-            style={{ gap: 0 }}
+            tw="flex flex-col items-center w-full h-full px-20"
+            style={{
+              paddingTop: 120,
+              paddingBottom: 120,
+              justifyContent: "space-between",
+            }}
           >
-            {/* Top label */}
+            {/* Top: label */}
             <div
-              tw="flex items-center justify-center px-10 py-3"
-              style={{
-                backgroundColor: GOLD,
-                marginBottom: 48,
-              }}
+              tw="flex items-center justify-center px-14 py-5"
+              style={{ backgroundColor: GOLD }}
             >
               <span
                 style={{
                   color: NAVY,
-                  fontSize: 28,
+                  fontSize: 36,
                   fontWeight: 900,
-                  letterSpacing: 8,
+                  letterSpacing: 12,
                   textTransform: "uppercase",
                 }}
               >
@@ -118,112 +122,110 @@ export async function GET(request: NextRequest) {
               </span>
             </div>
 
-            {/* Logo */}
+            {/* Center: logo (hero) — or fallback name text if no logo */}
             {logoUrl ? (
-              <div
-                tw="flex items-center justify-center"
-                style={{ marginBottom: 48 }}
-              >
+              <div tw="flex items-center justify-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={logoUrl}
                   alt=""
-                  width={240}
-                  height={240}
+                  width={480}
+                  height={480}
                   style={{ objectFit: "contain" }}
                 />
               </div>
-            ) : null}
-
-            {/* Tournament name */}
-            <div
-              tw="flex items-center justify-center border-4 px-12 py-8"
-              style={{
-                borderColor: GOLD,
-                backgroundColor: "rgba(6, 23, 38, 0.85)",
-                boxShadow: `12px 12px 0 ${NAVY}`,
-                maxWidth: 960,
-              }}
-            >
-              <span
-                style={{
-                  color: CREAM,
-                  fontSize: name.length > 20 ? 52 : 64,
-                  fontWeight: 900,
-                  letterSpacing: 3,
-                  textAlign: "center",
-                  textTransform: "uppercase",
-                  lineHeight: 1.2,
-                }}
-              >
-                {name}
-              </span>
-            </div>
-
-            {/* Dates */}
-            {dates ? (
+            ) : (
               <div
-                tw="flex items-center justify-center px-8 py-4"
+                tw="flex items-center justify-center border-4 px-14 py-10"
                 style={{
-                  marginTop: 40,
-                  backgroundColor: "rgba(11, 58, 74, 0.9)",
-                  border: `3px solid ${NAVY}`,
+                  borderColor: GOLD,
+                  backgroundColor: "rgba(6, 23, 38, 0.85)",
+                  boxShadow: `12px 12px 0 ${NAVY}`,
+                  maxWidth: 940,
                 }}
               >
                 <span
                   style={{
-                    color: "#BFD6DC",
-                    fontSize: 34,
-                    fontWeight: 800,
-                    letterSpacing: 3,
+                    color: "#F4EED7",
+                    fontSize: name.length > 20 ? 52 : 68,
+                    fontWeight: 900,
+                    letterSpacing: 4,
+                    textAlign: "center",
                     textTransform: "uppercase",
+                    lineHeight: 1.15,
                   }}
                 >
-                  {dates}
+                  {name}
                 </span>
               </div>
-            ) : null}
+            )}
 
-            {/* Prize pool */}
-            {prize ? (
-              <div
-                tw="flex flex-col items-center"
-                style={{ marginTop: 56 }}
-              >
-                <span
-                  style={{
-                    color: GOLD,
-                    fontSize: 26,
-                    fontWeight: 900,
-                    letterSpacing: 6,
-                    textTransform: "uppercase",
-                    marginBottom: 12,
-                  }}
-                >
-                  ПРИЗОВОЙ ФОНД
-                </span>
+            {/* Bottom: dates + prize stack */}
+            <div
+              tw="flex flex-col items-center"
+              style={{ gap: 48 }}
+            >
+              {dates ? (
                 <div
-                  tw="flex items-center justify-center border-4 px-14 py-6"
+                  tw="flex items-center justify-center px-14 py-6"
                   style={{
-                    borderColor: GOLD,
-                    backgroundColor: NAVY,
-                    boxShadow: `8px 8px 0 rgba(205, 156, 62, 0.3)`,
+                    backgroundColor: "rgba(11, 58, 74, 0.92)",
+                    border: `3px solid rgba(205, 156, 62, 0.4)`,
                   }}
                 >
                   <span
                     style={{
-                      color: GOLD,
-                      fontSize: prize.length > 15 ? 56 : 72,
-                      fontWeight: 900,
-                      letterSpacing: 2,
-                      textAlign: "center",
+                      color: "#DCEAEF",
+                      fontSize: 40,
+                      fontWeight: 800,
+                      letterSpacing: 5,
+                      textTransform: "uppercase",
                     }}
                   >
-                    {prize}
+                    {dates}
                   </span>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
+
+              {prize ? (
+                <div
+                  tw="flex flex-col items-center"
+                  style={{ gap: 16 }}
+                >
+                  <span
+                    style={{
+                      color: GOLD,
+                      fontSize: 32,
+                      fontWeight: 900,
+                      letterSpacing: 10,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    ПРИЗОВОЙ ФОНД
+                  </span>
+                  <div
+                    tw="flex items-center justify-center border-4 px-16 py-8"
+                    style={{
+                      borderColor: GOLD,
+                      backgroundColor: NAVY,
+                      boxShadow: `10px 10px 0 rgba(205, 156, 62, 0.25)`,
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: GOLD,
+                        fontSize: prize.length > 15 ? 60 : 80,
+                        fontWeight: 900,
+                        letterSpacing: 3,
+                        textAlign: "center",
+                      }}
+                    >
+                      {prize}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
