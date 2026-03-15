@@ -29,6 +29,7 @@ export type MatchRoomTeam = {
     userId: string;
     nickname: string;
     isCaptain: boolean;
+    mmrStatus: string | null;
     isMMRVerified: boolean;
     medals: PlayerMedalWithTournament[];
   }>;
@@ -369,6 +370,7 @@ function normalizeMatchRoomTeam(params: {
       userId: membership.user_id,
       nickname: profile?.nickname ?? "Player",
       isCaptain: membership.is_captain,
+      mmrStatus: profile?.mmr_status ?? null,
       isMMRVerified: profile?.mmr_status === "verified",
       medals: params.medalsByUserId[membership.user_id] ?? [],
     };

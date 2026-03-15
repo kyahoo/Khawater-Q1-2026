@@ -224,7 +224,12 @@ function shouldRequireLobbyPhoto(params: {
     return false;
   }
 
-  return validPlayers.some((player) => player.isMMRVerified === false);
+  console.log(
+    "Failing Players:",
+    validPlayers.filter((p) => p.mmrStatus !== "verified")
+  );
+
+  return validPlayers.some((player) => player.mmrStatus !== "verified");
 }
 
 function getRequiredLobbyMapNumbers(params: {
