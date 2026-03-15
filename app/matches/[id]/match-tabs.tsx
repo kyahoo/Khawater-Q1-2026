@@ -30,6 +30,8 @@ type ResultScreenshotSlotState = {
 type MatchTabsProps = {
   matchId: string;
   match: MatchRoomData["match"];
+  requireLobbyPhoto: boolean;
+  lobbyPhotoMap1Only: boolean;
   teamA: MatchRoomData["teamA"];
   teamB: MatchRoomData["teamB"];
   checkedInUserIds: string[];
@@ -325,6 +327,12 @@ function LobbyPhotoMapCard({
     mapNumber > currentLobbyMapNumber &&
     !isUploaded;
 
+  console.log("Map Render Props:", {
+    mapIndex: mapNumber,
+    require_lobby_photo: requireLobbyPhoto,
+    lobby_photo_map1_only: lobbyPhotoMap1Only,
+  });
+
   return (
     <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
       <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
@@ -429,6 +437,8 @@ function LobbyPhotoMapCard({
 export function MatchTabs({
   matchId,
   match,
+  requireLobbyPhoto,
+  lobbyPhotoMap1Only,
   teamA,
   teamB,
   checkedInUserIds,
@@ -843,8 +853,8 @@ export function MatchTabs({
                               key={`lobby-map-${mapNumber}`}
                               matchStatus={match.status}
                               mapNumber={mapNumber}
-                              requireLobbyPhoto={isLobbyPhotoRequired}
-                              lobbyPhotoMap1Only={match.lobbyPhotoMap1Only}
+                              requireLobbyPhoto={requireLobbyPhoto && isLobbyPhotoRequired}
+                              lobbyPhotoMap1Only={lobbyPhotoMap1Only}
                               currentLobbyMapNumber={currentLobbyMapNumber}
                               uploadedPhotoUrl={uploadedLobbyPhotoUrlByMap[mapNumber]}
                               ocrData={ocrDataByMap[mapNumber]}

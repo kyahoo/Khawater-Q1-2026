@@ -1205,6 +1205,8 @@ export default function MatchRoomPage() {
           <MatchTabs
             matchId={matchId}
             match={data.match}
+            requireLobbyPhoto={data.match.requireLobbyPhoto}
+            lobbyPhotoMap1Only={data.match.lobbyPhotoMap1Only}
             teamA={safeTeamA}
             teamB={safeTeamB}
             checkedInUserIds={data.checkedInUserIds}
