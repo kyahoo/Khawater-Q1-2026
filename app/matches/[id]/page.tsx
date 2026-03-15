@@ -215,8 +215,7 @@ function shouldRequireLobbyPhoto(params: {
       >
     | null
     | undefined;
-  teamA: MatchRoomData["teamA"] | null | undefined;
-  teamB: MatchRoomData["teamB"] | null | undefined;
+  currentTeam: MatchRoomData["teamA"] | null | undefined;
 }) {
   if (!params.match?.requireLobbyPhoto) {
     return false;
@@ -227,8 +226,8 @@ function shouldRequireLobbyPhoto(params: {
   }
 
   const validPlayers = getValidLobbyPhotoPlayers({
-    teamA: params.teamA,
-    teamB: params.teamB,
+    teamA: params.currentTeam,
+    teamB: null,
   });
 
   if (validPlayers.length === 0) {
@@ -1124,16 +1123,12 @@ export default function MatchRoomPage() {
   const requireLobbyPhoto = data.match.requireLobbyPhoto;
   const lobbyPhotoMap1Only = data.match.lobbyPhotoMap1Only;
   const validLobbyPhotoPlayers = getValidLobbyPhotoPlayers({
-    teamA: data.teamA,
-    teamB: data.teamB,
+    teamA: currentUserTeam,
+    teamB: null,
   });
-  const failingLobbyPhotoPlayers = validLobbyPhotoPlayers.filter(
-    (player) => player.mmrStatus !== "verified"
-  );
   const isLobbyPhotoRequired = shouldRequireLobbyPhoto({
     match: data.match,
-    teamA: data.teamA,
-    teamB: data.teamB,
+    currentTeam: currentUserTeam,
   });
   const requiredLobbyMapNumbers = getRequiredLobbyMapNumbers({
     match: data.match,
@@ -1236,7 +1231,13 @@ export default function MatchRoomPage() {
     ? "Хост должен создать"
     : "Ждем чек-ин игроков";
 
-  console.log("MMR Bypass - Failing Players:", failingLobbyPhotoPlayers);
+  console.table(
+    validLobbyPhotoPlayers.map((p) => ({
+      name: p.nickname,
+      isConfirmed: p.mmrStatus === "verified",
+      raw: p,
+    }))
+  );
 
   return (
     <div className="min-h-screen text-white">
