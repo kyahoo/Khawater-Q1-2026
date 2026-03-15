@@ -1826,7 +1826,11 @@ function normalizeAdminMatchPayload(params: {
 
     return nextValue;
   };
-  const requireLobbyPhoto = params.requireLobbyPhoto ?? true;
+  const requireLobbyPhoto = Boolean(params.requireLobbyPhoto ?? true);
+  const lobbyPhotoMap1Only = Boolean(requireLobbyPhoto && params.lobbyPhotoMap1Only);
+  const requirePhotoUnconfirmedMMROnly = Boolean(
+    requireLobbyPhoto && params.requirePhotoUnconfirmedMMROnly
+  );
 
   return {
     tournament_id: params.tournamentId,
@@ -1840,12 +1844,8 @@ function normalizeAdminMatchPayload(params: {
     display_order: 0,
     format: normalizedFormat,
     require_lobby_photo: requireLobbyPhoto,
-    lobby_photo_map1_only: requireLobbyPhoto
-      ? params.lobbyPhotoMap1Only ?? false
-      : false,
-    require_photo_unconfirmed_mmr_only: requireLobbyPhoto
-      ? params.requirePhotoUnconfirmedMMROnly ?? false
-      : false,
+    lobby_photo_map1_only: lobbyPhotoMap1Only,
+    require_photo_unconfirmed_mmr_only: requirePhotoUnconfirmedMMROnly,
   };
 }
 

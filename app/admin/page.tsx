@@ -2353,6 +2353,13 @@ export default function AdminPage() {
 
     try {
       const scheduledAtIso = toUtcIsoString(matchForm.scheduledAt);
+      const requireLobbyPhoto = Boolean(matchForm.requireLobbyPhoto);
+      const lobbyPhotoMap1Only = Boolean(
+        requireLobbyPhoto && matchForm.lobbyPhotoMap1Only
+      );
+      const requirePhotoUnconfirmedMMROnly = Boolean(
+        requireLobbyPhoto && matchForm.requirePhotoUnconfirmedMMROnly
+      );
 
       if (editingMatchId) {
         const supabase = getSupabaseBrowserClient();
@@ -2370,6 +2377,9 @@ export default function AdminPage() {
           tournamentId: activeTournament.id,
           ...matchForm,
           scheduledAt: scheduledAtIso,
+          requireLobbyPhoto,
+          lobbyPhotoMap1Only,
+          requirePhotoUnconfirmedMMROnly,
         });
 
         if (result.error) {
@@ -2383,10 +2393,9 @@ export default function AdminPage() {
           roundLabel: matchForm.roundLabel,
           scheduledAt: scheduledAtIso,
           format: matchForm.format,
-          requireLobbyPhoto: matchForm.requireLobbyPhoto,
-          lobbyPhotoMap1Only: matchForm.lobbyPhotoMap1Only,
-          requirePhotoUnconfirmedMMROnly:
-            matchForm.requirePhotoUnconfirmedMMROnly,
+          requireLobbyPhoto,
+          lobbyPhotoMap1Only,
+          requirePhotoUnconfirmedMMROnly,
         });
       }
 

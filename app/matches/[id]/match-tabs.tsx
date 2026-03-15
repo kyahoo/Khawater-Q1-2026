@@ -315,26 +315,8 @@ function LobbyPhotoMapCard({
   onOpenLobbyScreenshotPicker,
   onAnalyze,
 }: LobbyPhotoMapCardProps) {
-  const isBypassed =
-    !requireLobbyPhoto || (mapNumber > 1 && lobbyPhotoMap1Only);
-
-  if (isBypassed) {
-    return (
-      <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-[#CD9C3E]">
-          Карта {mapNumber}
-        </p>
-        <h4 className="mt-2 text-xl font-black uppercase text-white">
-          ФОТО ЛОББИ
-        </h4>
-        <div className="mt-5 flex items-center justify-center border border-dashed border-gray-500 p-4">
-          <span className="font-bold uppercase text-gray-500">
-            Фото не требуется
-          </span>
-        </div>
-      </div>
-    );
-  }
+  const isSubsequentMap = mapNumber > 1;
+  const shouldBypassPhoto = !requireLobbyPhoto || (lobbyPhotoMap1Only && isSubsequentMap);
 
   const isUploaded = Boolean(uploadedPhotoUrl);
   const isCurrentMap = currentLobbyMapNumber === mapNumber;
@@ -352,7 +334,11 @@ function LobbyPhotoMapCard({
         ФОТО ЛОББИ
       </h4>
 
-      {isUploaded ? (
+      {shouldBypassPhoto ? (
+        <div className="mt-5 flex items-center justify-center border border-dashed border-gray-500 p-4 text-center text-gray-500 font-bold">
+          ФОТО НЕ ТРЕБУЕТСЯ
+        </div>
+      ) : isUploaded ? (
         <>
           <div className="mt-5 border-[3px] border-[#061726] bg-[#163f1d] px-4 py-4 text-sm font-black uppercase tracking-[0.18em] text-[#D9F99D] shadow-[4px_4px_0px_0px_#061726]">
             ФОТО ЗАГРУЖЕНО ✅
