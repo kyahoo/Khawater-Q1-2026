@@ -195,6 +195,16 @@ function isValidLobbyPhotoPlayer(
   return nickname.toUpperCase() !== "TBD";
 }
 
+function getValidLobbyPhotoPlayers(params: {
+  teamA: MatchRoomData["teamA"] | null | undefined;
+  teamB: MatchRoomData["teamB"] | null | undefined;
+}) {
+  const teamARoster = Array.isArray(params.teamA?.roster) ? params.teamA.roster : [];
+  const teamBRoster = Array.isArray(params.teamB?.roster) ? params.teamB.roster : [];
+
+  return [...teamARoster, ...teamBRoster].filter(isValidLobbyPhotoPlayer);
+}
+
 function shouldRequireLobbyPhoto(params: {
   match:
     | Pick<
@@ -216,18 +226,14 @@ function shouldRequireLobbyPhoto(params: {
     return true;
   }
 
-  const teamARoster = Array.isArray(params.teamA?.roster) ? params.teamA.roster : [];
-  const teamBRoster = Array.isArray(params.teamB?.roster) ? params.teamB.roster : [];
-  const validPlayers = [...teamARoster, ...teamBRoster].filter(isValidLobbyPhotoPlayer);
+  const validPlayers = getValidLobbyPhotoPlayers({
+    teamA: params.teamA,
+    teamB: params.teamB,
+  });
 
   if (validPlayers.length === 0) {
     return false;
   }
-
-  console.log(
-    "Failing Players:",
-    validPlayers.filter((p) => p.mmrStatus !== "verified")
-  );
 
   return validPlayers.some((player) => player.mmrStatus !== "verified");
 }
@@ -1117,6 +1123,13 @@ export default function MatchRoomPage() {
   );
   const requireLobbyPhoto = data.match.requireLobbyPhoto;
   const lobbyPhotoMap1Only = data.match.lobbyPhotoMap1Only;
+  const validLobbyPhotoPlayers = getValidLobbyPhotoPlayers({
+    teamA: data.teamA,
+    teamB: data.teamB,
+  });
+  const failingLobbyPhotoPlayers = validLobbyPhotoPlayers.filter(
+    (player) => player.mmrStatus !== "verified"
+  );
   const isLobbyPhotoRequired = shouldRequireLobbyPhoto({
     match: data.match,
     teamA: data.teamA,
@@ -1222,6 +1235,8 @@ export default function MatchRoomPage() {
   const lobbyStatusLabel = allCheckedIn
     ? "Хост должен создать"
     : "Ждем чек-ин игроков";
+
+  console.log("MMR Bypass - Failing Players:", failingLobbyPhotoPlayers);
 
   return (
     <div className="min-h-screen text-white">
