@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Check } from "lucide-react";
 import {
   DoubleEliminationBracket,
   type MatchComponentProps,
@@ -123,15 +124,12 @@ function VerifiedMMRBadge({ mmr }: { mmr: number }) {
         onClick={() => setIsOpen((current) => !current)}
         className="inline-flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CD9C3E] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B3A4A]"
       >
-        <RosterBadge
-          label={`MMR: ${mmr}`}
-          className="border-green-400 text-white/90 transition-colors hover:border-green-300"
-        />
-        <span
-          aria-hidden="true"
-          className="flex h-5 w-5 items-center justify-center border-2 border-[#CD9C3E]/70 bg-[#061726]/80 text-[10px] font-black uppercase text-[#CD9C3E] backdrop-blur-sm"
-        >
-          i
+        <span className="inline-flex items-center border-2 border-green-400 px-2 py-0.5 text-[10px] font-black uppercase leading-none tracking-[0.14em] text-white/90 transition-colors hover:border-green-300">
+          <span className="inline-flex items-center gap-1">
+            <span>[ MMR: {mmr}</span>
+            <Check size={14} className="text-green-500" />
+            <span>]</span>
+          </span>
         </span>
       </button>
 
