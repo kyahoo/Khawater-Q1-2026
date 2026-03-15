@@ -333,8 +333,14 @@ export function isUserTeamMatchLive(
   match: UserTeamMatch,
   currentTimeMs = getCurrentAlmatyWallClockTimeMs()
 ) {
-  if (isActiveMatchStatus(match.status)) {
+  const normalizedStatus = normalizeMatchStatus(match.status);
+
+  if (ACTIVE_MATCH_STATUSES.has(normalizedStatus)) {
     return true;
+  }
+
+  if (normalizedStatus !== "scheduled") {
+    return false;
   }
 
   if (!match.scheduledAt || isUserTeamMatchPast(match, currentTimeMs)) {

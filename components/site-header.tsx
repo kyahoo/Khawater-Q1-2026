@@ -16,7 +16,6 @@ export function SiteHeaderSkeleton() {
           <span className="inline-flex shrink-0 items-center justify-center whitespace-nowrap border-b-4 border-transparent pb-1 text-base font-bold uppercase tracking-wide text-white/80 md:text-lg">
             <span className="inline-flex items-center gap-2">
               <span>Мои матчи</span>
-              <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-green-500/50 animate-pulse" />
             </span>
           </span>
           <span className="inline-flex shrink-0 items-center justify-center whitespace-nowrap border-b-4 border-transparent pb-1 text-base font-bold uppercase tracking-wide text-white/80 md:text-lg">
