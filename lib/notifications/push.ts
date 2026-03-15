@@ -70,6 +70,18 @@ export async function sendNotificationToUsers(params: {
     };
   }
 
+  let pushConfigured = false;
+
+  try {
+    configureWebPush();
+    pushConfigured = true;
+  } catch (error) {
+    console.error(
+      "[push] VAPID configuration failed — inbox records will be created but Web Push is disabled for this invocation:",
+      error instanceof Error ? error.message : error
+    );
+  }
+
   const { error: inboxInsertError } = await params.adminClient
     .from("user_notifications")
     .insert(
@@ -82,7 +94,20 @@ export async function sendNotificationToUsers(params: {
     );
 
   if (inboxInsertError) {
+    console.error("[push] Failed to insert inbox notifications:", inboxInsertError.message);
     throw new Error(inboxInsertError.message);
+  }
+
+  console.log(
+    `[push] Created ${uniqueUserIds.length} inbox notification(s) for "${params.payload.title}"`
+  );
+
+  if (!pushConfigured) {
+    return {
+      notificationsSent: 0,
+      expiredSubscriptionsDeleted: 0,
+      inboxNotificationsCreated: uniqueUserIds.length,
+    };
   }
 
   const { data: subscriptions, error: subscriptionsError } = await params.adminClient
@@ -91,41 +116,72 @@ export async function sendNotificationToUsers(params: {
     .in("user_id", uniqueUserIds);
 
   if (subscriptionsError) {
+    console.error("[push] Failed to fetch push subscriptions:", subscriptionsError.message);
     throw new Error(subscriptionsError.message);
   }
 
-  configureWebPush();
+  const subscriptionRows = (subscriptions ?? []) as PushSubscriptionRow[];
+
+  if (subscriptionRows.length === 0) {
+    console.log(
+      `[push] No push subscriptions found for ${uniqueUserIds.length} user(s) — skipping Web Push delivery`
+    );
+    return {
+      notificationsSent: 0,
+      expiredSubscriptionsDeleted: 0,
+      inboxNotificationsCreated: uniqueUserIds.length,
+    };
+  }
+
+  console.log(
+    `[push] Found ${subscriptionRows.length} push subscription(s) — sending Web Push`
+  );
 
   let notificationsSent = 0;
   let expiredSubscriptionsDeleted = 0;
+  let pushErrors = 0;
 
-  for (const subscriptionRow of (subscriptions ?? []) as PushSubscriptionRow[]) {
+  for (const subscriptionRow of subscriptionRows) {
     try {
       await webpush.sendNotification(
-        (subscriptionRow.subscription as unknown) as webpush.PushSubscription,
+        subscriptionRow.subscription as unknown as webpush.PushSubscription,
         buildNotificationPayload(params.payload)
       );
       notificationsSent += 1;
     } catch (error) {
-      if (getWebPushStatusCode(error) === 410) {
+      const statusCode = getWebPushStatusCode(error);
+
+      if (statusCode === 410) {
+        console.log(
+          `[push] Subscription ${subscriptionRow.id} expired (410) — deleting`
+        );
         const { error: deleteError } = await params.adminClient
           .from("push_subscriptions")
           .delete()
           .eq("id", subscriptionRow.id);
 
         if (deleteError) {
-          throw new Error(deleteError.message);
+          console.error(
+            `[push] Failed to delete expired subscription ${subscriptionRow.id}:`,
+            deleteError.message
+          );
         }
 
         expiredSubscriptionsDeleted += 1;
         continue;
       }
 
-      throw new Error(
-        error instanceof Error ? error.message : "Failed to send push notification."
+      pushErrors += 1;
+      console.error(
+        `[push] Failed to deliver to subscription ${subscriptionRow.id} (user ${subscriptionRow.user_id}, status ${statusCode ?? "unknown"}):`,
+        error instanceof Error ? error.message : error
       );
     }
   }
+
+  console.log(
+    `[push] Delivery complete: ${notificationsSent} sent, ${expiredSubscriptionsDeleted} expired, ${pushErrors} failed`
+  );
 
   return {
     notificationsSent,
