@@ -3078,11 +3078,22 @@ export default function AdminPage() {
                   <h2 className="mb-4 text-lg font-semibold text-zinc-500">
                     Manage Team
                   </h2>
-                  <div className="mb-5 text-sm text-zinc-700">
-                    Selected team:{" "}
-                    <span className="font-medium text-zinc-900">
-                      {selectedTeam.name}
+                  <div className="mb-5 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-zinc-700">
+                    <span>
+                      Selected team:{" "}
+                      <span className="font-medium text-zinc-900">
+                        {selectedTeam.name}
+                      </span>
                     </span>
+                    {selectedTeamMembers.length > 0 && (
+                      <span className="font-bold text-zinc-900">
+                        Total MMR:{" "}
+                        {selectedTeamMembers.reduce(
+                          (sum, member) => sum + (member.mmr ?? 0),
+                          0
+                        ).toLocaleString()}
+                      </span>
+                    )}
                   </div>
 
                   {selectedTeam.isLockedForActiveTournament ? (
@@ -3159,8 +3170,11 @@ export default function AdminPage() {
                         >
                           <div>
                             <div className="font-medium">{member.nickname}</div>
-                            <div className="mt-1 text-sm text-zinc-500">
-                              Role: {member.isCaptain ? "Captain" : "Member"}
+                            <div className="mt-1 flex flex-wrap gap-x-3 text-sm text-zinc-500">
+                              <span>Role: {member.isCaptain ? "Captain" : "Member"}</span>
+                              <span className="font-semibold text-zinc-700">
+                                MMR: {member.mmr != null ? member.mmr.toLocaleString() : "—"}
+                              </span>
                             </div>
                           </div>
                           <div className="flex flex-col gap-2 sm:flex-row">
