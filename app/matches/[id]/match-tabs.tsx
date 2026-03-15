@@ -157,6 +157,7 @@ function PlayerRow({
 type LobbyPhotoActionsProps = {
   matchStatus: string;
   mapNumber: LobbyMapNumber;
+  lobbyPhotoMap1Only: boolean;
   isCurrentUserCheckedIn: boolean;
   isCurrentMap: boolean;
   isWaitingCurrentMap: boolean;
@@ -169,6 +170,7 @@ type LobbyPhotoActionsProps = {
 function LobbyPhotoActions({
   matchStatus,
   mapNumber,
+  lobbyPhotoMap1Only,
   isCurrentUserCheckedIn,
   isCurrentMap,
   isWaitingCurrentMap,
@@ -262,6 +264,14 @@ function LobbyPhotoActions({
                 ВЫ ЕЕ ПРИВЯЗАЛИ. ЕСЛИ ПОЯВИЛСЯ QR-КОД — ВЫ С ДРУГОГО УСТРОЙСТВА.
               </div>
             ) : null}
+          </div>
+
+          <div className="mb-2 rounded bg-red-500 p-2 text-xs text-white">
+            DEBUG DATA:{" "}
+            {JSON.stringify({
+              isMapIndex: mapNumber,
+              lobbyPhotoOnlyMap1: lobbyPhotoMap1Only,
+            })}
           </div>
 
           <button
@@ -409,6 +419,7 @@ function LobbyPhotoMapCard({
             <LobbyPhotoActions
               matchStatus={matchStatus}
               mapNumber={mapNumber}
+              lobbyPhotoMap1Only={lobbyPhotoMap1Only}
               isCurrentUserCheckedIn={isCurrentUserCheckedIn}
               isCurrentMap={isCurrentMap}
               isWaitingCurrentMap={isWaitingCurrentMap}
