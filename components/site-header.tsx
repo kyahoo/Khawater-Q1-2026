@@ -1,5 +1,8 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { getHasLiveMatchForUserWithClient } from "@/lib/supabase/matches";
+import {
+  getMatchesForUserTeamWithClient,
+  isUserTeamMatchLive,
+} from "@/lib/supabase/matches";
 import { SiteHeaderClient } from "./site-header-client";
 
 export function SiteHeaderSkeleton() {
@@ -65,7 +68,15 @@ export async function SiteHeaderData() {
 
     if (currentUserId) {
       try {
-        hasLiveMatch = await getHasLiveMatchForUserWithClient(supabase, currentUserId);
+        const foundMatches = await getMatchesForUserTeamWithClient(
+          supabase,
+          currentUserId
+        );
+        console.log("SERVER LIVE MATCH CHECK:", {
+          userId: currentUserId,
+          foundMatches,
+        });
+        hasLiveMatch = foundMatches.some((match) => isUserTeamMatchLive(match));
       } catch (queryError) {
         console.error("Site header live match load failed:", queryError);
       }

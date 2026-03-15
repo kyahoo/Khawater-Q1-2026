@@ -193,6 +193,7 @@ export const PRE_MATCH_OPEN_WINDOW_MS = 30 * 60 * 1000;
 export const MATCH_CHECK_IN_TIMEOUT_MS = 15 * 60 * 1000;
 const COMPLETED_MATCH_STATUSES = new Set(["finished", "completed"]);
 const ACTIVE_MATCH_STATUSES = new Set(["open", "live", "in_progress"]);
+const HEADER_LIVE_MATCH_QUERY_STATUSES = ["scheduled", "live", "in_progress", "open"];
 
 const almatyWallClockFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Almaty",
@@ -709,6 +710,7 @@ export async function getMatchesForUserTeamWithClient(
       "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, admin_override"
     )
     .eq("tournament_id", tournamentId)
+    .in("status", HEADER_LIVE_MATCH_QUERY_STATUSES)
     .or(`team_a_id.eq.${teamId},team_b_id.eq.${teamId}`)
     .order("scheduled_at", { ascending: true });
   let matches = primaryMatchesResult.data as UserTeamMatchQueryRow[] | null;
@@ -729,6 +731,7 @@ export async function getMatchesForUserTeamWithClient(
         "id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format"
       )
       .eq("tournament_id", tournamentId)
+      .in("status", HEADER_LIVE_MATCH_QUERY_STATUSES)
       .or(`team_a_id.eq.${teamId},team_b_id.eq.${teamId}`)
       .order("scheduled_at", { ascending: true });
 
