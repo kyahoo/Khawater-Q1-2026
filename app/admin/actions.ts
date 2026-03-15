@@ -2214,6 +2214,13 @@ export async function updateTournamentMatchAction(
 
   try {
     const payload = normalizeAdminMatchPayload(input);
+    const persistedRequireLobbyPhoto = Boolean(input.requireLobbyPhoto);
+    const persistedLobbyPhotoMap1Only = Boolean(
+      persistedRequireLobbyPhoto && input.lobbyPhotoMap1Only
+    );
+    const persistedRequirePhotoUnconfirmedMMROnly = Boolean(
+      persistedRequireLobbyPhoto && input.requirePhotoUnconfirmedMMROnly
+    );
     const adminClient = createClient<Database>(
       authResult.context.supabaseUrl,
       authResult.context.serviceRoleKey,
@@ -2263,7 +2270,13 @@ export async function updateTournamentMatchAction(
 
     const { error: updateError } = await adminClient
       .from("tournament_matches")
-      .update(payload)
+      .update({
+        ...payload,
+        require_lobby_photo: persistedRequireLobbyPhoto,
+        lobby_photo_map1_only: persistedLobbyPhotoMap1Only,
+        require_photo_unconfirmed_mmr_only:
+          persistedRequirePhotoUnconfirmedMMROnly,
+      })
       .eq("id", normalizedMatchId);
 
     if (updateError) {

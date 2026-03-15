@@ -157,7 +157,6 @@ function PlayerRow({
 type LobbyPhotoActionsProps = {
   matchStatus: string;
   mapNumber: LobbyMapNumber;
-  lobbyPhotoMap1Only: boolean;
   isCurrentUserCheckedIn: boolean;
   isCurrentMap: boolean;
   isWaitingCurrentMap: boolean;
@@ -170,7 +169,6 @@ type LobbyPhotoActionsProps = {
 function LobbyPhotoActions({
   matchStatus,
   mapNumber,
-  lobbyPhotoMap1Only,
   isCurrentUserCheckedIn,
   isCurrentMap,
   isWaitingCurrentMap,
@@ -265,15 +263,6 @@ function LobbyPhotoActions({
               </div>
             ) : null}
           </div>
-
-          <div className="mb-2 rounded bg-red-500 p-2 text-xs text-white">
-            DEBUG DATA:{" "}
-            {JSON.stringify({
-              isMapIndex: mapNumber,
-              lobbyPhotoOnlyMap1: lobbyPhotoMap1Only,
-            })}
-          </div>
-
           <button
             type="button"
             onClick={() => onOpenLobbyScreenshotPicker(mapNumber)}
@@ -328,7 +317,9 @@ function LobbyPhotoMapCard({
   onAnalyze,
 }: LobbyPhotoMapCardProps) {
   const isSubsequentMap = mapNumber > 1;
-  const shouldBypassPhoto = !requireLobbyPhoto || (lobbyPhotoMap1Only && isSubsequentMap);
+  const shouldBypassPhoto =
+    requireLobbyPhoto === false ||
+    (lobbyPhotoMap1Only === true && isSubsequentMap);
 
   const isUploaded = Boolean(uploadedPhotoUrl);
   const isCurrentMap = currentLobbyMapNumber === mapNumber;
@@ -336,12 +327,6 @@ function LobbyPhotoMapCard({
     currentLobbyMapNumber !== null &&
     mapNumber > currentLobbyMapNumber &&
     !isUploaded;
-
-  console.log("Map Render Props:", {
-    mapIndex: mapNumber,
-    require_lobby_photo: requireLobbyPhoto,
-    lobby_photo_map1_only: lobbyPhotoMap1Only,
-  });
 
   return (
     <div className="border-[4px] border-[#061726] bg-[#0B3A4A] p-5 shadow-[6px_6px_0px_0px_#061726]">
@@ -419,7 +404,6 @@ function LobbyPhotoMapCard({
             <LobbyPhotoActions
               matchStatus={matchStatus}
               mapNumber={mapNumber}
-              lobbyPhotoMap1Only={lobbyPhotoMap1Only}
               isCurrentUserCheckedIn={isCurrentUserCheckedIn}
               isCurrentMap={isCurrentMap}
               isWaitingCurrentMap={isWaitingCurrentMap}
