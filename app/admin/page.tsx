@@ -376,6 +376,9 @@ export default function AdminPage() {
   const [profiles, setProfiles] = useState<AdminProfileListItem[]>([]);
   const [players, setPlayers] = useState<AdminPlayerListItem[]>([]);
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
+  const [playerFilter, setPlayerFilter] = useState<
+    "all" | "has_tasks" | "unverified_mmr" | "missing_mmr"
+  >("all");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedTeamMembers, setSelectedTeamMembers] = useState<
     Awaited<ReturnType<typeof getTeamMembers>>
@@ -2637,18 +2640,55 @@ export default function AdminPage() {
                   value={playerSearchQuery}
                   onChange={(event) => setPlayerSearchQuery(event.target.value)}
                   placeholder="Поиск по никнейму или email..."
-                  className="mb-4 w-full border-[3px] border-[#061726] bg-white px-4 py-2.5 text-sm font-medium text-[#061726] outline-none placeholder:text-gray-400 focus:ring-2 focus:ring-[#061726]/20"
+                  className="mb-3 w-full border-[3px] border-[#061726] bg-white px-4 py-2.5 text-sm font-medium text-[#061726] outline-none placeholder:text-gray-400 focus:ring-2 focus:ring-[#061726]/20"
                 />
+
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {(
+                    [
+                      { value: "all", label: "Все" },
+                      { value: "has_tasks", label: "Есть задачи" },
+                      { value: "unverified_mmr", label: "Ждет проверки" },
+                      { value: "missing_mmr", label: "Нет MMR" },
+                    ] as const
+                  ).map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setPlayerFilter(option.value)}
+                      className={`border-[2px] px-3 py-1.5 text-xs font-black uppercase tracking-[0.14em] transition-colors ${
+                        playerFilter === option.value
+                          ? "border-[#061726] bg-[#061726] text-white"
+                          : "border-[#061726] bg-white text-[#061726] hover:bg-[#061726]/5"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
 
                 {(() => {
                   const normalizedQuery = playerSearchQuery.trim().toLowerCase();
-                  const filteredPlayers = normalizedQuery
-                    ? players.filter(
-                        (player) =>
-                          player.nickname.toLowerCase().includes(normalizedQuery) ||
-                          player.email.toLowerCase().includes(normalizedQuery)
-                      )
-                    : players;
+                  const filteredPlayers = players.filter((player) => {
+                    if (
+                      normalizedQuery &&
+                      !player.nickname.toLowerCase().includes(normalizedQuery) &&
+                      !player.email.toLowerCase().includes(normalizedQuery)
+                    ) {
+                      return false;
+                    }
+
+                    switch (playerFilter) {
+                      case "has_tasks":
+                        return player.openTaskCount > 0;
+                      case "unverified_mmr":
+                        return player.mmrStatus === "pending" && player.mmr != null;
+                      case "missing_mmr":
+                        return player.mmr == null;
+                      default:
+                        return true;
+                    }
+                  });
 
                   if (filteredPlayers.length === 0) {
                     return (
