@@ -55,6 +55,7 @@ export function SiteHeaderClient({
   const [hasLiveMatch, setHasLiveMatch] = useState(initialHasLiveMatch);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isClientAuthReady, setIsClientAuthReady] = useState(false);
+  const [isClientAuthLoading, setIsClientAuthLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigationLoadRequestIdRef = useRef(0);
   const hasCompletedInitialNavigationSyncRef = useRef(false);
@@ -113,10 +114,15 @@ export function SiteHeaderClient({
     const supabase = getSupabaseBrowserClient();
     let isMounted = true;
 
+    const markClientAuthResolved = () => {
+      setIsClientAuthLoading(false);
+      setIsClientAuthReady(true);
+    };
+
     const applySessionUser = (sessionUserId: string) => {
       setHasSession(true);
       setCurrentUserId(sessionUserId);
-      setIsClientAuthReady(true);
+      markClientAuthResolved();
     };
 
     const {
@@ -133,15 +139,19 @@ export function SiteHeaderClient({
         return;
       }
 
+      if (isClientAuthLoading && event !== "SIGNED_OUT") {
+        return;
+      }
+
       if (event === "SIGNED_OUT") {
         resetNavigationState();
-        setIsClientAuthReady(true);
+        markClientAuthResolved();
         return;
       }
 
       if (!initialCurrentUserId) {
         resetNavigationState();
-        setIsClientAuthReady(true);
+        markClientAuthResolved();
       }
     });
 
@@ -157,7 +167,7 @@ export function SiteHeaderClient({
 
           if (!initialCurrentUserId) {
             resetNavigationState();
-            setIsClientAuthReady(true);
+            markClientAuthResolved();
           }
 
           return;
@@ -172,7 +182,7 @@ export function SiteHeaderClient({
 
         if (!initialCurrentUserId) {
           resetNavigationState();
-          setIsClientAuthReady(true);
+          markClientAuthResolved();
           return;
         }
 
@@ -194,7 +204,7 @@ export function SiteHeaderClient({
         }
 
         resetNavigationState();
-        setIsClientAuthReady(true);
+        markClientAuthResolved();
       })
       .catch((error) => {
         if (!isMounted) {
@@ -205,7 +215,7 @@ export function SiteHeaderClient({
 
         if (!initialCurrentUserId) {
           resetNavigationState();
-          setIsClientAuthReady(true);
+          markClientAuthResolved();
         }
       });
 
@@ -216,12 +226,12 @@ export function SiteHeaderClient({
   }, [initialCurrentUserId]);
 
   useEffect(() => {
-    if (!isClientAuthReady || !currentUserId || !hasSession) {
+    if (isClientAuthLoading || !isClientAuthReady || !currentUserId || !hasSession) {
       return;
     }
 
     void loadUserNavigationState(currentUserId);
-  }, [pathname, hasSession, currentUserId, isClientAuthReady]);
+  }, [pathname, hasSession, currentUserId, isClientAuthLoading, isClientAuthReady]);
 
   useEffect(() => {
     const handleMouseDown = (event: MouseEvent) => {
@@ -306,7 +316,10 @@ export function SiteHeaderClient({
           ) : hasSession ? (
             <>
               <Link href="/matches" className={navLinkClass("/matches")}>
-                <span className="inline-flex items-center gap-2">
+                <span className="relative inline-flex items-center gap-2">
+                  <div className="absolute left-0 top-10 z-[9999] border border-black bg-red-500 p-1 text-[10px] text-white">
+                    INIT: {String(initialHasLiveMatch)} | STATE: {String(hasLiveMatch)}
+                  </div>
                   <span>Мои матчи</span>
                   {hasLiveMatch && (
                     <span aria-hidden="true" className="relative flex h-2.5 w-2.5 shrink-0">

@@ -914,9 +914,22 @@ export async function createTournamentMatch(params: {
     teamAScore: "",
     teamBScore: "",
   });
+  const persistedRequireLobbyPhoto = params.requireLobbyPhoto ?? true;
+  const persistedLobbyPhotoMap1Only = Boolean(
+    persistedRequireLobbyPhoto && params.lobbyPhotoMap1Only
+  );
+  const persistedRequirePhotoUnconfirmedMMROnly = Boolean(
+    persistedRequireLobbyPhoto && params.requirePhotoUnconfirmedMMROnly
+  );
   const { data, error } = await supabase
     .from("tournament_matches")
-    .insert(payload)
+    .insert({
+      ...payload,
+      require_lobby_photo: persistedRequireLobbyPhoto,
+      lobby_photo_map1_only: persistedLobbyPhotoMap1Only,
+      require_photo_unconfirmed_mmr_only:
+        persistedRequirePhotoUnconfirmedMMROnly,
+    })
     .select(
       "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at, require_lobby_photo, lobby_photo_map1_only, require_photo_unconfirmed_mmr_only"
     )
@@ -946,6 +959,13 @@ export async function updateTournamentMatch(params: {
 }) {
   const supabase = getSupabaseBrowserClient();
   const payload: TournamentMatchUpdate = normalizeMatchPayload(params);
+  const persistedRequireLobbyPhoto = params.requireLobbyPhoto ?? true;
+  const persistedLobbyPhotoMap1Only = Boolean(
+    persistedRequireLobbyPhoto && params.lobbyPhotoMap1Only
+  );
+  const persistedRequirePhotoUnconfirmedMMROnly = Boolean(
+    persistedRequireLobbyPhoto && params.requirePhotoUnconfirmedMMROnly
+  );
   const { data: existingMatch, error: existingMatchError } = await supabase
     .from("tournament_matches")
     .select("id, scheduled_at")
@@ -984,7 +1004,13 @@ export async function updateTournamentMatch(params: {
 
   const { data, error } = await supabase
     .from("tournament_matches")
-    .update(payload)
+    .update({
+      ...payload,
+      require_lobby_photo: persistedRequireLobbyPhoto,
+      lobby_photo_map1_only: persistedLobbyPhotoMap1Only,
+      require_photo_unconfirmed_mmr_only:
+        persistedRequirePhotoUnconfirmedMMROnly,
+    })
     .eq("id", params.matchId)
     .select(
       "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, display_order, format, created_at, require_lobby_photo, lobby_photo_map1_only, require_photo_unconfirmed_mmr_only"
