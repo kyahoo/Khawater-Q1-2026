@@ -72,6 +72,9 @@ type MatchTabsProps = {
     isLateCheckInLockout: boolean;
     isCurrentUserBiometricallyVerified: boolean;
     hasPendingLobbyPhotoAction: boolean;
+    requirePhotoUnconfirmedMMROnly: boolean;
+    hasUnconfirmedPlayers: boolean;
+    trackedPlayerCount: number;
   };
   results: {
     isCurrentUserLobbyHost: boolean;
@@ -157,6 +160,11 @@ function PlayerRow({
 type LobbyPhotoActionsProps = {
   matchStatus: string;
   mapNumber: LobbyMapNumber;
+  requireLobbyPhoto: boolean;
+  requirePhotoUnconfirmedMMROnly: boolean;
+  hasUnconfirmedPlayers: boolean;
+  trackedPlayerCount: number;
+  isLobbyPhotoRequired: boolean;
   isCurrentUserCheckedIn: boolean;
   isCurrentMap: boolean;
   isWaitingCurrentMap: boolean;
@@ -169,6 +177,11 @@ type LobbyPhotoActionsProps = {
 function LobbyPhotoActions({
   matchStatus,
   mapNumber,
+  requireLobbyPhoto,
+  requirePhotoUnconfirmedMMROnly,
+  hasUnconfirmedPlayers,
+  trackedPlayerCount,
+  isLobbyPhotoRequired,
   isCurrentUserCheckedIn,
   isCurrentMap,
   isWaitingCurrentMap,
@@ -263,6 +276,17 @@ function LobbyPhotoActions({
               </div>
             ) : null}
           </div>
+          <div className="mb-2 rounded bg-red-500 p-2 text-[10px] text-white">
+            DEBUG DATA:{" "}
+            {JSON.stringify({
+              mapIndex: mapNumber,
+              requireLobbyPhoto,
+              requirePhotoUnconfirmedMMROnly,
+              trackedPlayerCount,
+              hasUnconfirmedPlayers,
+              isLobbyPhotoRequired,
+            })}
+          </div>
           <button
             type="button"
             onClick={() => onOpenLobbyScreenshotPicker(mapNumber)}
@@ -282,6 +306,10 @@ type LobbyPhotoMapCardProps = {
   mapNumber: LobbyMapNumber;
   requireLobbyPhoto: boolean;
   lobbyPhotoMap1Only: boolean;
+  requirePhotoUnconfirmedMMROnly: boolean;
+  hasUnconfirmedPlayers: boolean;
+  trackedPlayerCount: number;
+  isLobbyPhotoRequired: boolean;
   currentLobbyMapNumber: LobbyMapNumber | null;
   uploadedPhotoUrl: string | null;
   ocrData: LobbyScreenshotVerificationData | null;
@@ -302,6 +330,10 @@ function LobbyPhotoMapCard({
   mapNumber,
   requireLobbyPhoto,
   lobbyPhotoMap1Only,
+  requirePhotoUnconfirmedMMROnly,
+  hasUnconfirmedPlayers,
+  trackedPlayerCount,
+  isLobbyPhotoRequired,
   currentLobbyMapNumber,
   uploadedPhotoUrl,
   ocrData,
@@ -404,6 +436,11 @@ function LobbyPhotoMapCard({
             <LobbyPhotoActions
               matchStatus={matchStatus}
               mapNumber={mapNumber}
+              requireLobbyPhoto={requireLobbyPhoto}
+              requirePhotoUnconfirmedMMROnly={requirePhotoUnconfirmedMMROnly}
+              hasUnconfirmedPlayers={hasUnconfirmedPlayers}
+              trackedPlayerCount={trackedPlayerCount}
+              isLobbyPhotoRequired={isLobbyPhotoRequired}
               isCurrentUserCheckedIn={isCurrentUserCheckedIn}
               isCurrentMap={isCurrentMap}
               isWaitingCurrentMap={isWaitingCurrentMap}
@@ -482,6 +519,9 @@ export function MatchTabs({
     isLateCheckInLockout,
     isCurrentUserBiometricallyVerified,
     hasPendingLobbyPhotoAction,
+    requirePhotoUnconfirmedMMROnly,
+    hasUnconfirmedPlayers,
+    trackedPlayerCount,
   } = lobby;
   const checkedInUserIdSet = new Set(checkedInUserIds);
   const teamACheckInCount = teamA.roster.filter((player) =>
@@ -850,6 +890,12 @@ export function MatchTabs({
                               mapNumber={mapNumber}
                               requireLobbyPhoto={requireLobbyPhoto && isLobbyPhotoRequired}
                               lobbyPhotoMap1Only={lobbyPhotoMap1Only}
+                              requirePhotoUnconfirmedMMROnly={
+                                requirePhotoUnconfirmedMMROnly
+                              }
+                              hasUnconfirmedPlayers={hasUnconfirmedPlayers}
+                              trackedPlayerCount={trackedPlayerCount}
+                              isLobbyPhotoRequired={isLobbyPhotoRequired}
                               currentLobbyMapNumber={currentLobbyMapNumber}
                               uploadedPhotoUrl={uploadedLobbyPhotoUrlByMap[mapNumber]}
                               ocrData={ocrDataByMap[mapNumber]}
