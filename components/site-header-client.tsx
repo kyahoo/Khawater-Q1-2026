@@ -58,6 +58,7 @@ export function SiteHeaderClient({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigationLoadRequestIdRef = useRef(0);
   const hasCompletedInitialNavigationSyncRef = useRef(false);
+  const isServerLiveMatchLockedRef = useRef(initialHasLiveMatch);
 
   const resetNavigationState = useEffectEvent(() => {
     setHasSession(false);
@@ -86,12 +87,16 @@ export function SiteHeaderClient({
       setBehaviorScore(nextBehaviorScore);
 
       const shouldPreserveInitialLiveMatch =
-        initialHasLiveMatch &&
+        isServerLiveMatchLockedRef.current &&
         !hasCompletedInitialNavigationSyncRef.current &&
         !nextHasLiveMatch;
 
       if (!shouldPreserveInitialLiveMatch) {
         setHasLiveMatch(nextHasLiveMatch);
+      }
+
+      if (nextHasLiveMatch) {
+        isServerLiveMatchLockedRef.current = false;
       }
 
       hasCompletedInitialNavigationSyncRef.current = true;
