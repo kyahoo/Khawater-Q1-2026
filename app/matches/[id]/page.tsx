@@ -215,7 +215,8 @@ function shouldRequireLobbyPhoto(params: {
       >
     | null
     | undefined;
-  currentTeam: MatchRoomData["teamA"] | null | undefined;
+  currentUserId: string | null;
+  currentUserMMRStatus: string | null;
 }) {
   if (!params.match?.requireLobbyPhoto) {
     return false;
@@ -225,16 +226,15 @@ function shouldRequireLobbyPhoto(params: {
     return true;
   }
 
-  const validPlayers = getValidLobbyPhotoPlayers({
-    teamA: params.currentTeam,
-    teamB: null,
-  });
-
-  if (validPlayers.length === 0) {
+  if (!params.currentUserId) {
     return false;
   }
 
-  return validPlayers.some((player) => player.mmrStatus !== "verified");
+  if (params.currentUserMMRStatus === null) {
+    return false;
+  }
+
+  return params.currentUserMMRStatus !== "verified";
 }
 
 function getRequiredLobbyMapNumbers(params: {
@@ -282,6 +282,7 @@ export default function MatchRoomPage() {
 
   const [data, setData] = useState<MatchRoomData | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserMMRStatus, setCurrentUserMMRStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [fetchError, setFetchError] = useState<unknown>(null);
@@ -324,6 +325,27 @@ export default function MatchRoomPage() {
         } = await supabase.auth.getUser();
 
         setCurrentUserId(user?.id ?? null);
+
+        if (user?.id) {
+          const { data: currentUserProfile, error: currentUserProfileError } =
+            await supabase
+              .from("profiles")
+              .select("mmr_status")
+              .eq("id", user.id)
+              .maybeSingle();
+
+          if (currentUserProfileError) {
+            console.error(
+              "Current user MMR status fetch failed:",
+              currentUserProfileError
+            );
+            setCurrentUserMMRStatus(null);
+          } else {
+            setCurrentUserMMRStatus(currentUserProfile?.mmr_status ?? null);
+          }
+        } else {
+          setCurrentUserMMRStatus(null);
+        }
 
         const result = await getMatchRoomData(nextMatchId);
         setData(result.data);
@@ -1128,7 +1150,8 @@ export default function MatchRoomPage() {
   });
   const isLobbyPhotoRequired = shouldRequireLobbyPhoto({
     match: data.match,
-    currentTeam: currentUserTeam,
+    currentUserId,
+    currentUserMMRStatus,
   });
   const requiredLobbyMapNumbers = getRequiredLobbyMapNumbers({
     match: data.match,
@@ -1231,13 +1254,7 @@ export default function MatchRoomPage() {
     ? "Хост должен создать"
     : "Ждем чек-ин игроков";
 
-  console.table(
-    validLobbyPhotoPlayers.map((p) => ({
-      name: p.nickname,
-      isConfirmed: p.mmrStatus === "verified",
-      raw: p,
-    }))
-  );
+  console.log("ROSTER KEYS:", Object.keys(validLobbyPhotoPlayers[0] || {}));
 
   return (
     <div className="min-h-screen text-white">
