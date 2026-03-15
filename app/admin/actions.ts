@@ -2278,6 +2278,8 @@ export async function updateTournamentMatchAction(
 
       payload.lobby_name = null;
       payload.lobby_password = null;
+      payload.reminder_1h_sent = false;
+      payload.reminder_30m_sent = false;
     }
 
     const { error: updateError } = await adminClient
