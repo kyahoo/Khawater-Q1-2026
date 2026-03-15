@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   getPlayerMedalTitle,
   PLAYER_MEDAL_META,
@@ -102,55 +103,58 @@ export function PlayerMedals({
           );
         })}
       </div>
-      {isModalOpen && activeMedalType ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={closeModal}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={modalTitleId}
-            className="w-full max-w-md border-[4px] border-[#061726] bg-[#F4EED7] p-5 text-black shadow-[8px_8px_0px_0px_#061726]"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0B3A4A]">
-                  История медалей
-                </p>
-                <h3
-                  id={modalTitleId}
-                  className="mt-1 text-xl font-black uppercase text-[#061726]"
-                >
-                  {PLAYER_MEDAL_META[activeMedalType].icon}{" "}
-                  {PLAYER_MEDAL_META[activeMedalType].label}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="border-[3px] border-[#061726] bg-[#0B3A4A] px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#F4EED7] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+      {isModalOpen && activeMedalType
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
+              onClick={closeModal}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={modalTitleId}
+                className="w-full max-sm:max-h-[80vh] max-sm:overflow-y-auto max-sm:rounded-t-2xl sm:max-w-md border-[4px] border-[#061726] bg-[#F4EED7] p-5 text-black shadow-[0_-4px_24px_rgba(0,0,0,0.3)] sm:shadow-[8px_8px_0px_0px_#061726]"
+                onClick={(event) => event.stopPropagation()}
               >
-                ✕ ЗАКРЫТЬ
-              </button>
-            </div>
-            <div className="space-y-2">
-              {activeMedals.map((medal) => (
-                <div
-                  key={medal.id}
-                  className="flex items-center gap-2 border border-black bg-gray-50 px-2 py-1 text-xs font-bold text-black"
-                >
-                  <span title={getPlayerMedalTitle(medal)}>
-                    {PLAYER_MEDAL_META[medal.medal].icon}
-                  </span>
-                  <span>{medal.tournamentName}</span>
+                <div className="mb-4 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0B3A4A]">
+                      История медалей
+                    </p>
+                    <h3
+                      id={modalTitleId}
+                      className="mt-1 text-xl font-black uppercase text-[#061726]"
+                    >
+                      {PLAYER_MEDAL_META[activeMedalType].icon}{" "}
+                      {PLAYER_MEDAL_META[activeMedalType].label}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="border-[3px] border-[#061726] bg-[#0B3A4A] px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#F4EED7] shadow-[4px_4px_0px_0px_#061726] transition-all hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_#061726]"
+                  >
+                    ✕ ЗАКРЫТЬ
+                  </button>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
+                <div className="space-y-2">
+                  {activeMedals.map((medal) => (
+                    <div
+                      key={medal.id}
+                      className="flex items-center gap-2 border border-black bg-gray-50 px-2 py-1 text-xs font-bold text-black"
+                    >
+                      <span title={getPlayerMedalTitle(medal)}>
+                        {PLAYER_MEDAL_META[medal.medal].icon}
+                      </span>
+                      <span>{medal.tournamentName}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </>
   );
 }
