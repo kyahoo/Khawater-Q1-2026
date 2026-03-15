@@ -4,7 +4,6 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { getHasLiveMatchForUser } from "@/lib/supabase/matches";
 import { getActiveTaskCountForUser } from "@/lib/supabase/tasks";
 
 type SiteHeaderClientProps = {
@@ -58,9 +57,7 @@ export function SiteHeaderClient({
   const [isClientAuthLoading, setIsClientAuthLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigationLoadRequestIdRef = useRef(0);
-  const hasCompletedInitialNavigationSyncRef = useRef(false);
   const hasResolvedClientAuthRef = useRef(false);
-  const isServerLiveMatchLockedRef = useRef(initialHasLiveMatch);
 
   const resetNavigationState = useEffectEvent(() => {
     setHasSession(false);
@@ -75,10 +72,9 @@ export function SiteHeaderClient({
     navigationLoadRequestIdRef.current = requestId;
 
     try {
-      const [nextTaskCount, nextBehaviorScore, nextHasLiveMatch] = await Promise.all([
+      const [nextTaskCount, nextBehaviorScore] = await Promise.all([
         getActiveTaskCountForUser(userId),
         getBehaviorScoreForUser(userId),
-        getHasLiveMatchForUser(userId),
       ]);
 
       if (requestId !== navigationLoadRequestIdRef.current) {
@@ -87,21 +83,6 @@ export function SiteHeaderClient({
 
       setActiveTaskCount(nextTaskCount);
       setBehaviorScore(nextBehaviorScore);
-
-      const shouldPreserveInitialLiveMatch =
-        isServerLiveMatchLockedRef.current &&
-        !hasCompletedInitialNavigationSyncRef.current &&
-        !nextHasLiveMatch;
-
-      if (!shouldPreserveInitialLiveMatch) {
-        setHasLiveMatch(nextHasLiveMatch);
-      }
-
-      if (nextHasLiveMatch) {
-        isServerLiveMatchLockedRef.current = false;
-      }
-
-      hasCompletedInitialNavigationSyncRef.current = true;
     } catch (error) {
       if (requestId !== navigationLoadRequestIdRef.current) {
         return;
@@ -182,31 +163,11 @@ export function SiteHeaderClient({
           return;
         }
 
+        markClientAuthResolved();
+
         if (!initialCurrentUserId) {
           resetNavigationState();
-          markClientAuthResolved();
-          return;
         }
-
-        // Preserve the server-rendered header until the browser can confirm auth.
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-
-        if (!isMounted) {
-          return;
-        }
-
-        if (userError) {
-          console.error("Header user bootstrap failed:", userError);
-          return;
-        }
-
-        if (userData.user?.id) {
-          applySessionUser(userData.user.id);
-          return;
-        }
-
-        resetNavigationState();
-        markClientAuthResolved();
       })
       .catch((error) => {
         if (!isMounted) {
