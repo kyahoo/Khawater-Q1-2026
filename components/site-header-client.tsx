@@ -59,6 +59,7 @@ export function SiteHeaderClient({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigationLoadRequestIdRef = useRef(0);
   const hasCompletedInitialNavigationSyncRef = useRef(false);
+  const hasResolvedClientAuthRef = useRef(false);
   const isServerLiveMatchLockedRef = useRef(initialHasLiveMatch);
 
   const resetNavigationState = useEffectEvent(() => {
@@ -115,6 +116,7 @@ export function SiteHeaderClient({
     let isMounted = true;
 
     const markClientAuthResolved = () => {
+      hasResolvedClientAuthRef.current = true;
       setIsClientAuthLoading(false);
       setIsClientAuthReady(true);
     };
@@ -139,7 +141,7 @@ export function SiteHeaderClient({
         return;
       }
 
-      if (isClientAuthLoading && event !== "SIGNED_OUT") {
+      if (!hasResolvedClientAuthRef.current && event !== "SIGNED_OUT") {
         return;
       }
 
@@ -316,10 +318,7 @@ export function SiteHeaderClient({
           ) : hasSession ? (
             <>
               <Link href="/matches" className={navLinkClass("/matches")}>
-                <span className="relative inline-flex items-center gap-2">
-                  <div className="absolute left-0 top-10 z-[9999] border border-black bg-red-500 p-1 text-[10px] text-white">
-                    INIT: {String(initialHasLiveMatch)} | STATE: {String(hasLiveMatch)}
-                  </div>
+                <span className="inline-flex items-center gap-2">
                   <span>Мои матчи</span>
                   {hasLiveMatch && (
                     <span aria-hidden="true" className="relative flex h-2.5 w-2.5 shrink-0">

@@ -41,15 +41,28 @@ export async function SiteHeaderData() {
   try {
     const supabase = await getSupabaseServerClient();
     const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
 
-    if (userError) {
-      throw userError;
+    if (sessionError) {
+      throw sessionError;
     }
 
-    currentUserId = user?.id ?? null;
+    currentUserId = session?.user.id ?? null;
+
+    if (!currentUserId) {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        throw userError;
+      }
+
+      currentUserId = user?.id ?? null;
+    }
 
     if (currentUserId) {
       try {
