@@ -33,6 +33,7 @@ export type AdminPlayerListItem = {
   mmrStatus: "pending" | "verified" | "rejected";
   behaviorScore: number;
   medals: AdminPlayerMedalItem[];
+  hasPushEnabled: boolean;
 };
 
 export type AdminTournamentResultItem = {
@@ -293,6 +294,7 @@ export async function listAdminPlayers(
   let behaviorScoreByUserId = new Map<string, number>();
   let medalsByUserId = {} as Record<string, AdminPlayerMedalItem[]>;
   let openTaskCountByUserId = {} as Record<string, number>;
+  const pushEnabledUserIds = new Set<string>();
 
   if (userIds.length > 0) {
     const { data: profiles, error: profilesError } = await adminClient
@@ -343,6 +345,15 @@ export async function listAdminPlayers(
 
     medalsByUserId = await listPlayerMedalsForUsersWithClient(adminClient, userIds);
     openTaskCountByUserId = await getActiveTaskCountsForUsers(adminClient, userIds);
+
+    const { data: pushSubscriptions } = await adminClient
+      .from("push_subscriptions")
+      .select("user_id")
+      .in("user_id", userIds);
+
+    for (const row of pushSubscriptions ?? []) {
+      pushEnabledUserIds.add(row.user_id);
+    }
   }
 
   const players = users
@@ -355,6 +366,7 @@ export async function listAdminPlayers(
       mmrStatus: mmrStatusByUserId.get(user.id) ?? "pending",
       behaviorScore: behaviorScoreByUserId.get(user.id) ?? 5,
       medals: medalsByUserId[user.id] ?? [],
+      hasPushEnabled: pushEnabledUserIds.has(user.id),
     }))
     .sort((playerA, playerB) => playerA.nickname.localeCompare(playerB.nickname));
 

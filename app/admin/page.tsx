@@ -322,6 +322,14 @@ function getOpenTaskBadgeClassName(openTaskCount: number) {
   return `${PLAYER_METRIC_BADGE_CLASSNAME} border-gray-600 bg-transparent text-gray-500`;
 }
 
+function getPushStatusBadgeClassName(hasPushEnabled: boolean) {
+  if (hasPushEnabled) {
+    return `${PLAYER_METRIC_BADGE_CLASSNAME} border-emerald-600 bg-emerald-900/20 text-emerald-600`;
+  }
+
+  return `${PLAYER_METRIC_BADGE_CLASSNAME} border-gray-600 bg-transparent text-gray-500`;
+}
+
 function getMMRValueInputClassName(mmr: number | null) {
   const baseClassName =
     "h-9 w-32 border px-2 py-1 text-center text-xs font-black uppercase tracking-[0.16em] outline-none transition-colors placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60";
@@ -2880,6 +2888,9 @@ export default function AdminPage() {
                             </div>
                             <div className={getOpenTaskBadgeClassName(player.openTaskCount)}>
                               Открытые задачи: {player.openTaskCount}
+                            </div>
+                            <div className={getPushStatusBadgeClassName(player.hasPushEnabled)}>
+                              {player.hasPushEnabled ? "Push: вкл" : "Push: выкл"}
                             </div>
                           </div>
                         </div>
