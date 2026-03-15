@@ -381,6 +381,15 @@ function normalizeMatchRoomTeam(params: {
   };
 }
 
+const MATCH_ROOM_FULL_SELECT =
+  "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls, winner_team_id, opponent_notified, reminder_1h_sent, reminder_30m_sent, is_forfeit, admin_override, require_lobby_photo, lobby_photo_map1_only, require_photo_unconfirmed_mmr_only";
+
+const MATCH_ROOM_PHOTO_COMPAT_SELECT =
+  "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls, winner_team_id, require_lobby_photo, lobby_photo_map1_only";
+
+const MATCH_ROOM_LEGACY_SELECT =
+  "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls";
+
 export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchResult> {
   if (typeof window === "undefined") {
     throw new Error(
@@ -392,9 +401,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
 
   const initialMatchResult = await supabase
     .from("tournament_matches")
-    .select(
-      "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls, winner_team_id, opponent_notified, reminder_1h_sent, reminder_30m_sent, is_forfeit, admin_override, require_lobby_photo, lobby_photo_map1_only, require_photo_unconfirmed_mmr_only"
-    )
+    .select(MATCH_ROOM_FULL_SELECT)
     .eq("id", matchId)
     .maybeSingle();
   let matchRow = initialMatchResult.data as MatchRoomQueryRow | null;
@@ -409,27 +416,48 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
       matchError.message
     );
 
-    const legacyResult = await supabase
+    const photoCompatibleResult = await supabase
       .from("tournament_matches")
-      .select(
-        "id, tournament_id, team_a_id, team_b_id, round_label, scheduled_at, status, team_a_score, team_b_score, format, lobby_name, lobby_password, result_screenshot_urls"
-      )
+      .select(MATCH_ROOM_PHOTO_COMPAT_SELECT)
       .eq("id", matchId)
       .maybeSingle();
 
-    matchRow = legacyResult.data
+    if (!photoCompatibleResult.error) {
+      matchRow = photoCompatibleResult.data
+        ? ({
+            ...photoCompatibleResult.data,
+            opponent_notified: null,
+            reminder_1h_sent: null,
+            reminder_30m_sent: null,
+            is_forfeit: null,
+            admin_override: null,
+            require_photo_unconfirmed_mmr_only: false,
+          } as MatchRoomQueryRow)
+        : null;
+      matchError = photoCompatibleResult.error;
+    } else {
+      const legacyResult = await supabase
+        .from("tournament_matches")
+        .select(MATCH_ROOM_LEGACY_SELECT)
+        .eq("id", matchId)
+        .maybeSingle();
+
+      matchRow = legacyResult.data
       ? ({
           ...legacyResult.data,
+          winner_team_id: null,
           opponent_notified: null,
           reminder_1h_sent: null,
           reminder_30m_sent: null,
           is_forfeit: null,
+          admin_override: null,
           require_lobby_photo: true,
           lobby_photo_map1_only: false,
           require_photo_unconfirmed_mmr_only: false,
         } as MatchRoomQueryRow)
-      : null;
-    matchError = legacyResult.error;
+        : null;
+      matchError = legacyResult.error;
+    }
   }
 
   if (matchError) {

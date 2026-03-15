@@ -1092,6 +1092,8 @@ export default function MatchRoomPage() {
       currentUserLobbyPhotos.find((photo) => photo.mapNumber === mapNumber)
         ?.photoUrl ?? null
   );
+  const requireLobbyPhoto = data.match.requireLobbyPhoto;
+  const lobbyPhotoMap1Only = data.match.lobbyPhotoMap1Only;
   const isLobbyPhotoRequired = shouldRequireLobbyPhoto({
     match: data.match,
     teamA: data.teamA,
@@ -1205,8 +1207,8 @@ export default function MatchRoomPage() {
           <MatchTabs
             matchId={matchId}
             match={data.match}
-            requireLobbyPhoto={data.match.requireLobbyPhoto}
-            lobbyPhotoMap1Only={data.match.lobbyPhotoMap1Only}
+            requireLobbyPhoto={requireLobbyPhoto}
+            lobbyPhotoMap1Only={lobbyPhotoMap1Only}
             teamA={safeTeamA}
             teamB={safeTeamB}
             checkedInUserIds={data.checkedInUserIds}
