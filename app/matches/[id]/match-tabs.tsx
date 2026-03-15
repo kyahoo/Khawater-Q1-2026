@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ForfeitClaimButton } from "@/components/matches/ForfeitClaimButton";
 import { NotifyButton } from "@/components/matches/NotifyButton";
 import { PlayerMedals } from "@/components/player-medals";
+import { VerifiedMMRBadge } from "@/components/verified-mmr-badge";
 import type { MatchRoomData } from "@/lib/supabase/matches";
 import { CheckInGate } from "./check-in-gate";
 
@@ -117,11 +118,15 @@ const urgentActionBadgeClassName =
 
 function PlayerRow({
   nickname,
+  mmr,
+  isMMRVerified,
   medals,
   isCaptain,
   isCheckedIn,
 }: {
   nickname: string;
+  mmr: MatchRoomData["teamA"]["roster"][number]["mmr"];
+  isMMRVerified: MatchRoomData["teamA"]["roster"][number]["isMMRVerified"];
   medals: MatchRoomData["teamA"]["roster"][number]["medals"];
   isCaptain: boolean;
   isCheckedIn: boolean;
@@ -132,6 +137,7 @@ function PlayerRow({
         <span className="text-sm font-black uppercase tracking-wide text-white">
           {nickname}
         </span>
+        <VerifiedMMRBadge mmr={mmr} isVerified={isMMRVerified} />
         <PlayerMedals medals={medals} className="shrink-0 gap-1.5" />
         {isCaptain && (
           <span className="border-[2px] border-[#061726] bg-[#CD9C3E] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-[#061726]">
@@ -697,6 +703,8 @@ export function MatchTabs({
                   <PlayerRow
                     key={player.userId}
                     nickname={player.nickname}
+                    mmr={player.mmr}
+                    isMMRVerified={player.isMMRVerified}
                     medals={player.medals}
                     isCaptain={player.isCaptain}
                     isCheckedIn={checkedInUserIds.includes(player.userId)}
@@ -719,6 +727,8 @@ export function MatchTabs({
                   <PlayerRow
                     key={player.userId}
                     nickname={player.nickname}
+                    mmr={player.mmr}
+                    isMMRVerified={player.isMMRVerified}
                     medals={player.medals}
                     isCaptain={player.isCaptain}
                     isCheckedIn={checkedInUserIds.includes(player.userId)}

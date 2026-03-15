@@ -12,6 +12,7 @@ import { GroupStageStandingsTable } from "@/components/group-stage-standings-tab
 import { TournamentMatchTechnicalBadges } from "@/components/tournament-match-technical-badges";
 import { PlayerMedals } from "@/components/player-medals";
 import { TeamLogo } from "@/components/team-logo";
+import { VerifiedMMRBadge } from "@/components/verified-mmr-badge";
 import {
   getPlayoffBracketSlot,
   GROUP_STAGE_ROUND_LABEL,
@@ -55,101 +56,6 @@ function createEmptyPlayoffMatchBuckets(): PlayoffMatchBuckets {
     lowerFinal: [],
     grandFinal: [],
   };
-}
-
-function RosterBadge({
-  label,
-  className,
-  title,
-}: {
-  label: string;
-  className: string;
-  title?: string;
-}) {
-  return (
-    <span
-      title={title}
-      className={`inline-flex items-center border-2 px-2 py-0.5 text-[10px] font-black uppercase leading-none tracking-[0.14em] ${className}`}
-    >
-      [ {label} ]
-    </span>
-  );
-}
-
-function VerifiedMMRBadge({ mmr }: { mmr: number }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    function handlePointerDown(event: MouseEvent | TouchEvent) {
-      if (!(event.target instanceof Node)) {
-        return;
-      }
-
-      if (containerRef.current?.contains(event.target)) {
-        return;
-      }
-
-      setIsOpen(false);
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setIsOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("touchstart", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("touchstart", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen]);
-
-  return (
-    <div ref={containerRef} className="relative z-20 flex items-center">
-      <button
-        type="button"
-        aria-expanded={isOpen}
-        aria-haspopup="dialog"
-        onClick={() => setIsOpen((current) => !current)}
-        className="inline-flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CD9C3E] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B3A4A]"
-      >
-        <span className="inline-flex items-center border-2 border-green-400 px-2 py-0.5 text-[10px] font-black uppercase leading-none tracking-[0.14em] text-white/90 transition-colors hover:border-green-300">
-          <span className="inline-flex items-center gap-1">
-            <span>[ MMR: {mmr}</span>
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 16 16"
-              className="h-[14px] w-[14px] text-green-500"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M3.5 8.5 6.5 11.5 12.5 5.5" />
-            </svg>
-            <span>]</span>
-          </span>
-        </span>
-      </button>
-
-      {isOpen ? (
-        <div className="absolute right-0 top-full mt-2 w-56 border-[2px] border-white/15 bg-[#061726]/95 px-3 py-2 text-[10px] font-black uppercase leading-relaxed tracking-[0.12em] text-white/90 shadow-[0_12px_32px_rgba(6,23,38,0.5)] backdrop-blur-md">
-          MMR подтвержден администратором
-        </div>
-      ) : null}
-    </div>
-  );
 }
 
 function TournamentSectionSkeleton({
@@ -828,8 +734,11 @@ export default function TournamentPage() {
                                       {player.nickname}
                                     </span>
                                     <div className="flex shrink-0 items-center gap-2">
-                                      {player.isMMRVerified && player.mmr !== null ? (
-                                        <VerifiedMMRBadge mmr={player.mmr} />
+                                      {player.mmr !== null ? (
+                                        <VerifiedMMRBadge
+                                          mmr={player.mmr}
+                                          isVerified={player.isMMRVerified}
+                                        />
                                       ) : null}
                                       <PlayerMedals medals={player.medals} />
                                     </div>

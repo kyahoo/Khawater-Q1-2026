@@ -29,6 +29,7 @@ export type MatchRoomTeam = {
     userId: string;
     nickname: string;
     isCaptain: boolean;
+    mmr: number | null;
     mmrStatus: string | null;
     isMMRVerified: boolean;
     medals: PlayerMedalWithTournament[];
@@ -120,11 +121,13 @@ type MatchRoomTeamQueryRow = {
           | {
               id: string;
               nickname: string;
+              mmr: number | null;
               mmr_status: string | null;
             }
           | Array<{
               id: string;
               nickname: string;
+              mmr: number | null;
               mmr_status: string | null;
             }>
           | null;
@@ -377,6 +380,7 @@ function normalizeMatchRoomTeam(params: {
       userId: membership.user_id,
       nickname: profile?.nickname ?? "Player",
       isCaptain: membership.is_captain,
+      mmr: profile?.mmr ?? null,
       mmrStatus: profile?.mmr_status ?? null,
       isMMRVerified: profile?.mmr_status === "verified",
       medals: params.medalsByUserId[membership.user_id] ?? [],
@@ -508,7 +512,7 @@ export async function getMatchRoomData(matchId: string): Promise<MatchRoomFetchR
       supabase
         .from("teams")
         .select(
-          "id, name, team_members(user_id, is_captain, created_at, profiles(id, nickname, mmr_status))"
+          "id, name, team_members(user_id, is_captain, created_at, profiles(id, nickname, mmr, mmr_status))"
         )
         .in("id", [typedMatch.team_a_id, typedMatch.team_b_id]),
     ]);
