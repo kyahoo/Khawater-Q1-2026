@@ -111,6 +111,7 @@ const PLAYOFF_FORMAT_OPTIONS = [
 const ALMATY_TIME_ZONE = "Asia/Almaty";
 const STANDINGS_BACKGROUND_FILE_NAME = "standings-bg.png";
 const SCHEDULE_BACKGROUND_FILE_NAME = "schedule-bg.png";
+const ANNOUNCEMENT_LOGO_FILE_NAME = "announcement-logo.png";
 const ACTIVE_MATCH_STATUS_REFRESH_MS = 60 * 1000;
 
 const ADMIN_TABS = [
@@ -359,6 +360,7 @@ async function getSocialTemplateStatus() {
     return {
       hasStandingsBackground: fileNames.has(STANDINGS_BACKGROUND_FILE_NAME),
       hasScheduleBackground: fileNames.has(SCHEDULE_BACKGROUND_FILE_NAME),
+      hasAnnouncementLogo: fileNames.has(ANNOUNCEMENT_LOGO_FILE_NAME),
     };
   } catch (error) {
     console.error("Social template status failed:", error);
@@ -517,6 +519,14 @@ export default function AdminPage() {
   const [isGeneratingScheduleDay, setIsGeneratingScheduleDay] = useState<
     ScheduleDayParam | null
   >(null);
+  const [announcementPrize, setAnnouncementPrize] = useState("");
+  const [announcementDates, setAnnouncementDates] = useState("");
+  const [selectedAnnouncementLogoFile, setSelectedAnnouncementLogoFile] =
+    useState<File | null>(null);
+  const [announcementLogoInputKey, setAnnouncementLogoInputKey] = useState(0);
+  const [hasAnnouncementLogo, setHasAnnouncementLogo] = useState<boolean | null>(null);
+  const [isUploadingAnnouncementLogo, setIsUploadingAnnouncementLogo] = useState(false);
+  const [isGeneratingAnnouncement, setIsGeneratingAnnouncement] = useState(false);
   const [selectedMatches, setSelectedMatches] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<AdminTabId>("players");
   const [activeTournamentCheckInThresholdInput, setActiveTournamentCheckInThresholdInput] =
@@ -688,6 +698,7 @@ export default function AdminPage() {
 
     setHasStandingsBackground(status.hasStandingsBackground);
     setHasScheduleBackground(status.hasScheduleBackground);
+    setHasAnnouncementLogo(status.hasAnnouncementLogo);
   });
 
   useEffect(() => {
@@ -1903,6 +1914,7 @@ export default function AdminPage() {
 
         setHasStandingsBackground(status.hasStandingsBackground);
         setHasScheduleBackground(status.hasScheduleBackground);
+        setHasAnnouncementLogo(status.hasAnnouncementLogo);
       })();
     } catch (error) {
       setSocialErrorMessage(
@@ -1957,6 +1969,7 @@ export default function AdminPage() {
 
         setHasStandingsBackground(status.hasStandingsBackground);
         setHasScheduleBackground(status.hasScheduleBackground);
+        setHasAnnouncementLogo(status.hasAnnouncementLogo);
       })();
     } catch (error) {
       setSocialErrorMessage(
@@ -2058,6 +2071,100 @@ export default function AdminPage() {
       );
     } finally {
       setIsGeneratingScheduleDay(null);
+    }
+  }
+
+  async function handleUploadAnnouncementLogo() {
+    if (!selectedAnnouncementLogoFile) {
+      setSocialErrorMessage("Выберите файл логотипа.");
+      setSocialSuccessMessage("");
+      return;
+    }
+
+    if (!selectedAnnouncementLogoFile.type.startsWith("image/")) {
+      setSocialErrorMessage("Поддерживаются только изображения.");
+      setSocialSuccessMessage("");
+      return;
+    }
+
+    setIsUploadingAnnouncementLogo(true);
+    setSocialErrorMessage("");
+    setSocialSuccessMessage("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: uploadError } = await supabase.storage
+        .from("social-templates")
+        .upload(ANNOUNCEMENT_LOGO_FILE_NAME, selectedAnnouncementLogoFile, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: selectedAnnouncementLogoFile.type,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      setHasAnnouncementLogo(true);
+      setSelectedAnnouncementLogoFile(null);
+      setAnnouncementLogoInputKey((current) => current + 1);
+      setSocialSuccessMessage("Логотип анонса успешно загружен.");
+      void (async () => {
+        const status = await getSocialTemplateStatus();
+
+        if (!status) {
+          return;
+        }
+
+        setHasStandingsBackground(status.hasStandingsBackground);
+        setHasScheduleBackground(status.hasScheduleBackground);
+        setHasAnnouncementLogo(status.hasAnnouncementLogo);
+      })();
+    } catch (error) {
+      setSocialErrorMessage(
+        getSupabaseLikeErrorMessage(error, "Не удалось загрузить логотип.")
+      );
+    } finally {
+      setIsUploadingAnnouncementLogo(false);
+    }
+  }
+
+  async function handleDownloadAnnouncement() {
+    if (!activeTournament) {
+      setSocialErrorMessage("Сначала выберите активный турнир.");
+      setSocialSuccessMessage("");
+      return;
+    }
+
+    setIsGeneratingAnnouncement(true);
+    setSocialErrorMessage("");
+    setSocialSuccessMessage("");
+
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+      const logoUrl = hasAnnouncementLogo
+        ? `${supabaseUrl}/storage/v1/object/public/social-templates/${ANNOUNCEMENT_LOGO_FILE_NAME}?t=${Date.now()}`
+        : "";
+
+      const params = new URLSearchParams({
+        name: activeTournament.name,
+        prize: announcementPrize,
+        dates: announcementDates,
+        ...(logoUrl ? { logoUrl } : {}),
+      });
+
+      await downloadSocialImage({
+        url: `/api/og/announcement?${params.toString()}`,
+        fileName: `khawater-announcement-${activeTournament.name.replace(/\s+/g, "-").toLowerCase()}.png`,
+        successMessage: "Анонс турнира успешно скачан.",
+        fallbackErrorMessage: "Не удалось сгенерировать анонс.",
+      });
+    } catch (error) {
+      setSocialErrorMessage(
+        error instanceof Error ? error.message : "Не удалось скачать анонс."
+      );
+    } finally {
+      setIsGeneratingAnnouncement(false);
     }
   }
 
@@ -4634,6 +4741,90 @@ export default function AdminPage() {
                         {isGeneratingScheduleDay === "tomorrow"
                           ? "Генерация..."
                           : "РАСПИСАНИЕ НА ЗАВТРА"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="border-[3px] border-[#061726] bg-white px-4 py-4 shadow-[4px_4px_0px_0px_#061726]">
+                    <div className="text-sm font-bold uppercase tracking-wide text-[#061726]">
+                      Анонс турнира
+                    </div>
+                    <p className="mt-2 text-sm text-zinc-600">
+                      Сгенерировать PNG-баннер анонса турнира 1080×1440.
+                    </p>
+
+                    <div className="mt-4 flex flex-col gap-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <div className="flex-1">
+                          {hasAnnouncementLogo === true ? (
+                            <div className="inline-flex w-fit border-2 border-[#061726] bg-[#061726] px-2 py-1 text-xs font-bold uppercase tracking-wide text-[#39FF14]">
+                              🟢 Логотип загружен
+                            </div>
+                          ) : hasAnnouncementLogo === false ? (
+                            <div className="inline-flex w-fit border-2 border-[#061726] bg-zinc-100 px-2 py-1 text-xs font-bold uppercase tracking-wide text-zinc-500">
+                              🔴 Логотип отсутствует
+                            </div>
+                          ) : (
+                            <div className="inline-flex w-fit border-2 border-[#061726] bg-zinc-100 px-2 py-1 text-xs font-bold uppercase tracking-wide text-zinc-500">
+                              ⚪ Проверка...
+                            </div>
+                          )}
+                          <label className="mt-3 block text-sm font-medium text-zinc-700">
+                            Логотип турнира
+                            <input
+                              key={announcementLogoInputKey}
+                              type="file"
+                              accept="image/*"
+                              onChange={(event) =>
+                                setSelectedAnnouncementLogoFile(
+                                  event.target.files?.[0] ?? null
+                                )
+                              }
+                              className="mt-2 block w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm outline-none"
+                            />
+                          </label>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleUploadAnnouncementLogo()}
+                          disabled={
+                            !selectedAnnouncementLogoFile || isUploadingAnnouncementLogo
+                          }
+                          className="rounded border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium disabled:opacity-50"
+                        >
+                          {isUploadingAnnouncementLogo ? "Загрузка..." : "Загрузить"}
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col gap-3 sm:flex-row">
+                        <input
+                          type="text"
+                          value={announcementPrize}
+                          onChange={(event) => setAnnouncementPrize(event.target.value)}
+                          placeholder="Призовой фонд (напр. 500 000 ₸)"
+                          className="w-full border-[3px] border-[#061726] bg-white px-4 py-2.5 text-sm font-medium text-[#061726] outline-none placeholder:text-gray-400 focus:ring-2 focus:ring-[#061726]/20 sm:w-1/2"
+                        />
+                        <input
+                          type="text"
+                          value={announcementDates}
+                          onChange={(event) => setAnnouncementDates(event.target.value)}
+                          placeholder="Даты проведения (напр. 20–25 МАРТА)"
+                          className="w-full border-[3px] border-[#061726] bg-white px-4 py-2.5 text-sm font-medium text-[#061726] outline-none placeholder:text-gray-400 focus:ring-2 focus:ring-[#061726]/20 sm:w-1/2"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleDownloadAnnouncement()}
+                        disabled={!activeTournament || isGeneratingAnnouncement}
+                        className="inline-flex w-fit items-center gap-2 border-[3px] border-[#061726] bg-[#061726] px-5 py-3 text-sm font-bold uppercase tracking-wider text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] transition-all hover:translate-y-[2px] hover:shadow-none disabled:opacity-50"
+                      >
+                        {isGeneratingAnnouncement && (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        )}
+                        {isGeneratingAnnouncement
+                          ? "Генерация..."
+                          : "СКАЧАТЬ АНОНС"}
                       </button>
                     </div>
                   </div>
