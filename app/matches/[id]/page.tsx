@@ -177,6 +177,24 @@ function getSeriesMaxWins(format: string) {
   return seriesLength ? Math.floor(seriesLength / 2) + 1 : null;
 }
 
+function isValidLobbyPhotoPlayer(
+  player: MatchRoomData["teamA"]["roster"][number] | null | undefined
+): player is MatchRoomData["teamA"]["roster"][number] {
+  if (!player) {
+    return false;
+  }
+
+  const userId = typeof player.userId === "string" ? player.userId.trim() : "";
+  const nickname =
+    typeof player.nickname === "string" ? player.nickname.trim() : "";
+
+  if (!userId || !nickname) {
+    return false;
+  }
+
+  return nickname.toUpperCase() !== "TBD";
+}
+
 function shouldRequireLobbyPhoto(params: {
   match:
     | Pick<
@@ -200,42 +218,13 @@ function shouldRequireLobbyPhoto(params: {
 
   const teamARoster = Array.isArray(params.teamA?.roster) ? params.teamA.roster : [];
   const teamBRoster = Array.isArray(params.teamB?.roster) ? params.teamB.roster : [];
-  const allPlayers = [...teamARoster, ...teamBRoster].filter(Boolean);
+  const validPlayers = [...teamARoster, ...teamBRoster].filter(isValidLobbyPhotoPlayer);
 
-  if (allPlayers.length === 0) {
+  if (validPlayers.length === 0) {
     return false;
   }
 
-  return allPlayers.some((player) => player.isMMRVerified === false);
-}
-
-function getLobbyPhotoDebugState(params: {
-  match:
-    | Pick<
-        MatchRoomData["match"],
-        | "requireLobbyPhoto"
-        | "lobbyPhotoMap1Only"
-        | "requirePhotoUnconfirmedMMROnly"
-      >
-    | null
-    | undefined;
-  teamA: MatchRoomData["teamA"] | null | undefined;
-  teamB: MatchRoomData["teamB"] | null | undefined;
-}) {
-  const teamARoster = Array.isArray(params.teamA?.roster) ? params.teamA.roster : [];
-  const teamBRoster = Array.isArray(params.teamB?.roster) ? params.teamB.roster : [];
-  const trackedPlayers = [...teamARoster, ...teamBRoster].filter(Boolean);
-  const hasUnconfirmedPlayers = trackedPlayers.some(
-    (player) => player.isMMRVerified === false
-  );
-
-  return {
-    trackedPlayerCount: trackedPlayers.length,
-    hasUnconfirmedPlayers,
-    requirePhotoUnconfirmedMMROnly: Boolean(
-      params.match?.requireLobbyPhoto && params.match?.requirePhotoUnconfirmedMMROnly
-    ),
-  };
+  return validPlayers.some((player) => player.isMMRVerified === false);
 }
 
 function getRequiredLobbyMapNumbers(params: {
@@ -1123,11 +1112,6 @@ export default function MatchRoomPage() {
   );
   const requireLobbyPhoto = data.match.requireLobbyPhoto;
   const lobbyPhotoMap1Only = data.match.lobbyPhotoMap1Only;
-  const lobbyPhotoDebugState = getLobbyPhotoDebugState({
-    match: data.match,
-    teamA: data.teamA,
-    teamB: data.teamB,
-  });
   const isLobbyPhotoRequired = shouldRequireLobbyPhoto({
     match: data.match,
     teamA: data.teamA,
@@ -1285,10 +1269,6 @@ export default function MatchRoomPage() {
               isLateCheckInLockout,
               isCurrentUserBiometricallyVerified,
               hasPendingLobbyPhotoAction,
-              requirePhotoUnconfirmedMMROnly:
-                lobbyPhotoDebugState.requirePhotoUnconfirmedMMROnly,
-              hasUnconfirmedPlayers: lobbyPhotoDebugState.hasUnconfirmedPlayers,
-              trackedPlayerCount: lobbyPhotoDebugState.trackedPlayerCount,
             }}
             results={{
               isCurrentUserLobbyHost,
