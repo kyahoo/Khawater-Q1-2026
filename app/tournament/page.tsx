@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check } from "lucide-react";
 import {
   DoubleEliminationBracket,
   type MatchComponentProps,
@@ -127,7 +126,18 @@ function VerifiedMMRBadge({ mmr }: { mmr: number }) {
         <span className="inline-flex items-center border-2 border-green-400 px-2 py-0.5 text-[10px] font-black uppercase leading-none tracking-[0.14em] text-white/90 transition-colors hover:border-green-300">
           <span className="inline-flex items-center gap-1">
             <span>[ MMR: {mmr}</span>
-            <Check size={14} className="text-green-500" />
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 16 16"
+              className="h-[14px] w-[14px] text-green-500"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M3.5 8.5 6.5 11.5 12.5 5.5" />
+            </svg>
             <span>]</span>
           </span>
         </span>
